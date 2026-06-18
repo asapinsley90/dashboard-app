@@ -381,15 +381,27 @@ app.delete('/api/files/:name', (req, res) => {
 // Catch-all → index.html
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
-// Initialize SQLite database on startup
-dbLayer.initDB().catch(err => {
-  console.error('Failed to initialize database:', err);
-  process.exit(1);
-});
+async function bootstrapAndStart() {
+  try {
+    await dbLayer.initDB();
 
-app.listen(PORT, HOST, () => {
-  console.log(`\n✓ Dashboard running at http://localhost:${PORT}`);
-  console.log(`  Host: ${HOST}`);
-  console.log(`  DB: ${dbLayer.DB_PATH}`);
-  console.log(`  Uploads: ${UPLOADS_DIR}\n`);
-});
+    const db = await dbLayer.readDB();
+    if ((db.areas || []).length === 0 && (db.records || []).length === 0) {
+      const seed = initDB();
+      await dbLayer.writeDB(seed);
+      console.log('  Seeded default starter data into SQLite.');
+    }
+
+    app.listen(PORT, HOST, () => {
+      console.log(`\n✓ Dashboard running at http://localhost:${PORT}`);
+      console.log(`  Host: ${HOST}`);
+      console.log(`  DB: ${dbLayer.DB_PATH}`);
+      console.log(`  Uploads: ${UPLOADS_DIR}\n`);
+    });
+  } catch (err) {
+    console.error('Failed to initialize database:', err);
+    process.exit(1);
+  }
+}
+
+bootstrapAndStart();
