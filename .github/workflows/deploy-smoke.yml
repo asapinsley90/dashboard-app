@@ -1,0 +1,118 @@
+name: Deploy Smoke Check
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      trigger_redeploy:
+        description: Trigger Render deploy hook before smoke checks
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-smoke-main
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SERVICE_URL: ${{ secrets.RENDER_SERVICE_URL }}
+      DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+
+    steps:
+      - name: Validate configuration
+        run: |
+          set -euo pipefail
+          if [ -z "${SERVICE_URL:-}" ]; then
+            echo "RENDER_SERVICE_URL must be configured as a repository secret (example: https://dashboard-app-jxlb.onrender.com)."
+            exit 1
+          fi
+
+      - name: Trigger Render deploy hook (optional)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.trigger_redeploy == 'true'
+        run: |
+          set -euo pipefail
+          if [ -z "${DEPLOY_HOOK_URL:-}" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL is required when trigger_redeploy=true."
+            exit 1
+          fi
+          curl --fail --silent --show-error --location --request POST "${DEPLOY_HOOK_URL}"
+
+      - name: Wait for health endpoint
+        run: |
+          set -euo pipefail
+          health_url="${SERVICE_URL%/}/healthz"
+          max_attempts=40
+          delay_secs=15
+
+          for attempt in $(seq 1 "${max_attempts}"); do
+            http_code=$(curl --silent --show-error --location \
+              --output /tmp/health.json \
+              --write-out "%{http_code}" \
+              "${health_url}" || true)
+
+            if [ "${http_code}" = "200" ]; then
+              echo "Health check passed on attempt ${attempt}."
+              cat /tmp/health.json
+              exit 0
+            fi
+
+            echo "Attempt ${attempt}/${max_attempts}: health returned ${http_code}. Retrying in ${delay_secs}s..."
+            sleep "${delay_secs}"
+          done
+
+          echo "Service did not become healthy in time."
+          exit 1
+
+      - name: Smoke test core endpoints
+        run: |
+          set -euo pipefail
+
+          check_endpoint() {
+            local endpoint="$1"
+            local min_bytes="$2"
+            local out_file="$3"
+            local url="${SERVICE_URL%/}${endpoint}"
+
+            local status
+            status=$(curl --silent --show-error --location \
+              --output "${out_file}" \
+              --write-out "%{http_code}" \
+              "${url}")
+
+            if [ "${status}" != "200" ]; then
+              echo "Endpoint ${endpoint} failed with HTTP ${status}."
+              exit 1
+            fi
+
+            local size
+            size=$(wc -c < "${out_file}")
+            if [ "${size}" -lt "${min_bytes}" ]; then
+              echo "Endpoint ${endpoint} returned too little data (${size} bytes)."
+              exit 1
+            fi
+
+            echo "${endpoint}: HTTP ${status}, ${size} bytes"
+          }
+
+          check_endpoint "/api/areas" 2 /tmp/areas.json
+          check_endpoint "/api/records" 2 /tmp/records.json
+
+      - name: Write run summary
+        run: |
+          {
+            echo "## Deploy smoke check passed"
+            echo
+            echo "- Service: ${SERVICE_URL%/}"
+            echo "- Health endpoint: ${SERVICE_URL%/}/healthz"
+            echo "- Checked endpoints: /api/areas, /api/records"
+            echo "- Trigger: ${GITHUB_EVENT_NAME}"
+          } >> "$GITHUB_STEP_SUMMARY"
