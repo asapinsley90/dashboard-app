@@ -24,11 +24,25 @@ jobs:
         env:
           BACKUP_URL: ${{ secrets.RENDER_BACKUP_URL }}
           BACKUP_TOKEN: ${{ secrets.RENDER_BACKUP_TOKEN }}
+          BACKUP_TOKEN_SEED: ${{ secrets.RENDER_BACKUP_TOKEN_SEED }}
         run: |
           set -euo pipefail
 
-          if [ -z "${BACKUP_URL:-}" ] || [ -z "${BACKUP_TOKEN:-}" ]; then
-            echo "RENDER_BACKUP_URL and RENDER_BACKUP_TOKEN must be configured as repository secrets."
+          if [ -z "${BACKUP_URL:-}" ]; then
+            echo "RENDER_BACKUP_URL must be configured as a repository secret."
+            exit 1
+          fi
+
+          token="${BACKUP_TOKEN:-}"
+          if [ -z "${token}" ] && [ -n "${BACKUP_TOKEN_SEED:-}" ]; then
+            month=$(date -u +'%Y-%m')
+            token=$(printf "backup:%s" "${month}" \
+              | openssl dgst -sha256 -hmac "${BACKUP_TOKEN_SEED}" -binary \
+              | base64 | tr '+/' '-_' | tr -d '=')
+          fi
+
+          if [ -z "${token}" ]; then
+            echo "Set RENDER_BACKUP_TOKEN (static mode) or RENDER_BACKUP_TOKEN_SEED (rotating mode)."
             exit 1
           fi
 
@@ -37,7 +51,7 @@ jobs:
 
           status=$(curl --silent --show-error --location \
             --retry 3 --retry-delay 3 --retry-connrefused \
-            --header "x-backup-token: ${BACKUP_TOKEN}" \
+            --header "x-backup-token: ${token}" \
             --output "${out}" \
             --write-out "%{http_code}" \
             "${BACKUP_URL%/}/api/backup/export")

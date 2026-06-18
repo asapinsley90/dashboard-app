@@ -13,6 +13,7 @@ const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : __d
 const DB_PATH = process.env.DB_PATH ? path.resolve(process.env.DB_PATH) : path.join(DATA_DIR, 'db.sqlite');
 const UPLOADS_DIR = process.env.UPLOADS_DIR ? path.resolve(process.env.UPLOADS_DIR) : path.join(DATA_DIR, 'uploads');
 const BACKUP_TOKEN = process.env.BACKUP_TOKEN || '';
+const BACKUP_TOKEN_SEED = process.env.BACKUP_TOKEN_SEED || '';
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const dbDir = path.dirname(DB_PATH);
@@ -53,15 +54,52 @@ function secureEquals(left, right) {
   return crypto.timingSafeEqual(leftBuf, rightBuf);
 }
 
+function toMonthStampUTC(date) {
+  return date.toISOString().slice(0, 7);
+}
+
+function deriveBackupToken(seed, monthStamp) {
+  return crypto
+    .createHmac('sha256', seed)
+    .update(`backup:${monthStamp}`)
+    .digest('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+function getAcceptedBackupTokens() {
+  const accepted = [];
+
+  if (BACKUP_TOKEN) {
+    accepted.push(BACKUP_TOKEN);
+  }
+
+  if (BACKUP_TOKEN_SEED) {
+    const now = new Date();
+    const currentMonth = toMonthStampUTC(now);
+    const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    const previousMonth = toMonthStampUTC(prev);
+
+    accepted.push(deriveBackupToken(BACKUP_TOKEN_SEED, currentMonth));
+    accepted.push(deriveBackupToken(BACKUP_TOKEN_SEED, previousMonth));
+  }
+
+  return [...new Set(accepted)];
+}
+
 function requireBackupToken(req, res, next) {
-  if (!BACKUP_TOKEN) {
+  const acceptedTokens = getAcceptedBackupTokens();
+
+  if (!acceptedTokens.length) {
     return res.status(503).json({
-      error: 'Backup export is not configured. Set BACKUP_TOKEN in environment variables.',
+      error: 'Backup export is not configured. Set BACKUP_TOKEN or BACKUP_TOKEN_SEED in environment variables.',
     });
   }
 
   const provided = req.get('x-backup-token') || req.query.token;
-  if (!provided || !secureEquals(provided, BACKUP_TOKEN)) {
+  const matched = !!provided && acceptedTokens.some(token => secureEquals(provided, token));
+  if (!matched) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -342,8 +380,17 @@ app.get('/api/health', async (req, res) => {
 });
 
 app.get('/api/backup/status', (req, res) => {
+  const staticConfigured = !!BACKUP_TOKEN;
+  const rotatingConfigured = !!BACKUP_TOKEN_SEED;
+  let mode = 'disabled';
+  if (staticConfigured && rotatingConfigured) mode = 'static+rotating';
+  else if (rotatingConfigured) mode = 'rotating';
+  else if (staticConfigured) mode = 'static';
+
   res.json({
-    enabled: !!BACKUP_TOKEN,
+    enabled: staticConfigured || rotatingConfigured,
+    mode,
+    rotationWindow: rotatingConfigured ? 'current-and-previous-month' : null,
     requiresToken: true,
   });
 });

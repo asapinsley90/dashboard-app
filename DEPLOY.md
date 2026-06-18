@@ -20,10 +20,12 @@ DATA_DIR=/path/to/data
 DB_PATH=/path/to/db.sqlite
 UPLOADS_DIR=/path/to/uploads
 BACKUP_TOKEN=long-random-secret
+BACKUP_TOKEN_SEED=long-random-rotation-seed
 ```
 
-- `BACKUP_TOKEN` protects backup export endpoints.
-- Set `BACKUP_TOKEN` in Render dashboard as a secret env var.
+- `BACKUP_TOKEN` enables static token mode.
+- `BACKUP_TOKEN_SEED` enables automatic monthly token rotation mode.
+- If both are set, both modes are accepted.
 
 ## Render Deployment
 
@@ -74,6 +76,9 @@ Required header:
 
 `x-backup-token: <BACKUP_TOKEN>`
 
+In rotation mode, token is derived monthly from `BACKUP_TOKEN_SEED` using HMAC-SHA256 over `backup:YYYY-MM`.
+Server accepts current month and previous month tokens.
+
 Archive contents:
 
 - `db.sqlite`
@@ -84,6 +89,12 @@ Archive contents:
 
 ```bash
 BACKUP_URL=https://your-app.onrender.com BACKUP_TOKEN=your-secret npm run backup:download
+```
+
+Or in rotation mode:
+
+```bash
+BACKUP_URL=https://your-app.onrender.com BACKUP_TOKEN_SEED=your-seed npm run backup:download
 ```
 
 Backups are written to `./backups` by default.
@@ -112,6 +123,7 @@ One-time setup:
 2. Add repository secret `RENDER_BACKUP_URL` with your base app URL.
 	- Example: `https://dashboard-app-jxlb.onrender.com`
 3. Add repository secret `RENDER_BACKUP_TOKEN` with your current backup token.
+	- Optional rotating mode: use `RENDER_BACKUP_TOKEN_SEED` instead.
 4. Open Actions tab -> Weekly Backup -> Run workflow once to validate.
 
 Where backups are stored:
@@ -121,9 +133,10 @@ Where backups are stored:
 
 Operational notes:
 
-1. Rotate `RENDER_BACKUP_TOKEN` in Render and GitHub secrets at the same time.
-2. If a run fails, open the failed workflow and review the "Download backup archive" step logs.
-3. Download at least one artifact per month to an external storage location for independent retention.
+1. Static mode: rotate `RENDER_BACKUP_TOKEN` in Render and GitHub secrets at the same time.
+2. Rotating mode: no monthly manual rotation needed after seed is set in both systems.
+3. If a run fails, open the failed workflow and review the "Download backup archive" step logs.
+4. Download at least one artifact per month to an external storage location for independent retention.
 
 ## Restore Procedure (Manual)
 
