@@ -170,15 +170,15 @@ textarea.field-edit{resize:vertical;min-height:60px}
 .cal-week-hour-label{font-size:9px;color:var(--dim);text-align:right;padding-right:6px;height:40px;line-height:40px}
 .cal-week-cell{border-top:1px solid var(--border);height:40px;cursor:pointer;transition:background .1s;position:relative;padding:1px 2px}
 .cal-week-cell:hover{background:var(--bg3)}
-.cal-week-event{font-size:9px;padding:1px 4px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:absolute;left:2px;right:2px;top:2px;cursor:pointer}
+.cal-week-event{font-size:9px;padding:2px 4px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:absolute;left:2px;right:2px;top:2px;cursor:pointer;z-index:2}
 /* Day */
 .cal-day-wrap{}
 .cal-day-row{display:grid;grid-template-columns:48px 1fr;min-height:44px;border-top:1px solid var(--border)}
 .cal-day-row:first-child{border-top:none}
 .cal-day-label{font-size:10px;color:var(--dim);padding:6px 8px 4px 12px;white-space:nowrap}
-.cal-day-slot{padding:3px 4px;cursor:pointer;transition:background .1s;min-height:44px}
+.cal-day-slot{padding:3px 4px;cursor:pointer;transition:background .1s;min-height:44px;position:relative}
 .cal-day-slot:hover{background:var(--bg3)}
-.cal-day-event{font-size:11px;padding:3px 7px;border-radius:4px;margin-bottom:2px;cursor:pointer}
+.cal-day-event{font-size:11px;padding:3px 7px;border-radius:4px;margin-bottom:2px;cursor:pointer;position:absolute;left:4px;right:4px;z-index:2}
 /* Events */
 .cal-ev{font-size:9px;padding:1px 4px;border-radius:3px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .cal-ev:hover{opacity:.8}
@@ -1542,7 +1542,7 @@ function renderEventRecord(r, area) {
       <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
       <div class="record-view-meta">
         ${r.fields.date ? `<span>${formatDate(r.fields.date)}</span>` : ''}
-        ${r.fields.time ? `<span>${fmtTime(r.fields.time)}</span>` : ''}
+        ${r.fields.time ? `<span>${fmtTime(r.fields.time)}${r.fields.endTime ? ' - ' + fmtTime(r.fields.endTime) : ''}</span>` : ''}
         ${r.fields.location ? `<span>${r.fields.location}</span>` : ''}
       </div>
     </div>
@@ -1707,10 +1707,11 @@ function renderTimeline(r) {
 
 function editableField(r, key, label, type = 'text') {
   const val = r.fields?.[key] || '';
+  const stepAttr = type === 'time' ? 'step="900"' : '';
   return `<div class="field-row">
     <div class="field-label">${label}</div>
     <div class="field-value">
-      <input class="field-edit" type="${type}" value="${val}" placeholder="—"
+      <input class="field-edit" type="${type}" value="${val}" placeholder="—" ${stepAttr}
         onblur="saveFieldText('${r.id}','${key}',this.value)">
     </div>
   </div>`;
@@ -1736,8 +1737,26 @@ async function saveFieldText(recordId, key, value) {
   const r = getRecord(recordId);
   if (!r) return;
   r.fields = r.fields || {};
-  if (r.fields[key] === value) return;
-  r.fields[key] = value;
+  let nextValue = value;
+  if (key === 'time' || key === 'endTime') {
+    nextValue = roundToQuarterHour(value);
+  }
+  if (r.type === 'event' && key === 'time' && nextValue && r.fields.endTime) {
+    const s = parseTimeToMinutes(nextValue);
+    const e = parseTimeToMinutes(r.fields.endTime);
+    if (s !== null && e !== null && e <= s) {
+      r.fields.endTime = defaultEndTimeFromStart(nextValue, 60);
+    }
+  }
+  if (r.type === 'event' && key === 'endTime' && nextValue && r.fields.time) {
+    const s = parseTimeToMinutes(r.fields.time);
+    const e = parseTimeToMinutes(nextValue);
+    if (s !== null && e !== null && e <= s) {
+      nextValue = defaultEndTimeFromStart(r.fields.time, 60);
+    }
+  }
+  if (r.fields[key] === nextValue) return;
+  r.fields[key] = nextValue;
   await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
 }
 
@@ -2049,7 +2068,8 @@ function promptAddEvent() {
   openModal('New event', `
     <div class="modal-field"><div class="modal-label">Title</div><input class="modal-input" id="ev-title" autofocus></div>
     <div class="modal-field"><div class="modal-label">Date</div><input class="modal-input" id="ev-date" type="date" value="${today}" style="font-size:14px"></div>
-    <div class="modal-field"><div class="modal-label">Time</div><input class="modal-input" id="ev-time" type="time"></div>
+    <div class="modal-field"><div class="modal-label">Time</div><input class="modal-input" id="ev-time" type="time" step="900"></div>
+    <div class="modal-field"><div class="modal-label">End time</div><input class="modal-input" id="ev-endtime" type="time" step="900"></div>
     <div class="modal-field"><div class="modal-label">Location / link</div><input class="modal-input" id="ev-loc"></div>
     <div class="modal-field"><div class="modal-label">Area</div>
       <select class="modal-select" id="ev-area">
@@ -2063,7 +2083,13 @@ function promptAddEvent() {
       const ev = await api('POST', '/api/records', {
         type: 'event', areaId: document.getElementById('ev-area').value,
         title, status: 'upcoming', priority: 2,
-        fields: { date, time: document.getElementById('ev-time').value, location: document.getElementById('ev-loc').value, link:'', category:'other', notes:'' },
+        fields: {
+          date,
+          time: roundToQuarterHour(document.getElementById('ev-time').value),
+          endTime: roundToQuarterHour(document.getElementById('ev-endtime').value),
+          location: document.getElementById('ev-loc').value,
+          link:'', category:'other', notes:''
+        },
         links: []
       });
       DB.records.push(ev);
@@ -2071,7 +2097,30 @@ function promptAddEvent() {
       renderCalFull();
     }},
     { label: 'Cancel', onclick: closeModal }]);
-  setTimeout(() => document.getElementById('ev-title')?.focus(), 50);
+  setTimeout(() => {
+    const timeEl = document.getElementById('ev-time');
+    const endEl = document.getElementById('ev-endtime');
+    const syncEnd = () => {
+      if (!timeEl || !endEl) return;
+      if (!timeEl.value) {
+        endEl.value = '';
+        return;
+      }
+      const start = roundToQuarterHour(timeEl.value);
+      timeEl.value = start;
+      endEl.min = start;
+      const currentEnd = roundToQuarterHour(endEl.value);
+      if (!currentEnd || (parseTimeToMinutes(currentEnd) ?? -1) <= (parseTimeToMinutes(start) ?? -1)) {
+        endEl.value = defaultEndTimeFromStart(start, 60);
+      } else {
+        endEl.value = currentEnd;
+      }
+    };
+    ensureQuarterHourTimeInputs(document.getElementById('modal'));
+    timeEl?.addEventListener('change', syncEnd);
+    syncEnd();
+    document.getElementById('ev-title')?.focus();
+  }, 50);
 }
 
 // ── AREA CALENDAR ────────────────────────────────────────────────────────────
@@ -2168,6 +2217,67 @@ function evClass(e) {
   return cat === 'interview' ? 'ev-interview' : cat === 'job' ? 'ev-job' : cat === 'health' ? 'ev-health' : 'ev-other';
 }
 
+function parseTimeToMinutes(t) {
+  if (!t || !/^\d{2}:\d{2}$/.test(t)) return null;
+  const [h, m] = t.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+function minutesToTime(totalMinutes) {
+  const m = ((totalMinutes % 1440) + 1440) % 1440;
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+function roundToQuarterHour(t) {
+  const mins = parseTimeToMinutes(t);
+  if (mins === null) return '';
+  return minutesToTime(Math.round(mins / 15) * 15);
+}
+
+function eventStartMins(e) {
+  return parseTimeToMinutes(e.fields?.time || '');
+}
+
+function eventEndMins(e) {
+  const start = eventStartMins(e);
+  if (start === null) return null;
+  const endRaw = parseTimeToMinutes(e.fields?.endTime || '');
+  if (endRaw !== null && endRaw > start) return endRaw;
+  return start + 60;
+}
+
+function eventRenderStyle(e, hour, rowPx) {
+  const start = eventStartMins(e);
+  if (start === null) return 'top:2px;height:12px;';
+  const end = eventEndMins(e);
+  const hourStart = hour * 60;
+  const offsetMins = Math.max(0, start - hourStart);
+  const durationMins = Math.max(15, (end || (start + 60)) - start);
+  const topPx = 2 + (offsetMins / 60) * rowPx;
+  const hPx = Math.max(12, (durationMins / 60) * rowPx - 2);
+  return `top:${topPx.toFixed(1)}px;height:${hPx.toFixed(1)}px;`;
+}
+
+function defaultEndTimeFromStart(startTime, defaultMinutes = 60) {
+  const start = parseTimeToMinutes(startTime);
+  if (start === null) return '';
+  return minutesToTime(start + defaultMinutes);
+}
+
+function ensureQuarterHourTimeInputs(root) {
+  (root || document).querySelectorAll('input[type="time"]').forEach(inp => {
+    inp.step = '900';
+    if (inp.value) inp.value = roundToQuarterHour(inp.value);
+    inp.addEventListener('change', () => {
+      if (!inp.value) return;
+      inp.value = roundToQuarterHour(inp.value);
+    });
+  });
+}
+
 function buildCalBody(mini) {
   const today = new Date(); const todayStr = today.toISOString().split('T')[0];
   const events = DB.records.filter(r => r.type === 'event' && r.fields?.date);
@@ -2213,9 +2323,9 @@ function buildCalBody(mini) {
       for (let i=0;i<7;i++) {
         const d = new Date(mon); d.setDate(mon.getDate()+i);
         const ds = d.toISOString().split('T')[0];
-        const hEvs = events.filter(e=>e.fields.date===ds&&e.fields.time&&parseInt(e.fields.time.split(':')[0])===h);
+        const hEvs = events.filter(e=>e.fields.date===ds&&e.fields.time&&Math.floor((eventStartMins(e) ?? -1)/60)===h);
         g += `<div class="cal-week-cell" onclick="if(event.target.closest('[data-record-link]')) return; openQAdd('${ds}','${String(h).padStart(2,'0')}:00')">
-          ${hEvs.map(e=>`<div class="cal-week-event ${evClass(e)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.fields.time?.slice(0,5)||''} ${e.title}</div>`).join('')}
+          ${hEvs.map(e=>`<div class="cal-week-event ${evClass(e)}" style="${eventRenderStyle(e,h,40)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.fields.time?.slice(0,5)||''}${e.fields.endTime ? '–' + e.fields.endTime.slice(0,5) : ''} ${e.title}</div>`).join('')}
         </div>`;
       }
     });
@@ -2229,11 +2339,11 @@ function buildCalBody(mini) {
     let g = '<div class="cal-day-wrap">';
     hours.forEach(h => {
       const label = h<12?`${h}am`:h===12?'12pm':`${h-12}pm`;
-      const hEvs = events.filter(e=>e.fields.date===ds&&e.fields.time&&parseInt(e.fields.time.split(':')[0])===h);
+      const hEvs = events.filter(e=>e.fields.date===ds&&e.fields.time&&Math.floor((eventStartMins(e) ?? -1)/60)===h);
       g += `<div class="cal-day-row">
         <div class="cal-day-label">${label}</div>
         <div class="cal-day-slot" onclick="if(event.target.closest('[data-record-link]')) return; openQAdd('${ds}','${String(h).padStart(2,'0')}:00')">
-          ${hEvs.map(e=>`<div class="cal-day-event ${evClass(e)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.fields.time?.slice(0,5)||''} ${e.title}</div>`).join('')}
+          ${hEvs.map(e=>`<div class="cal-day-event ${evClass(e)}" style="${eventRenderStyle(e,h,44)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.fields.time?.slice(0,5)||''}${e.fields.endTime ? '–' + e.fields.endTime.slice(0,5) : ''} ${e.title}</div>`).join('')}
         </div>
       </div>`;
     });
@@ -2311,10 +2421,10 @@ function renderTriCalPanel(containerId, mode) {
       let g='<div class="cal-day-wrap">';
       hours.forEach(h=>{
         const label=h<12?`${h}am`:h===12?'12pm':`${h-12}pm`;
-        const hEvs=events.filter(e=>e.fields.date===ds&&e.fields.time&&parseInt(e.fields.time.split(':')[0])===h);
+        const hEvs=events.filter(e=>e.fields.date===ds&&e.fields.time&&Math.floor((eventStartMins(e) ?? -1)/60)===h);
         g+=`<div class="cal-day-row"><div class="cal-day-label">${label}</div>
           <div class="cal-day-slot" onclick="if(event.target.closest('[data-record-link]')) return; openQAdd('${ds}','${String(h).padStart(2,'0')}:00')">
-            ${hEvs.map(e=>`<div class="cal-day-event ${evClass(e)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.fields.time?.slice(0,5)||''} ${e.title}</div>`).join('')}
+            ${hEvs.map(e=>`<div class="cal-day-event ${evClass(e)}" style="${eventRenderStyle(e,h,44)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.fields.time?.slice(0,5)||''}${e.fields.endTime ? '–' + e.fields.endTime.slice(0,5) : ''} ${e.title}</div>`).join('')}
           </div></div>`;
       });
       return g+'</div>';
@@ -2328,7 +2438,7 @@ function renderTriCalPanel(containerId, mode) {
       Array.from({length:18},(_,i)=>i+6).forEach(h=>{
         const label=h<12?`${h}a`:h===12?'12p':`${h-12}p`;
         g+=`<div class="cal-week-hour-label">${label}</div>`;
-        for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);const ds=d.toISOString().split('T')[0];const hEvs=events.filter(e=>e.fields.date===ds&&e.fields.time&&parseInt(e.fields.time.split(':')[0])===h);g+=`<div class="cal-week-cell" onclick="if(event.target.closest('[data-record-link]')) return; openQAdd('${ds}','${String(h).padStart(2,'0')}:00')">${hEvs.map(e=>`<div class="cal-week-event ${evClass(e)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.title}</div>`).join('')}</div>`;}
+        for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);const ds=d.toISOString().split('T')[0];const hEvs=events.filter(e=>e.fields.date===ds&&e.fields.time&&Math.floor((eventStartMins(e) ?? -1)/60)===h);g+=`<div class="cal-week-cell" onclick="if(event.target.closest('[data-record-link]')) return; openQAdd('${ds}','${String(h).padStart(2,'0')}:00')">${hEvs.map(e=>`<div class="cal-week-event ${evClass(e)}" style="${eventRenderStyle(e,h,40)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.fields.time?.slice(0,5)||''}${e.fields.endTime ? '–' + e.fields.endTime.slice(0,5) : ''} ${e.title}</div>`).join('')}</div>`;}
       });
       return g+'</div></div>';
     }
@@ -2434,8 +2544,8 @@ function openQAdd(date, hour) {
       <div style="display:flex;flex-direction:column;gap:8px">
         <input class="modal-input" id="qadd-title" placeholder="Event title" style="padding:6px 10px">
         <div style="display:flex;gap:6px">
-          <input class="modal-input" id="qadd-time" type="time" style="padding:6px 10px;flex:1">
-          <input class="modal-input" id="qadd-endtime" type="time" style="padding:6px 10px;flex:1">
+          <input class="modal-input" id="qadd-time" type="time" step="900" style="padding:6px 10px;flex:1">
+          <input class="modal-input" id="qadd-endtime" type="time" step="900" style="padding:6px 10px;flex:1">
         </div>
         <input class="modal-input" id="qadd-location" placeholder="Location or link (optional)" style="padding:6px 10px">
         <select class="modal-select" id="qadd-area" style="padding:6px 10px">${areaOptions}</select>
@@ -2448,13 +2558,41 @@ function openQAdd(date, hour) {
     document.getElementById('qadd-title').addEventListener('keydown',e=>{ if(e.key==='Enter') confirmQAdd(); if(e.key==='Escape') closeQAdd(); });
   }
   document.getElementById('qadd-label').textContent = label;
-  document.getElementById('qadd-time').value = hour||'';
-  document.getElementById('qadd-endtime').value = '';
+  const timeEl = document.getElementById('qadd-time');
+  const endEl = document.getElementById('qadd-endtime');
+  const startValue = roundToQuarterHour(hour || '');
+  timeEl.value = startValue || '';
+  endEl.min = startValue || '';
+  endEl.value = startValue ? defaultEndTimeFromStart(startValue, 60) : '';
   document.getElementById('qadd-title').value = '';
   const mx=event.clientX, my=event.clientY;
   box.style.left = Math.min(mx, window.innerWidth-280)+'px';
   box.style.top = Math.min(my, window.innerHeight-200)+'px';
   document.getElementById('qadd-overlay').classList.add('open');
+  const syncQAddTimes = () => {
+    const t = roundToQuarterHour(timeEl.value);
+    timeEl.value = t;
+    endEl.min = t || '';
+    const labelEl = document.getElementById('qadd-label');
+    if (labelEl) {
+      const d = new Date(qAddDate + 'T12:00:00');
+      labelEl.textContent = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) + (t ? ' · ' + fmtTime(t) : '');
+    }
+    if (!t) {
+      endEl.value = '';
+      return;
+    }
+    const e = roundToQuarterHour(endEl.value);
+    if (!e || (parseTimeToMinutes(e) ?? -1) <= (parseTimeToMinutes(t) ?? -1)) {
+      endEl.value = defaultEndTimeFromStart(t, 60);
+    } else {
+      endEl.value = e;
+    }
+  };
+  timeEl.onchange = syncQAddTimes;
+  endEl.onchange = () => { if (endEl.value) endEl.value = roundToQuarterHour(endEl.value); syncQAddTimes(); };
+  ensureQuarterHourTimeInputs(box);
+  syncQAddTimes();
   setTimeout(()=>document.getElementById('qadd-title')?.focus(),50);
 }
 
@@ -2490,13 +2628,14 @@ function openQAddDateEdit() {
 async function confirmQAdd() {
   const title = document.getElementById('qadd-title').value.trim();
   if (!title) return;
-  const time = document.getElementById('qadd-time').value;
+  const time = roundToQuarterHour(document.getElementById('qadd-time').value);
+  const endTime = roundToQuarterHour(document.getElementById('qadd-endtime').value);
   const areaId = document.getElementById('qadd-area')?.value || DB.areas[0]?.id || 'area-jobs';
   const area = DB.areas.find(a=>a.id===areaId);
   const category = area?.id === 'area-jobs' ? 'job' : area?.id === 'area-health' ? 'health' : 'other';
   const ev = await api('POST', '/api/records', {
     type:'event', areaId, title, status:'upcoming', priority:2,
-    fields:{ date:qAddDate, time, endTime:'', location:'', link:'', category, notes:'' },
+    fields:{ date:qAddDate, time, endTime, location:'', link:'', category, notes:'' },
     links:[]
   });
   DB.records.push(ev);
