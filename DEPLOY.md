@@ -138,6 +138,40 @@ Operational notes:
 3. If a run fails, open the failed workflow and review the "Download backup archive" step logs.
 4. Download at least one artifact per month to an external storage location for independent retention.
 
+### Automated Deploy Smoke Checks (GitHub Actions)
+
+Workflow file:
+
+- `.github/workflows/deploy-smoke.yml`
+
+Triggers:
+
+- On every push to `main`
+- Manual trigger supported via GitHub Actions UI (`workflow_dispatch`)
+
+Required secret:
+
+1. `RENDER_SERVICE_URL`
+	- This is your Render app base URL (not a token).
+	- Example: `https://dashboard-app-jxlb.onrender.com`
+	- Use the base URL without a trailing slash.
+
+Optional secret:
+
+1. `RENDER_DEPLOY_HOOK_URL`
+	- Only needed if you want the manual run to trigger a fresh Render deploy before checks.
+
+What it checks:
+
+1. Waits for `GET /healthz` to return HTTP 200.
+2. Verifies `GET /api/areas` returns HTTP 200 and non-empty body.
+3. Verifies `GET /api/records` returns HTTP 200 and non-empty body.
+
+Typical use:
+
+1. Push to `main` -> workflow runs automatically as a post-deploy smoke check.
+2. Manual run with redeploy -> use Actions UI and set `trigger_redeploy=true`.
+
 ## Restore Procedure (Manual)
 
 1. Stop app.
