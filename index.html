@@ -1797,7 +1797,7 @@ async function addInterview(recordId) {
   openModal('Add interview', `
     <div class="modal-field"><div class="modal-label">Round #</div><input class="modal-input" id="i-round" type="number" value="1" min="1"></div>
     <div class="modal-field"><div class="modal-label">Date</div><input class="modal-input" id="i-date" type="date"></div>
-    <div class="modal-field"><div class="modal-label">Time</div><input class="modal-input" id="i-time" type="time"></div>
+    <div class="modal-field"><div class="modal-label">Time</div>${timePickerHTML('i-time')}</div>
     <div class="modal-field"><div class="modal-label">Interviewer(s)</div><input class="modal-input" id="i-interviewer" placeholder="Name(s)"></div>
     <div class="modal-field"><div class="modal-label">Format</div><input class="modal-input" id="i-format" placeholder="Phone / Video / In-person"></div>
     <div class="modal-field"><div class="modal-label">Location / Platform</div><input class="modal-input" id="i-location"></div>
@@ -1805,11 +1805,12 @@ async function addInterview(recordId) {
     <div class="modal-field"><div class="modal-label">Notes</div><textarea class="modal-input" id="i-notes"></textarea></div>`,
     [{ label: 'Add interview', primary: true, onclick: async () => {
       const r = DB.records.find(r => r.id === recordId);
+      const time = to24Hour(document.getElementById('i-time-h').value, document.getElementById('i-time-m').value, document.getElementById('i-time-ap').value);
       const interview = {
         id: Date.now().toString(36),
         round: parseInt(document.getElementById('i-round').value) || 1,
         date: document.getElementById('i-date').value,
-        time: document.getElementById('i-time').value,
+        time: time,
         interviewer: document.getElementById('i-interviewer').value,
         format: document.getElementById('i-format').value,
         location: document.getElementById('i-location').value,
@@ -2068,8 +2069,8 @@ function promptAddEvent() {
   openModal('New event', `
     <div class="modal-field"><div class="modal-label">Title</div><input class="modal-input" id="ev-title" autofocus></div>
     <div class="modal-field"><div class="modal-label">Date</div><input class="modal-input" id="ev-date" type="date" value="${today}" style="font-size:14px"></div>
-    <div class="modal-field"><div class="modal-label">Time</div><input class="modal-input" id="ev-time" type="time" step="900"></div>
-    <div class="modal-field"><div class="modal-label">End time</div><input class="modal-input" id="ev-endtime" type="time" step="900"></div>
+    <div class="modal-field"><div class="modal-label">Time</div>${timePickerHTML('ev-time')}</div>
+    <div class="modal-field"><div class="modal-label">End time</div>${timePickerHTML('ev-endtime')}</div>
     <div class="modal-field"><div class="modal-label">Location / link</div><input class="modal-input" id="ev-loc"></div>
     <div class="modal-field"><div class="modal-label">Area</div>
       <select class="modal-select" id="ev-area">
@@ -2080,13 +2081,15 @@ function promptAddEvent() {
       const title = document.getElementById('ev-title').value.trim();
       const date = document.getElementById('ev-date').value;
       if (!title || !date) return;
+      const time = to24Hour(document.getElementById('ev-time-h').value, document.getElementById('ev-time-m').value, document.getElementById('ev-time-ap').value);
+      const endTime = to24Hour(document.getElementById('ev-endtime-h').value, document.getElementById('ev-endtime-m').value, document.getElementById('ev-endtime-ap').value);
       const ev = await api('POST', '/api/records', {
         type: 'event', areaId: document.getElementById('ev-area').value,
         title, status: 'upcoming', priority: 2,
         fields: {
           date,
-          time: roundToQuarterHour(document.getElementById('ev-time').value),
-          endTime: roundToQuarterHour(document.getElementById('ev-endtime').value),
+          time: time || '',
+          endTime: endTime || '',
           location: document.getElementById('ev-loc').value,
           link:'', category:'other', notes:''
         },
@@ -2098,26 +2101,23 @@ function promptAddEvent() {
     }},
     { label: 'Cancel', onclick: closeModal }]);
   setTimeout(() => {
-    const timeEl = document.getElementById('ev-time');
-    const endEl = document.getElementById('ev-endtime');
     const syncEnd = () => {
-      if (!timeEl || !endEl) return;
-      if (!timeEl.value) {
-        endEl.value = '';
-        return;
-      }
-      const start = roundToQuarterHour(timeEl.value);
-      timeEl.value = start;
-      endEl.min = start;
-      const currentEnd = roundToQuarterHour(endEl.value);
-      if (!currentEnd || (parseTimeToMinutes(currentEnd) ?? -1) <= (parseTimeToMinutes(start) ?? -1)) {
-        endEl.value = defaultEndTimeFromStart(start, 60);
-      } else {
-        endEl.value = currentEnd;
-      }
+      const startH = document.getElementById('ev-time-h')?.value;
+      const startM = document.getElementById('ev-time-m')?.value;
+      const startAP = document.getElementById('ev-time-ap')?.value;
+      if (!startH || startH === '0') return;
+      const start24 = to24Hour(startH, startM, startAP);
+      const startMins = parseTimeToMinutes(start24);
+      const endMins = startMins + 60;
+      const end24 = minutesToTime(endMins);
+      const {hour: endH, minute: endM, ampm: endAP} = to12Hour(end24);
+      document.getElementById('ev-endtime-h').value = endH;
+      document.getElementById('ev-endtime-m').value = endM;
+      document.getElementById('ev-endtime-ap').value = endAP;
     };
-    ensureQuarterHourTimeInputs(document.getElementById('modal'));
-    timeEl?.addEventListener('change', syncEnd);
+    document.getElementById('ev-time-h')?.addEventListener('change', syncEnd);
+    document.getElementById('ev-time-m')?.addEventListener('change', syncEnd);
+    document.getElementById('ev-time-ap')?.addEventListener('change', syncEnd);
     syncEnd();
     document.getElementById('ev-title')?.focus();
   }, 50);
@@ -2237,6 +2237,43 @@ function roundToQuarterHour(t) {
   return minutesToTime(Math.round(mins / 15) * 15);
 }
 
+function to24Hour(hour, minute, ampm) {
+  let h = parseInt(hour) || 0;
+  const m = parseInt(minute) || 0;
+  if (ampm === 'PM' && h !== 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function to12Hour(time24) {
+  const mins = parseTimeToMinutes(time24);
+  if (mins === null) return { hour: '12', minute: '00', ampm: 'AM' };
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  let h12 = h % 12 || 12;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  return { hour: String(h12), minute: String(m).padStart(2, '0'), ampm };
+}
+
+function timePickerHTML(idPrefix, time24Val = '') {
+  const {hour, minute, ampm} = to12Hour(time24Val);
+  return `
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="number" id="${idPrefix}-h" class="modal-input" value="${hour}" min="1" max="12" style="width:60px;padding:6px 8px">
+      <span style="color:var(--text)">:</span>
+      <select id="${idPrefix}-m" class="modal-select" style="width:80px;padding:6px 8px">
+        <option value="0">00</option>
+        <option value="15">15</option>
+        <option value="30">30</option>
+        <option value="45">45</option>
+      </select>
+      <select id="${idPrefix}-ap" class="modal-select" style="width:70px;padding:6px 8px">
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
+    </div>`;
+}
+
 function eventStartMins(e) {
   return parseTimeToMinutes(e.fields?.time || '');
 }
@@ -2270,10 +2307,17 @@ function defaultEndTimeFromStart(startTime, defaultMinutes = 60) {
 function ensureQuarterHourTimeInputs(root) {
   (root || document).querySelectorAll('input[type="time"]').forEach(inp => {
     inp.step = '900';
+    // Enforce strict minute validation: only 0, 15, 30, 45 allowed
     const snapToQuarter = () => {
       if (!inp.value) return;
-      const snapped = roundToQuarterHour(inp.value);
-      if (snapped && snapped !== inp.value) inp.value = snapped;
+      const mins = parseTimeToMinutes(inp.value);
+      if (mins === null) return;
+      const minuteVal = mins % 60;
+      // Only allow 0, 15, 30, 45
+      if (![0, 15, 30, 45].includes(minuteVal)) {
+        const snapped = roundToQuarterHour(inp.value);
+        if (snapped) inp.value = snapped;
+      }
     };
     snapToQuarter();
     if (inp.dataset.quarterBound === '1') return;
@@ -2549,9 +2593,9 @@ function openQAdd(date, hour) {
       <div class="qadd-label" id="qadd-label" style="cursor:pointer" onclick="openQAddDateEdit()" title="Click to change date"></div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <input class="modal-input" id="qadd-title" placeholder="Event title" style="padding:6px 10px">
-        <div style="display:flex;gap:6px">
-          <input class="modal-input" id="qadd-time" type="time" step="900" style="padding:6px 10px;flex:1">
-          <input class="modal-input" id="qadd-endtime" type="time" step="900" style="padding:6px 10px;flex:1">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <div style="flex:1;min-width:120px">${timePickerHTML('qadd-time')}</div>
+          <div style="flex:1;min-width:120px">${timePickerHTML('qadd-endtime')}</div>
         </div>
         <input class="modal-input" id="qadd-location" placeholder="Location or link (optional)" style="padding:6px 10px">
         <select class="modal-select" id="qadd-area" style="padding:6px 10px">${areaOptions}</select>
@@ -2564,40 +2608,46 @@ function openQAdd(date, hour) {
     document.getElementById('qadd-title').addEventListener('keydown',e=>{ if(e.key==='Enter') confirmQAdd(); if(e.key==='Escape') closeQAdd(); });
   }
   document.getElementById('qadd-label').textContent = label;
-  const timeEl = document.getElementById('qadd-time');
-  const endEl = document.getElementById('qadd-endtime');
   const startValue = roundToQuarterHour(hour || '');
-  timeEl.value = startValue || '';
-  endEl.min = startValue || '';
-  endEl.value = startValue ? defaultEndTimeFromStart(startValue, 60) : '';
+  const {hour: h12, minute: m12, ampm: ap12} = to12Hour(startValue);
+  document.getElementById('qadd-time-h').value = h12;
+  document.getElementById('qadd-time-m').value = m12;
+  document.getElementById('qadd-time-ap').value = ap12;
+  const {hour: endH, minute: endM, ampm: endAP} = to12Hour(startValue ? defaultEndTimeFromStart(startValue, 60) : '');
+  document.getElementById('qadd-endtime-h').value = endH;
+  document.getElementById('qadd-endtime-m').value = endM;
+  document.getElementById('qadd-endtime-ap').value = endAP;
   document.getElementById('qadd-title').value = '';
   const mx=event.clientX, my=event.clientY;
   box.style.left = Math.min(mx, window.innerWidth-280)+'px';
   box.style.top = Math.min(my, window.innerHeight-200)+'px';
   document.getElementById('qadd-overlay').classList.add('open');
   const syncQAddTimes = () => {
-    const t = roundToQuarterHour(timeEl.value);
-    timeEl.value = t;
-    endEl.min = t || '';
+    const startH = document.getElementById('qadd-time-h')?.value;
+    const startM = document.getElementById('qadd-time-m')?.value;
+    const startAP = document.getElementById('qadd-time-ap')?.value;
+    const t = to24Hour(startH, startM, startAP);
     const labelEl = document.getElementById('qadd-label');
     if (labelEl) {
       const d = new Date(qAddDate + 'T12:00:00');
       labelEl.textContent = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) + (t ? ' · ' + fmtTime(t) : '');
     }
     if (!t) {
-      endEl.value = '';
+      document.getElementById('qadd-endtime-h').value = '12';
+      document.getElementById('qadd-endtime-m').value = '00';
+      document.getElementById('qadd-endtime-ap').value = 'AM';
       return;
     }
-    const e = roundToQuarterHour(endEl.value);
-    if (!e || (parseTimeToMinutes(e) ?? -1) <= (parseTimeToMinutes(t) ?? -1)) {
-      endEl.value = defaultEndTimeFromStart(t, 60);
-    } else {
-      endEl.value = e;
-    }
+    const endMins = parseTimeToMinutes(t) + 60;
+    const end24 = minutesToTime(endMins);
+    const {hour: endH, minute: endM, ampm: endAP} = to12Hour(end24);
+    document.getElementById('qadd-endtime-h').value = endH;
+    document.getElementById('qadd-endtime-m').value = endM;
+    document.getElementById('qadd-endtime-ap').value = endAP;
   };
-  timeEl.onchange = syncQAddTimes;
-  endEl.onchange = () => { if (endEl.value) endEl.value = roundToQuarterHour(endEl.value); syncQAddTimes(); };
-  ensureQuarterHourTimeInputs(box);
+  document.getElementById('qadd-time-h')?.addEventListener('change', syncQAddTimes);
+  document.getElementById('qadd-time-m')?.addEventListener('change', syncQAddTimes);
+  document.getElementById('qadd-time-ap')?.addEventListener('change', syncQAddTimes);
   syncQAddTimes();
   setTimeout(()=>document.getElementById('qadd-title')?.focus(),50);
 }
@@ -2634,8 +2684,8 @@ function openQAddDateEdit() {
 async function confirmQAdd() {
   const title = document.getElementById('qadd-title').value.trim();
   if (!title) return;
-  const time = roundToQuarterHour(document.getElementById('qadd-time').value);
-  const endTime = roundToQuarterHour(document.getElementById('qadd-endtime').value);
+  const time = to24Hour(document.getElementById('qadd-time-h')?.value, document.getElementById('qadd-time-m')?.value, document.getElementById('qadd-time-ap')?.value);
+  const endTime = to24Hour(document.getElementById('qadd-endtime-h')?.value, document.getElementById('qadd-endtime-m')?.value, document.getElementById('qadd-endtime-ap')?.value);
   const areaId = document.getElementById('qadd-area')?.value || DB.areas[0]?.id || 'area-jobs';
   const area = DB.areas.find(a=>a.id===areaId);
   const category = area?.id === 'area-jobs' ? 'job' : area?.id === 'area-health' ? 'health' : 'other';
