@@ -248,6 +248,7 @@ textarea.modal-input{resize:vertical;min-height:70px}
 .urgency-widget{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
 .urgency-pill{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border);color:var(--dim);transition:all .12s;background:none}
 .urgency-pill:hover{border-color:var(--border2);color:var(--text)}
+.urgency-pill.u-active-new{background:rgba(91,155,213,.12);border-color:rgba(91,155,213,.4);color:var(--blue)}
 .urgency-pill.u-active-flagged{background:rgba(212,148,58,.1);border-color:rgba(212,148,58,.4);color:var(--amber)}
 .urgency-pill.u-active-priority{background:rgba(91,155,213,.1);border-color:rgba(91,155,213,.4);color:var(--blue)}
 .urgency-pill.u-active-urgent{background:rgba(224,85,85,.1);border-color:rgba(224,85,85,.4);color:var(--red)}
@@ -257,9 +258,32 @@ textarea.modal-input{resize:vertical;min-height:70px}
 .urgency-flagged{color:var(--amber);border-color:rgba(212,148,58,.3);background:rgba(212,148,58,.05)}
 .urgency-priority{color:var(--blue);border-color:rgba(91,155,213,.3);background:rgba(91,155,213,.05)}
 .urgency-urgent{color:var(--red);border-color:rgba(224,85,85,.3);background:rgba(224,85,85,.05)}
+.attention-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.attention-filters{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.attention-filter{background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:999px;padding:3px 9px;font-size:10px;font-weight:500;cursor:pointer;transition:all .12s}
+.attention-filter:hover{border-color:var(--border2);color:var(--text)}
+.attention-filter.active{color:var(--text);border-color:var(--accent)}
+.attention-filter.active.af-red{background:rgba(224,85,85,.12);border-color:rgba(224,85,85,.45);color:var(--red)}
+.attention-filter.active.af-yellow{background:rgba(212,148,58,.12);border-color:rgba(212,148,58,.45);color:var(--amber)}
+.attention-filter.active.af-blue{background:rgba(91,155,213,.12);border-color:rgba(91,155,213,.45);color:var(--blue)}
+.attention-filter.active.af-purple{background:rgba(155,127,212,.12);border-color:rgba(155,127,212,.45);color:var(--purple)}
+.attention-filter.active.af-none{background:rgba(102,102,102,.12);border-color:rgba(102,102,102,.35);color:var(--muted)}
+.attention-filter.active.af-triage{background:rgba(91,155,213,.10);border-color:rgba(91,155,213,.35);color:var(--blue)}
+.status-widget{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+.status-pill{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border);color:var(--dim);transition:all .12s;background:none}
+.status-pill:hover{border-color:var(--border2);color:var(--text)}
+.status-pill.active{background:var(--bg4);color:var(--text);border-color:var(--accent)}
+.status-pill.s-active-applied{background:rgba(91,155,213,.10);border-color:rgba(91,155,213,.35);color:var(--blue)}
+.status-pill.s-active-interviewing{background:rgba(224,85,85,.10);border-color:rgba(224,85,85,.35);color:var(--red)}
+.status-pill.s-active-awaiting{background:rgba(212,148,58,.10);border-color:rgba(212,148,58,.35);color:var(--amber)}
+.status-pill.s-active-offer{background:rgba(155,127,212,.10);border-color:rgba(155,127,212,.35);color:var(--purple)}
+.status-pill.s-active-rejected,.status-pill.s-active-withdrawn{background:rgba(102,102,102,.12);border-color:rgba(102,102,102,.35);color:var(--muted)}
+.status-pill.s-active-completed,.status-pill.s-active-archived{background:rgba(76,175,125,.10);border-color:rgba(76,175,125,.35);color:var(--green)}
+.this-week-empty{color:var(--dim);font-size:13px;padding:4px 0}
 .attn-urgent .a-dot{box-shadow:0 0 6px var(--red)}
 .attn-priority .a-dot{box-shadow:0 0 6px var(--blue)}
 .attn-flagged .a-dot{box-shadow:0 0 4px var(--amber)}
+.attn-new .a-dot{box-shadow:0 0 4px var(--blue)}
 /* Area layout with side calendar */
 .area-layout{display:grid;grid-template-columns:1fr 440px;gap:24px}
 .area-main{min-width:0}
@@ -399,10 +423,15 @@ textarea.modal-input{resize:vertical;min-height:70px}
     <div class="view" id="view-dashboard">
       <div class="dash-layout">
         <div>
-          <div class="dash-section-label">Needs attention</div>
+          <div class="attention-header">
+            <div class="dash-section-label" style="margin-bottom:0">Needs attention</div>
+            <div class="attention-filters" id="attention-filters"></div>
+          </div>
           <div class="attention-card" id="dash-attention"></div>
           <div class="dash-section-label" style="margin-top:16px" id="today-label"></div>
           <div class="attention-card" id="dash-today" style="margin-bottom:0"></div>
+          <div class="dash-section-label" style="margin-top:16px" id="week-label"></div>
+          <div class="attention-card" id="dash-week" style="margin-bottom:0"></div>
           <div class="dash-section-label" style="margin-top:16px">Life areas</div>
           <div class="area-grid" id="dash-areas"></div>
         </div>
@@ -946,6 +975,7 @@ function renderDashboard() {
   renderSidebar();
   renderAttention();
   renderTodayStrip();
+  renderThisWeekStrip();
   // Update calendar label
   const today = new Date();
   const calLabel = document.querySelector('#view-dashboard .dash-section-label:last-of-type');
@@ -959,6 +989,27 @@ function renderDashboard() {
   renderCalWidget('dash-cal', true);
   const _labelEl = document.getElementById('dash-cal-label');
   if (_labelEl) { const _t=new Date(); if(calMode==='day'){const _d=new Date(_t);_d.setDate(_t.getDate()+calOffset);_labelEl.textContent=_d.toLocaleDateString('en-US',{weekday:'long'});}else if(calMode==='week'){const _dow=_t.getDay();const _mon=new Date(_t);_mon.setDate(_t.getDate()-(_dow===0?6:_dow-1)+calOffset*7);const _sun=new Date(_mon);_sun.setDate(_mon.getDate()+6);_labelEl.textContent=_mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+_sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}else{const _d=new Date(_t.getFullYear(),_t.getMonth()+calOffset,1);_labelEl.textContent=_d.toLocaleDateString('en-US',{month:'long',year:'numeric'});} }
+}
+
+let attentionFilter = 'triage';
+
+function renderAttentionFilters() {
+  const el = document.getElementById('attention-filters');
+  if (!el) return;
+  const filters = [
+    ['triage', 'Triage', 'af-triage'],
+    ['red', 'Red', 'af-red'],
+    ['yellow', 'Yellow', 'af-yellow'],
+    ['blue', 'Blue', 'af-blue'],
+    ['purple', 'Purple', 'af-purple'],
+    ['none', 'None', 'af-none'],
+  ];
+  el.innerHTML = filters.map(([key, label, cls]) => `<button class="attention-filter${attentionFilter===key ? ' active ' + cls : ''}" onclick="setAttentionFilter('${key}')">${label}</button>`).join('');
+}
+
+function setAttentionFilter(filter) {
+  attentionFilter = filter;
+  renderDashboard();
 }
 
 function renderTodayStrip() {
@@ -996,9 +1047,38 @@ function renderTodayStrip() {
   }).join('');
 }
 
+function renderThisWeekStrip() {
+  const labelEl = document.getElementById('week-label');
+  const el = document.getElementById('dash-week');
+  if (!labelEl || !el) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const end = new Date(today); end.setDate(end.getDate() + 7);
+  labelEl.textContent = 'This Week — ' + today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const items = DB.records
+    .filter(r => r.type === 'event' && r.status !== 'archived' && r.status !== 'completed' && r.fields?.date)
+    .filter(r => {
+      const d = new Date(r.fields.date + 'T00:00:00');
+      return d >= today && d <= end;
+    })
+    .sort((a, b) => (a.fields.date || '').localeCompare(b.fields.date || '') || (a.fields.time || '').localeCompare(b.fields.time || ''));
+  if (!items.length) { el.innerHTML = '<div class="this-week-empty">Nothing scheduled this week.</div>'; return; }
+  el.innerHTML = items.map(ev => {
+    const area = getArea(ev.areaId);
+    return `<div class="attention-item" data-record-link data-area-id="${ev.areaId}" data-record-id="${ev.id}">
+      <div class="a-dot" style="background:${area?.color || 'var(--accent)'}"></div>
+      <div class="a-body">
+        <div class="a-title">${ev.title}</div>
+        <div class="a-sub">${formatDate(ev.fields.date)}${ev.fields.time ? ' · ' + fmtTime(ev.fields.time) : ''}${ev.fields.location ? ' · ' + ev.fields.location : ''}</div>
+      </div>
+      <span class="a-tag" data-area-link="${ev.areaId}">${area?.title || 'Event'}</span>
+    </div>`;
+  }).join('');
+}
+
 function renderAttention() {
   const el = document.getElementById('dash-attention');
   const attention = getAttentionItems();
+  renderAttentionFilters();
   if (!attention.length) { el.innerHTML = '<div class="empty">All clear.</div>'; return; }
   el.innerHTML = attention.map(a => {
     const areaBg = a.areaColor ? `${a.areaColor}18` : 'var(--bg3)';
@@ -1021,8 +1101,8 @@ function getAttentionItems() {
   const items = [];
   const seen = new Set();
   const today = new Date(); today.setHours(0,0,0,0);
-  const urgencyPriority = { urgent: 0, priority: 1, flagged: 2 };
-  const urgencyColor = { urgent: 'var(--red)', priority: 'var(--blue)', flagged: 'var(--amber)' };
+  const urgencyPriority = { urgent: 0, flagged: 1, new: 2, priority: 3 };
+  const urgencyColor = { urgent: 'var(--red)', flagged: 'var(--amber)', new: 'var(--blue)', priority: 'var(--purple)' };
 
   const addItem = (item) => {
     if (!item || !item.recordId || seen.has(item.recordId)) return;
@@ -1030,9 +1110,10 @@ function getAttentionItems() {
     items.push(item);
   };
 
-  // Manually flagged records (urgent/priority/flagged)
+  // Global urgency triage only
   DB.records.filter(r => r.urgency && r.urgency !== 'none' && r.status !== 'archived' && r.status !== 'completed').forEach(r => {
     const area = getArea(r.areaId);
+    if (attentionFilter !== 'triage' && r.urgency !== attentionFilter) return;
     addItem({
       title: r.title + (r.fields?.role ? ' — ' + r.fields.role : ''),
       sub: r.fields?.role || (r.type === 'event' ? 'Event' : 'Record'),
@@ -1047,58 +1128,22 @@ function getAttentionItems() {
     });
   });
 
-  // Upcoming events in next 7 days
-  DB.records.filter(r => r.type === 'event' && r.status !== 'archived' && r.status !== 'completed').forEach(ev => {
-    const d = new Date(ev.fields.date + 'T00:00:00');
-    const diff = Math.round((d - today) / 86400000);
-    if (diff >= 0 && diff <= 7) {
-      const area = getArea(ev.areaId);
+  if (attentionFilter === 'none') {
+    DB.records.filter(r => (!r.urgency || r.urgency === 'none') && r.status !== 'archived' && r.status !== 'completed').forEach(r => {
+      const area = getArea(r.areaId);
       addItem({
-        title: ev.title,
-        sub: formatDate(ev.fields.date) + (ev.fields.time ? ' · ' + fmtTime(ev.fields.time) : '') + (ev.fields.location ? ' · ' + ev.fields.location : ''),
-        color: area?.color || 'var(--accent)',
-        tag: area?.title || 'Event',
-        areaId: ev.areaId,
+        title: r.title + (r.fields?.role ? ' — ' + r.fields.role : ''),
+        sub: r.fields?.role || (r.type === 'event' ? 'Event' : 'Record'),
+        color: 'var(--muted)',
+        tag: area?.title || '',
+        areaId: r.areaId,
         areaColor: area?.color || '',
-        recordId: ev.id,
-        onclick: `navigate('record','${ev.areaId}','${ev.id}')`,
-        priority: 4, diff
+        recordId: r.id,
+        onclick: `navigate('record','${r.areaId}','${r.id}')`,
+        priority: 9
       });
-    }
-  });
-
-  // Active job interviews
-  DB.records.filter(r => r.type === 'job' && r.status === 'interviewing').forEach(j => {
-    const area = getArea(j.areaId);
-    const nextI = (j.interviews||[]).filter(i=>i.date>=new Date().toISOString().split('T')[0]).sort((a,b)=>a.date.localeCompare(b.date))[0];
-    addItem({
-      title: j.title + ' — ' + j.fields.role,
-      sub: nextI ? 'Next: ' + formatDate(nextI.date) + (nextI.time ? ' · ' + fmtTime(nextI.time) : '') : 'Awaiting next steps',
-      color: area?.color || 'var(--red)',
-      tag: area?.title || 'Job',
-      areaId: j.areaId,
-      areaColor: area?.color || '',
-      recordId: j.id,
-      onclick: `navigate('record','${j.areaId}','${j.id}')`,
-      priority: 5
     });
-  });
-
-  // Awaiting decisions
-  DB.records.filter(r => r.type === 'job' && r.status === 'awaiting').forEach(j => {
-    const area = getArea(j.areaId);
-    addItem({
-      title: j.title + ' — awaiting decision',
-      sub: j.fields.role,
-      color: 'var(--amber)',
-      tag: area?.title || 'Job',
-      areaId: j.areaId,
-      areaColor: area?.color || '',
-      recordId: j.id,
-      onclick: `navigate('record','${j.areaId}','${j.id}')`,
-      priority: 6
-    });
-  });
+  }
 
   return items.sort((a,b) => (a.priority-b.priority) || (a.diff||99)-(b.diff||99)).slice(0,8);
 }
@@ -1289,7 +1334,7 @@ function recordCard(r) {
 function statusBadge(r) {
   const map = {
     active: 'badge-green', interviewing: 'badge-red', awaiting: 'badge-amber',
-    applied: 'badge-blue', rejected: 'badge-gray', 'on-hold': 'badge-gray',
+    applied: 'badge-blue', rejected: 'badge-gray', withdrawn: 'badge-gray', 'on-hold': 'badge-gray',
     exploring: 'badge-purple', upcoming: 'badge-blue',
     completed: 'badge-complete', archived: 'badge-archived'
   };
@@ -1360,6 +1405,8 @@ function renderRecordView(recordId) {
 function renderJobRecord(r, area) {
   const contacts = (r.contacts || []).map(id => getRecord(id)).filter(Boolean);
   const linkedEvents = (r.links || []).map(id => getRecord(id)).filter(Boolean).filter(e => e.type === 'event');
+  const statusLabels = { applied: 'Applied', interviewing: 'Interviewing', awaiting: 'Awaiting', offer: 'Offer', rejected: 'Rejected', withdrawn: 'Withdrawn', completed: 'Completed', archived: 'Archived' };
+  const statusOrder = ['applied','interviewing','awaiting','offer','rejected','withdrawn','completed','archived'];
 
   return `<div class="record-view-header">
     <div class="record-view-icon">💼</div>
@@ -1381,7 +1428,6 @@ function renderJobRecord(r, area) {
     </div>
     <div class="record-view-actions">
       ${statusBadge(r)}
-      <button class="btn btn-sm" onclick="changeStatus('${r.id}')">Change status</button>
       <button class="btn btn-sm btn-p" onclick="addInterview('${r.id}')">+ Interview</button>
     </div>
   </div>
@@ -1442,10 +1488,19 @@ ${renderNotesSection(r)}
     </div>
     <div class="record-sidebar">
       <div class="section-card">
+        <div class="section-title">Status</div>
+        <div class="status-widget">
+          ${statusOrder.map(s => {
+            const cur = r.status || 'active';
+            return '<span class="status-pill'+(cur===s?' active s-active-'+s:'')+'" onclick="setRecordStatus(\''+r.id+'\',\''+s+'\')">'+statusLabels[s]+'</span>';
+          }).join('')}
+        </div>
+      </div>
+      <div class="section-card">
         <div class="section-title">Urgency</div>
         <div class="urgency-widget">
-          ${['none','flagged','priority','urgent'].map(u => {
-            const labels={none:'No flag',flagged:'🟡 Flagged',priority:'🔵 Priority',urgent:'🔴 Urgent'};
+          ${['none','new','flagged','priority','urgent'].map(u => {
+            const labels={none:'None',new:'🔵 New',flagged:'🟡 Flagged',priority:'🟣 Priority',urgent:'🔴 Urgent'};
             const cur=r.urgency||'none';
             return '<span class="urgency-pill'+(cur===u?' u-active-'+u:'')+'" onclick="setUrgency(\''+r.id+'\',\''+u+'\')">'+labels[u]+'</span>';
           }).join('')}
@@ -1823,7 +1878,7 @@ async function addInterview(recordId) {
       // Also create a linked event
       if (interview.date) {
         const ev = await api('POST', '/api/records', {
-          type: 'event', areaId: r.areaId,
+          type: 'event', areaId: r.areaId, urgency:'new',
           title: `${r.title} — Interview Rd ${interview.round}`,
           status: 'upcoming', priority: 1,
           fields: { date: interview.date, time: interview.time, location: interview.location, link: interview.link, category: 'interview', notes: interview.notes },
@@ -1988,7 +2043,7 @@ function promptAddRecord(forceType) {
       if (!title) return;
       if (t === 'company') { closeModal(); openAddCompanyModal(aid); return; }
       const defaults = { contact:{role:'',company:'',email:'',phone:'',linkedin:'',notes:''}, event:{date:'',time:'',endTime:'',location:'',link:'',category:'',notes:''}, goal:{targetDate:'',progress:'',notes:''}, task:{frequency:'',lastDone:'',nextDue:'',notes:''}, project:{description:'',nextAction:'',notes:''}, note:{body:'',notes:''} };
-      const rec = await api('POST', '/api/records', { type:t, areaId:aid, title, fields:defaults[t]||{}, contacts:t==='job'?[]:undefined, interviews:t==='job'?[]:undefined, documents:t==='job'?[]:undefined });
+      const rec = await api('POST', '/api/records', { type:t, areaId:aid, title, urgency:'new', fields:defaults[t]||{}, contacts:t==='job'?[]:undefined, interviews:t==='job'?[]:undefined, documents:t==='job'?[]:undefined });
       DB.records.push(rec);
       closeModal(); renderSidebar(); navigate('record', aid, rec.id);
     }},
@@ -2017,7 +2072,7 @@ async function promptAddArea() {
 async function cycleUrgency(recordId) {
   const r = DB.records.find(r => r.id === recordId);
   if (!r) return;
-  const next = { none:'flagged', flagged:'priority', priority:'urgent', urgent:'none' };
+  const next = { none:'new', new:'flagged', flagged:'priority', priority:'urgent', urgent:'none' };
   r.urgency = next[r.urgency||'none'];
   await api('PUT', `/api/records/${recordId}`, { urgency: r.urgency });
   renderRecordView(recordId);
@@ -2029,7 +2084,8 @@ async function markComplete(recordId) {
   const r = DB.records.find(r => r.id === recordId);
   if (!r) return;
   r.status = 'completed';
-  await api('PUT', `/api/records/${recordId}`, { status: 'completed' });
+  r.urgency = 'none';
+  await api('PUT', `/api/records/${recordId}`, { status: 'completed', urgency: 'none' });
   await api('POST', `/api/records/${recordId}/timeline`, { text: 'Marked complete' });
   renderSidebar();
   renderRecordView(recordId);
@@ -2039,7 +2095,8 @@ async function markArchived(recordId) {
   const r = DB.records.find(r => r.id === recordId);
   if (!r) return;
   r.status = 'archived';
-  await api('PUT', `/api/records/${recordId}`, { status: 'archived' });
+  r.urgency = 'none';
+  await api('PUT', `/api/records/${recordId}`, { status: 'archived', urgency: 'none' });
   await api('POST', `/api/records/${recordId}/timeline`, { text: 'Archived' });
   renderSidebar();
   renderRecordView(recordId);
@@ -2084,7 +2141,7 @@ function promptAddEvent() {
       const time = to24Hour(document.getElementById('ev-time-h').value, document.getElementById('ev-time-m').value, document.getElementById('ev-time-ap').value);
       const endTime = to24Hour(document.getElementById('ev-endtime-h').value, document.getElementById('ev-endtime-m').value, document.getElementById('ev-endtime-ap').value);
       const ev = await api('POST', '/api/records', {
-        type: 'event', areaId: document.getElementById('ev-area').value,
+        type: 'event', areaId: document.getElementById('ev-area').value, urgency:'new',
         title, status: 'upcoming', priority: 2,
         fields: {
           date,
@@ -2690,7 +2747,7 @@ async function confirmQAdd() {
   const area = DB.areas.find(a=>a.id===areaId);
   const category = area?.id === 'area-jobs' ? 'job' : area?.id === 'area-health' ? 'health' : 'other';
   const ev = await api('POST', '/api/records', {
-    type:'event', areaId, title, status:'upcoming', priority:2,
+    type:'event', areaId, title, status:'upcoming', urgency:'new', priority:2,
     fields:{ date:qAddDate, time, endTime, location:'', link:'', category, notes:'' },
     links:[]
   });
@@ -3478,7 +3535,7 @@ async function createCompanyFromJob(recordId, name) {
   const r = DB.records.find(rec => rec.id === recordId);
   const co = await api('POST', '/api/records', {
     type: 'company', areaId: r?.areaId || 'area-jobs', title: name,
-    status: 'active', priority: 2,
+    status: 'active', urgency: 'new', priority: 2,
     fields: { industry:'', website:'', location: r?.fields?.location||'', notes:'' },
     links: [], notes: []
   });
@@ -3625,7 +3682,7 @@ async function createAndSelectCompany(recordId, name) {
   const r = DB.records.find(r => r.id === recordId);
   const co = await api('POST', '/api/records', {
     type: 'company', areaId: r?.areaId || DB.areas[0]?.id, title: name,
-    status: 'active', priority: 2,
+    status: 'active', urgency: 'new', priority: 2,
     fields: { industry:'', website:'', location:'', notes:'' },
     links: [], companyId: null
   });
@@ -3714,7 +3771,7 @@ function openAddCompanyModal(areaId) {
 async function submitAddCompany(areaId) {
   const name=document.getElementById('co-name')?.value?.trim();
   if(!name){document.getElementById('co-name').style.borderColor='var(--red)';return;}
-  const co=await api('POST','/api/records',{type:'company',areaId:areaId||'area-jobs',title:name,status:'active',priority:2,fields:{industry:document.getElementById('co-industry')?.value?.trim()||'',website:document.getElementById('co-website')?.value?.trim()||'',location:document.getElementById('co-location')?.value?.trim()||'',notes:''},links:[],notes:[]});
+  const co=await api('POST','/api/records',{type:'company',areaId:areaId||'area-jobs',title:name,status:'active',urgency:'new',priority:2,fields:{industry:document.getElementById('co-industry')?.value?.trim()||'',website:document.getElementById('co-website')?.value?.trim()||'',location:document.getElementById('co-location')?.value?.trim()||'',notes:''},links:[],notes:[]});
   DB.records.push(co);
   DB.records.forEach(async r=>{ if(r.companyId)return; const n=r.type==='job'?r.title:r.fields?.company; if(n&&n.toLowerCase()===name.toLowerCase()){r.companyId=co.id;await api('PUT',`/api/records/${r.id}`,{companyId:co.id});} });
   closeModal();document.getElementById('modal').style.maxWidth='';renderSidebar();navigate('record',areaId||'area-jobs',co.id);
@@ -3802,7 +3859,7 @@ function createJobFromFallback(areaId,url){
 async function createJobRecord(areaId,dataStr,url){
   const data=typeof dataStr==='string'?JSON.parse(dataStr):dataStr;
   const title=data.company||data.role||'New Job';
-  const rec=await api('POST','/api/records',{type:'job',areaId,title,status:'applied',priority:3,fields:{role:data.role||'',salary:data.salary||'',location:data.location||'',appliedDate:'',source:'',postingUrl:url||'',resumeUsed:'',coverLetterUsed:'',jobDescription:data.description||'',notes:''},contacts:[],interviews:[],documents:[],notes:[]});
+  const rec=await api('POST','/api/records',{type:'job',areaId,title,status:'applied',urgency:'new',priority:3,fields:{role:data.role||'',salary:data.salary||'',location:data.location||'',appliedDate:'',source:'',postingUrl:url||'',resumeUsed:'',coverLetterUsed:'',jobDescription:data.description||'',notes:''},contacts:[],interviews:[],documents:[],notes:[]});
   DB.records.push(rec);
   closeModal();document.getElementById('modal').style.maxWidth='';renderSidebar();
   if(data.company)checkAndPromptCompany(rec.id,data.company);
@@ -3829,7 +3886,12 @@ async function setRecordStatus(recordId,newStatus){
   const prev=r.status;
   pushUndo({type:'status',recordId,before:prev,after:newStatus});
   r.status=newStatus;
-  await api('PUT',`/api/records/${recordId}`,{status:newStatus});
+  if (newStatus === 'completed' || newStatus === 'archived') {
+    r.urgency = 'none';
+    await api('PUT',`/api/records/${recordId}`,{status:newStatus,urgency:'none'});
+  } else {
+    await api('PUT',`/api/records/${recordId}`,{status:newStatus});
+  }
   await api('POST',`/api/records/${recordId}/timeline`,{text:'Status: '+prev+' → '+newStatus});
   const updated=await api('GET',`/api/records/${recordId}`);
   DB.records=DB.records.map(rec=>rec.id===recordId?updated:rec);
@@ -3848,6 +3910,7 @@ async function setUrgency(recordId,level){
   renderSidebar();
   if(currentView==='record')renderRecordView(recordId);
   if(currentView==='dashboard')renderAttention();
+  if(currentView==='area')renderAreaView(currentAreaId);
 }
 
 // Context menu
@@ -3859,8 +3922,8 @@ function showRecordCtxMenu(e,recordId){
   e.preventDefault();e.stopPropagation();closeCtxMenu();
   const r=DB.records.find(r=>r.id===recordId);if(!r)return;
   const urgency=r.urgency||'none';
-  const urgencyOpts=[{val:'none',label:'No flag'},{val:'flagged',label:'🟡 Flagged'},{val:'priority',label:'🔵 Priority'},{val:'urgent',label:'🔴 Urgent'}];
-  const statusOpts=r.type==='job'?['applied','interviewing','awaiting','offer','rejected','completed','archived']:['active','completed','archived'];
+  const urgencyOpts=[{val:'none',label:'None'},{val:'new',label:'🔵 New'},{val:'flagged',label:'🟡 Flagged'},{val:'priority',label:'🟣 Priority'},{val:'urgent',label:'🔴 Urgent'}];
+  const statusOpts=r.type==='job'?['applied','interviewing','awaiting','offer','rejected','withdrawn','completed','archived']:['active','completed','archived'];
   const menu=document.createElement('div');menu.className='ctx-menu';
   menu.style.cssText='left:'+Math.min(e.clientX,window.innerWidth-200)+'px;top:'+Math.min(e.clientY,window.innerHeight-320)+'px';
   const addH=t=>{const h=document.createElement('div');h.className='ctx-header';h.textContent=t;menu.appendChild(h);};
