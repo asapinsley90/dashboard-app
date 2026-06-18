@@ -2270,11 +2270,17 @@ function defaultEndTimeFromStart(startTime, defaultMinutes = 60) {
 function ensureQuarterHourTimeInputs(root) {
   (root || document).querySelectorAll('input[type="time"]').forEach(inp => {
     inp.step = '900';
-    if (inp.value) inp.value = roundToQuarterHour(inp.value);
-    inp.addEventListener('change', () => {
+    const snapToQuarter = () => {
       if (!inp.value) return;
-      inp.value = roundToQuarterHour(inp.value);
-    });
+      const snapped = roundToQuarterHour(inp.value);
+      if (snapped && snapped !== inp.value) inp.value = snapped;
+    };
+    snapToQuarter();
+    if (inp.dataset.quarterBound === '1') return;
+    inp.dataset.quarterBound = '1';
+    inp.addEventListener('input', snapToQuarter);
+    inp.addEventListener('change', snapToQuarter);
+    inp.addEventListener('blur', snapToQuarter);
   });
 }
 
