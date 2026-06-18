@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: dashboard-app
+    runtime: node
+    plan: standard
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: HOST
+        value: 0.0.0.0
+      - key: DATA_DIR
+        value: /mnt/data
+      - key: DB_PATH
+        value: /mnt/data/db.sqlite
+      - key: UPLOADS_DIR
+        value: /mnt/data/uploads
+    disk:
+      name: dashboard-data
+      mountPath: /mnt/data
+      sizeGB: 10
