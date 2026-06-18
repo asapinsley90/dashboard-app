@@ -43,6 +43,32 @@ BACKUP_TOKEN_SEED=long-random-rotation-seed
 3. Confirm branch is `main`.
 4. Confirm Auto-Deploy is ON.
 
+## PUSH INSTRUCTIONS
+
+Run these commands in a terminal from the project folder:
+
+```bash
+cd C:\Users\asapi\OneDrive\Documents\DASHBOARD
+git add .
+git commit -m "Describe your change"
+git push origin main
+```
+
+Quick verification:
+
+```bash
+git status -sb
+```
+
+- If push succeeds, Render auto-deploy starts from `main`.
+- GitHub Actions `Deploy Smoke Check` also runs on that push.
+- If push is rejected, run:
+
+```bash
+git pull --rebase origin main
+git push origin main
+```
+
 ## Health & Monitoring
 
 ### Health Endpoints
