@@ -34,8 +34,14 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 app.use(express.json());
-app.use(express.static(__dirname));
+app.use(express.static(__dirname, { index: false }));
 app.use('/uploads', express.static(UPLOADS_DIR));
+
+function setNoCacheHeaders(res) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+}
 
 // ── DB HELPERS ────────────────────────────────────────────────────────────────
 // SQLite layer handles all persistence; see lib/db-layer.js
@@ -379,7 +385,10 @@ app.delete('/api/files/:name', (req, res) => {
 });
 
 // Catch-all → index.html
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('*', (req, res) => {
+  setNoCacheHeaders(res);
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 async function bootstrapAndStart() {
   try {
