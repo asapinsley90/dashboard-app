@@ -1,21 +1,17 @@
-# Deployment & Setup
+# Deployment & Operations Guide
 
-All-in-one deployment: single Node.js + Express server serving frontend + API, with SQLite database persistence and file uploads.
+This app runs as one Node.js service (frontend + API) using SQLite and uploaded files on persistent disk.
 
 ## Local Development
-
-### Quick Start
 
 ```bash
 npm install
 npm run dev
 ```
 
-Opens browser to `http://localhost:3000` automatically. Data persists in `db.sqlite`.
+Server runs at `http://localhost:3000`.
 
 ### Environment Variables
-
-Create a `.env` file (or pass via environment):
 
 ```env
 PORT=3000
@@ -23,127 +19,111 @@ HOST=0.0.0.0
 DATA_DIR=/path/to/data
 DB_PATH=/path/to/db.sqlite
 UPLOADS_DIR=/path/to/uploads
+BACKUP_TOKEN=long-random-secret
 ```
 
-If unset, defaults to current directory for data files.
+- `BACKUP_TOKEN` protects backup export endpoints.
+- Set `BACKUP_TOKEN` in Render dashboard as a secret env var.
 
-### SQLite Migration (One-Time)
+## Render Deployment
 
-If migrating from the old JSON backend:
+`render.yaml` defines:
+
+- `branch: main`
+- `autoDeploy: true`
+- persistent disk at `/mnt/data`
+- health check endpoint `/healthz`
+
+### Verify Auto-Deploy from Main
+
+1. Open Render service.
+2. Settings -> Build & Deploy.
+3. Confirm branch is `main`.
+4. Confirm Auto-Deploy is ON.
+
+## Health & Monitoring
+
+### Health Endpoints
+
+- `GET /healthz`
+- `GET /api/health`
+
+Both return service status, uptime, and DB counts. Render uses `/healthz` for platform health checks.
+
+### Suggested Uptime Monitoring
+
+Use UptimeRobot, Better Stack, or similar:
+
+1. Monitor URL: `https://your-app.onrender.com/healthz`
+2. Interval: 5 minutes
+3. Alert channel: email + phone push
+
+## Backup & Export
+
+### Backup Status
+
+`GET /api/backup/status`
+
+Shows whether backup export is enabled.
+
+### Download Backup Archive
+
+`GET /api/backup/export`
+
+Required header:
+
+`x-backup-token: <BACKUP_TOKEN>`
+
+Archive contents:
+
+- `db.sqlite`
+- `uploads/` directory
+- `manifest.json` with metadata and counts
+
+### Download via Script
 
 ```bash
-npm run migrate
+BACKUP_URL=https://your-app.onrender.com BACKUP_TOKEN=your-secret npm run backup:download
 ```
 
-Reads `db.json`, writes to `db.sqlite`, backs up the original. Then `npm start` or `npm run dev` uses SQLite automatically.
+Backups are written to `./backups` by default.
 
-## Docker
+### Backup Schedule Recommendation
 
-### Build
+1. Weekly manual export minimum.
+2. Before major schema or deployment changes.
+3. Keep at least 4 rolling backups.
+4. Test restore monthly.
+
+## Restore Procedure (Manual)
+
+1. Stop app.
+2. Replace `db.sqlite` from backup zip.
+3. Restore `uploads/` directory.
+4. Start app.
+5. Verify `/api/db` counts and key records.
+
+## Custom Domain (Optional)
+
+1. Render -> Settings -> Custom Domains.
+2. Add domain (for example `dashboard.yourdomain.com`).
+3. Add DNS CNAME in domain provider.
+4. Wait for TLS issuance.
+
+## Ownership & Runbook
+
+Keep this owner checklist in your password manager or notes:
+
+1. Render account owner and recovery method.
+2. GitHub repository owner and backup admins.
+3. `BACKUP_TOKEN` storage location.
+4. Last successful backup date.
+5. Restore dry-run date.
+
+## Quick Verification Commands
 
 ```bash
-docker build -t dashboard-app .
+curl https://your-app.onrender.com/healthz
+curl https://your-app.onrender.com/api/db
+curl https://your-app.onrender.com/api/backup/status
 ```
-
-### Run
-
-```bash
-docker run --rm -p 3000:3000 -v dashboard_data:/data dashboard-app
-```
-
-App listens on `http://localhost:3000`. Data persists in `dashboard_data` volume.
-
-## Cloud Deployment
-
-### Render (Recommended)
-
-**Prerequisites:** GitHub account, Render account
-
-1. **Push to GitHub**
-   - Create a new repo at [github.com/new](https://github.com/new)
-   - Option A: Upload via GitHub web UI (drag files, or use `.gitignore` to filter)
-   - Option B: Use git locally to push
-
-2. **Deploy on Render**
-   - Go to [render.com](https://render.com)
-   - Click "Dashboard" → "New" → "Web Service"
-   - Select "Deploy from GitHub repo"
-   - Choose your repo
-   - Render auto-detects `render.yaml` and auto-configures:
-     - Node runtime, npm dependencies, start command
-     - Environment variables (PORT, HOST, DATA_DIR, DB_PATH, UPLOADS_DIR)
-     - Persistent volume at `/mnt/data` (10 GB)
-   - Click "Create Web Service"
-
-3. **First Deploy**
-   - Takes 2–5 minutes
-   - Your app lives at `https://dashboard-app-xxxx.onrender.com`
-   - All data (SQLite, uploads) persists in the volume
-   - Redeploy anytime with zero downtime
-
-**Troubleshooting:**
-- Build error? Ensure `package.json` and `app.js` are at repo root
-- Free tier sleeps after 15 min inactivity (wake time ~30s)
-- For production, upgrade to Starter tier ($7/mo, always-on)
-
-### Railway
-
-**Prerequisites:** GitHub account, Railway account
-
-1. **Push to GitHub** (see Render instructions)
-
-2. **Deploy on Railway**
-   - Go to [railway.app](https://railway.app)
-   - Click "Create New Project" → "GitHub repo"
-   - Select your repo
-   - Railway auto-detects Node and installs dependencies
-
-3. **Configure Environment**
-   - After service deploys, go to "Variables" tab
-   - Add:
-     ```
-     NODE_ENV=production
-     PORT=3000
-     HOST=0.0.0.0
-     DATA_DIR=/mnt/data
-     DB_PATH=/mnt/data/db.sqlite
-     UPLOADS_DIR=/mnt/data/uploads
-     ```
-
-4. **Attach Persistent Volume**
-   - Click "Add" → "Volume"
-   - Mount path: `/mnt/data`
-   - Size: 5 GB (adjust as needed)
-   - Save and Railway redeploys
-
-5. **After Deployment**
-   - Your app is live at a Railway URL
-   - Data persists in the volume
-   - Updates push and redeploy automatically
-
-## Health Check
-
-Once deployed, verify:
-
-```bash
-curl https://your-app-url/api/db
-```
-
-Should return JSON with areas, records, and reviews (seed data on first run).
-6. Attach a persistent disk and mount to `/var/data`.
-7. Redeploy.
-
-## Railway Quick Start
-
-1. Create a new project from your repo.
-2. Set start command to `npm start`.
-3. Set environment variables:
-   - `HOST=0.0.0.0`
-   - `PORT` from Railway
-   - `DATA_DIR=/data` (if using persistent volume)
-4. Add a persistent volume and mount at `/data`.
-
-## Notes
-
-- `db.json` + uploads are file-based persistence. For larger usage, migrate to SQLite next.
-- Keep regular backups of `DATA_DIR`.

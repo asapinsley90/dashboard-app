@@ -1,9 +1,12 @@
 services:
   - type: web
     name: dashboard-app
+    branch: main
+    autoDeploy: true
     runtime: node
     plan: standard
     startCommand: npm start
+    healthCheckPath: /healthz
     envVars:
       - key: NODE_ENV
         value: production

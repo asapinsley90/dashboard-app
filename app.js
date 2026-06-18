@@ -2,14 +2,17 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const crypto = require('crypto');
+const archiver = require('archiver');
 const dbLayer = require('./lib/db-layer');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
 const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : __dirname;
-const DB_PATH = process.env.DB_PATH ? path.resolve(process.env.DB_PATH) : path.join(DATA_DIR, 'db.json');
+const DB_PATH = process.env.DB_PATH ? path.resolve(process.env.DB_PATH) : path.join(DATA_DIR, 'db.sqlite');
 const UPLOADS_DIR = process.env.UPLOADS_DIR ? path.resolve(process.env.UPLOADS_DIR) : path.join(DATA_DIR, 'uploads');
+const BACKUP_TOKEN = process.env.BACKUP_TOKEN || '';
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const dbDir = path.dirname(DB_PATH);
@@ -41,6 +44,79 @@ function setNoCacheHeaders(res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
+}
+
+function secureEquals(left, right) {
+  const leftBuf = Buffer.from(left || '', 'utf8');
+  const rightBuf = Buffer.from(right || '', 'utf8');
+  if (leftBuf.length !== rightBuf.length) return false;
+  return crypto.timingSafeEqual(leftBuf, rightBuf);
+}
+
+function requireBackupToken(req, res, next) {
+  if (!BACKUP_TOKEN) {
+    return res.status(503).json({
+      error: 'Backup export is not configured. Set BACKUP_TOKEN in environment variables.',
+    });
+  }
+
+  const provided = req.get('x-backup-token') || req.query.token;
+  if (!provided || !secureEquals(provided, BACKUP_TOKEN)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  next();
+}
+
+async function getHealthStatus() {
+  const db = await dbLayer.readDB();
+  let uploadsWritable = false;
+  if (fs.existsSync(UPLOADS_DIR)) {
+    try {
+      fs.accessSync(UPLOADS_DIR, fs.constants.W_OK);
+      uploadsWritable = true;
+    } catch (err) {
+      uploadsWritable = false;
+    }
+  }
+
+  return {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+    dbPath: dbLayer.DB_PATH,
+    uploadsDir: UPLOADS_DIR,
+    uploadsWritable,
+    counts: {
+      areas: (db.areas || []).length,
+      records: (db.records || []).length,
+      reviews: (db.reviews || []).length,
+    },
+  };
+}
+
+async function getBackupManifest() {
+  const db = await dbLayer.readDB();
+  const files = fs.existsSync(UPLOADS_DIR)
+    ? fs.readdirSync(UPLOADS_DIR).filter(name => !name.startsWith('.'))
+    : [];
+
+  return {
+    generatedAt: new Date().toISOString(),
+    app: 'dashboard',
+    dbFile: path.basename(dbLayer.DB_PATH),
+    uploadsDir: path.basename(UPLOADS_DIR),
+    counts: {
+      areas: (db.areas || []).length,
+      records: (db.records || []).length,
+      reviews: (db.reviews || []).length,
+      uploadFiles: files.length,
+    },
+    notes: [
+      'Backup includes db.sqlite and uploads/ directory when present.',
+      'Store backups securely and test restores periodically.',
+    ],
+  };
 }
 
 // ── DB HELPERS ────────────────────────────────────────────────────────────────
@@ -238,6 +314,79 @@ function initDB() {
 }
 
 // ── API ROUTES ────────────────────────────────────────────────────────────────
+
+app.get('/healthz', async (req, res) => {
+  try {
+    const status = await getHealthStatus();
+    res.json(status);
+  } catch (err) {
+    res.status(503).json({
+      status: 'degraded',
+      timestamp: new Date().toISOString(),
+      error: err.message,
+    });
+  }
+});
+
+app.get('/api/health', async (req, res) => {
+  try {
+    const status = await getHealthStatus();
+    res.json(status);
+  } catch (err) {
+    res.status(503).json({
+      status: 'degraded',
+      timestamp: new Date().toISOString(),
+      error: err.message,
+    });
+  }
+});
+
+app.get('/api/backup/status', (req, res) => {
+  res.json({
+    enabled: !!BACKUP_TOKEN,
+    requiresToken: true,
+  });
+});
+
+app.get('/api/backup/export', requireBackupToken, async (req, res) => {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const archiveName = `dashboard-backup-${stamp}.zip`;
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${archiveName}"`);
+
+  const archive = archiver('zip', { zlib: { level: 9 } });
+
+  archive.on('warning', err => {
+    if (err.code === 'ENOENT') {
+      console.warn('Backup warning:', err.message);
+      return;
+    }
+    console.error('Backup archive warning:', err);
+    if (!res.headersSent) res.status(500).end();
+  });
+
+  archive.on('error', err => {
+    console.error('Backup archive error:', err);
+    if (!res.headersSent) res.status(500).end();
+    else res.end();
+  });
+
+  archive.pipe(res);
+
+  const manifest = await getBackupManifest();
+  archive.append(`${JSON.stringify(manifest, null, 2)}\n`, { name: 'manifest.json' });
+
+  if (fs.existsSync(dbLayer.DB_PATH)) {
+    archive.file(dbLayer.DB_PATH, { name: 'db.sqlite' });
+  }
+
+  if (fs.existsSync(UPLOADS_DIR)) {
+    archive.directory(UPLOADS_DIR, 'uploads');
+  }
+
+  await archive.finalize();
+});
 
 // DB snapshot
 app.get('/api/db', async (req, res) => res.json(await dbLayer.readDB()));
