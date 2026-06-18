@@ -1,0 +1,80 @@
+name: Weekly Backup
+
+on:
+  schedule:
+    # Every Sunday at 09:17 UTC
+    - cron: '17 9 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Generate timestamp
+        id: ts
+        run: echo "stamp=$(date -u +'%Y%m%dT%H%M%SZ')" >> "$GITHUB_OUTPUT"
+
+      - name: Download backup archive
+        id: backup
+        env:
+          BACKUP_URL: ${{ secrets.RENDER_BACKUP_URL }}
+          BACKUP_TOKEN: ${{ secrets.RENDER_BACKUP_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${BACKUP_URL:-}" ] || [ -z "${BACKUP_TOKEN:-}" ]; then
+            echo "RENDER_BACKUP_URL and RENDER_BACKUP_TOKEN must be configured as repository secrets."
+            exit 1
+          fi
+
+          mkdir -p backups
+          out="backups/dashboard-backup-${{ steps.ts.outputs.stamp }}.zip"
+
+          status=$(curl --silent --show-error --location \
+            --retry 3 --retry-delay 3 --retry-connrefused \
+            --header "x-backup-token: ${BACKUP_TOKEN}" \
+            --output "${out}" \
+            --write-out "%{http_code}" \
+            "${BACKUP_URL%/}/api/backup/export")
+
+          if [ "${status}" != "200" ]; then
+            echo "Backup export failed with HTTP status ${status}"
+            rm -f "${out}"
+            exit 1
+          fi
+
+          if [ ! -s "${out}" ]; then
+            echo "Backup archive was empty."
+            exit 1
+          fi
+
+          checksum=$(sha256sum "${out}" | awk '{print $1}')
+          size=$(wc -c < "${out}")
+
+          echo "backup_file=${out}" >> "$GITHUB_OUTPUT"
+          echo "backup_checksum=${checksum}" >> "$GITHUB_OUTPUT"
+          echo "backup_size=${size}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-backup-${{ steps.ts.outputs.stamp }}
+          path: ${{ steps.backup.outputs.backup_file }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Write run summary
+        run: |
+          {
+            echo "## Weekly backup completed"
+            echo
+            echo "- File: ${{ steps.backup.outputs.backup_file }}"
+            echo "- Size (bytes): ${{ steps.backup.outputs.backup_size }}"
+            echo "- SHA-256: ${{ steps.backup.outputs.backup_checksum }}"
+            echo "- Retention: 30 days"
+          } >> "$GITHUB_STEP_SUMMARY"

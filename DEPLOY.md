@@ -95,6 +95,36 @@ Backups are written to `./backups` by default.
 3. Keep at least 4 rolling backups.
 4. Test restore monthly.
 
+### Automated Weekly Backups (GitHub Actions)
+
+Workflow file:
+
+- `.github/workflows/weekly-backup.yml`
+
+Schedule:
+
+- Every Sunday at 09:17 UTC
+- Manual trigger supported via GitHub Actions UI (`workflow_dispatch`)
+
+One-time setup:
+
+1. Open GitHub repo -> Settings -> Secrets and variables -> Actions.
+2. Add repository secret `RENDER_BACKUP_URL` with your base app URL.
+	- Example: `https://dashboard-app-jxlb.onrender.com`
+3. Add repository secret `RENDER_BACKUP_TOKEN` with your current backup token.
+4. Open Actions tab -> Weekly Backup -> Run workflow once to validate.
+
+Where backups are stored:
+
+1. GitHub Actions artifacts (named `dashboard-backup-<timestamp>`)
+2. Artifact retention is set to 30 days
+
+Operational notes:
+
+1. Rotate `RENDER_BACKUP_TOKEN` in Render and GitHub secrets at the same time.
+2. If a run fails, open the failed workflow and review the "Download backup archive" step logs.
+3. Download at least one artifact per month to an external storage location for independent retention.
+
 ## Restore Procedure (Manual)
 
 1. Stop app.

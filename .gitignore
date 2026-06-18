@@ -8,6 +8,8 @@ uploads/
 .env.local
 .DS_Store
 Backup/
+backups/
+dashboard-backup-*.zip
 *.log
 npm-debug.log*
 yarn-debug.log*
