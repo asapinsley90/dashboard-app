@@ -2179,7 +2179,10 @@ function promptAddEvent() {
       });
       DB.records.push(ev);
       closeModal();
-      renderCalFull();
+      renderSidebar();
+      if (currentView === 'dashboard') renderDashboard();
+      else if (currentView === 'calendar') renderCalFull();
+      else renderCalFull();
     }},
     { label: 'Cancel', onclick: closeModal }]);
   setTimeout(() => {
