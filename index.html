@@ -1339,7 +1339,7 @@ function statusBadge(r) {
     exploring: 'badge-purple', upcoming: 'badge-blue',
     completed: 'badge-complete', archived: 'badge-archived'
   };
-  if (!r.status || r.status === 'active') return '';
+  if (!r.status || r.status === 'active' || r.status === 'upcoming') return '';
   return `<span class="badge ${map[r.status] || 'badge-gray'}">${r.status}</span>`;
 }
 
