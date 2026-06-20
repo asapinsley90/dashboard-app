@@ -256,6 +256,12 @@ textarea.modal-input{resize:vertical;min-height:70px}
 /* Urgency */
 .urgency-btn{background:none;border:1px solid var(--border);border-radius:5px;cursor:pointer;padding:3px 8px;font-size:11px;font-weight:500;transition:all .12s}
 .urgency-none{color:var(--dim)}
+.color-swatch-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.color-swatch{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .12s,border-color .12s,opacity .12s;box-sizing:border-box;flex-shrink:0}
+.color-swatch:hover{transform:scale(1.18)}
+.color-swatch.cs-selected{border-color:var(--text);box-shadow:0 0 0 2px var(--bg1)}
+.color-swatch.cs-used{opacity:.3}
+.color-swatch.cs-used.cs-selected{opacity:1}
 .urgency-flagged{color:var(--amber);border-color:rgba(212,148,58,.3);background:rgba(212,148,58,.05)}
 .urgency-priority{color:var(--blue);border-color:rgba(91,155,213,.3);background:rgba(91,155,213,.05)}
 .urgency-urgent{color:var(--red);border-color:rgba(224,85,85,.3);background:rgba(224,85,85,.05)}
@@ -2054,9 +2060,19 @@ function promptAddRecord(forceType) {
 
 
 async function promptAddArea() {
+  const PALETTE = [
+    '#e05555','#d4943a','#4caf7d','#d4705a','#9b7fd4','#c4607a',
+    '#5b9bd5','#4db6ac','#8d6e63','#78909c','#7cb342','#e8834a',
+  ];
+  const usedColors = new Set(DB.areas.map(a => (a.color || '').toLowerCase()));
+  const defaultColor = PALETTE.find(c => !usedColors.has(c.toLowerCase())) || PALETTE[0];
+  const swatches = PALETTE.map(c =>
+    `<span class="color-swatch${usedColors.has(c.toLowerCase()) ? ' cs-used' : ''}" data-color="${c}" style="background:${c}" onclick="selectAreaColor('${c}')"></span>`
+  ).join('');
+
   openModal('New area', `
     <div class="modal-field"><div class="modal-label">Name</div><input class="modal-input" id="na-title" placeholder="Area name" autofocus></div>
-    <div class="modal-field"><div class="modal-label">Color</div><input type="color" id="na-color" value="#5b9bd5" style="width:48px;height:32px;border:none;background:none;cursor:pointer"></div>`,
+    <div class="modal-field"><div class="modal-label">Color</div><div class="color-swatch-grid" id="na-swatch-grid">${swatches}</div><input type="hidden" id="na-color" value="${defaultColor}"></div>`,
     [{ label: 'Create', primary: true, onclick: async () => {
       const title = document.getElementById('na-title').value.trim();
       const color = document.getElementById('na-color').value;
@@ -2067,7 +2083,15 @@ async function promptAddArea() {
       renderSidebar();
     }},
     { label: 'Cancel', onclick: closeModal }]);
-  setTimeout(() => document.getElementById('na-title')?.focus(), 50);
+  setTimeout(() => { document.getElementById('na-title')?.focus(); selectAreaColor(defaultColor); }, 50);
+}
+
+function selectAreaColor(color) {
+  document.querySelectorAll('#na-swatch-grid .color-swatch').forEach(el =>
+    el.classList.toggle('cs-selected', el.dataset.color === color)
+  );
+  const inp = document.getElementById('na-color');
+  if (inp) inp.value = color;
 }
 
 async function cycleUrgency(recordId) {
