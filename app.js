@@ -619,7 +619,7 @@ async function bootstrapAndStart() {
       console.log(`\n✓ Dashboard running at http://localhost:${PORT}`);
       console.log(`  Host: ${HOST}`);
       console.log(`  DB: ${dbLayer.DB_PATH}`);
-      console.log(`  Uploads: ${UPLOADS_DIR}\n`);
+      console.log(`  Uploads: r2://${R2_BUCKET}\n`);
     });
   } catch (err) {
     console.error('Failed to initialize database:', err);
