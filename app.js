@@ -4,42 +4,42 @@ const path = require('path');
 const multer = require('multer');
 const crypto = require('crypto');
 const archiver = require('archiver');
+const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const dbLayer = require('./lib/db-layer');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
-const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : __dirname;
-const DB_PATH = process.env.DB_PATH ? path.resolve(process.env.DB_PATH) : path.join(DATA_DIR, 'db.sqlite');
-const UPLOADS_DIR = process.env.UPLOADS_DIR ? path.resolve(process.env.UPLOADS_DIR) : path.join(DATA_DIR, 'uploads');
 const BACKUP_TOKEN = process.env.BACKUP_TOKEN || '';
 const BACKUP_TOKEN_SEED = process.env.BACKUP_TOKEN_SEED || '';
 
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-const dbDir = path.dirname(DB_PATH);
-if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
-
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
-// Store with original filename, deduplicated
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-  filename: (req, file, cb) => {
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const dest = path.join(UPLOADS_DIR, safeName);
-    // If file exists, prefix with timestamp
-    if (fs.existsSync(dest)) {
-      cb(null, Date.now() + '_' + safeName);
-    } else {
-      cb(null, safeName);
-    }
-  }
+// R2 storage
+const R2_BUCKET = process.env.R2_BUCKET || 'dashboard-uploads';
+const r2 = new S3Client({
+  region: 'auto',
+  endpoint: process.env.R2_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
+  },
 });
-const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 app.use(express.json());
 app.use(express.static(__dirname, { index: false }));
-app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Proxy uploads from R2
+app.get('/uploads/:name', async (req, res) => {
+  try {
+    const obj = await r2.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: req.params.name }));
+    if (obj.ContentType) res.setHeader('Content-Type', obj.ContentType);
+    if (obj.ContentLength) res.setHeader('Content-Length', obj.ContentLength);
+    obj.Body.pipe(res);
+  } catch (err) {
+    res.status(404).json({ error: 'Not found' });
+  }
+});
 
 function setNoCacheHeaders(res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -109,13 +109,11 @@ function requireBackupToken(req, res, next) {
 async function getHealthStatus() {
   const db = await dbLayer.readDB();
   let uploadsWritable = false;
-  if (fs.existsSync(UPLOADS_DIR)) {
-    try {
-      fs.accessSync(UPLOADS_DIR, fs.constants.W_OK);
-      uploadsWritable = true;
-    } catch (err) {
-      uploadsWritable = false;
-    }
+  try {
+    await r2.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: '.health' }));
+    uploadsWritable = true;
+  } catch (err) {
+    uploadsWritable = err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404;
   }
 
   return {
@@ -123,7 +121,7 @@ async function getHealthStatus() {
     timestamp: new Date().toISOString(),
     uptimeSeconds: Math.floor(process.uptime()),
     dbPath: dbLayer.DB_PATH,
-    uploadsDir: UPLOADS_DIR,
+    uploadsDir: `r2://${R2_BUCKET}`,
     uploadsWritable,
     counts: {
       areas: (db.areas || []).length,
@@ -135,23 +133,25 @@ async function getHealthStatus() {
 
 async function getBackupManifest() {
   const db = await dbLayer.readDB();
-  const files = fs.existsSync(UPLOADS_DIR)
-    ? fs.readdirSync(UPLOADS_DIR).filter(name => !name.startsWith('.'))
-    : [];
+  let fileCount = 0;
+  try {
+    const list = await r2.send(new ListObjectsV2Command({ Bucket: R2_BUCKET }));
+    fileCount = (list.Contents || []).length;
+  } catch (err) { /* ignore */ }
 
   return {
     generatedAt: new Date().toISOString(),
     app: 'dashboard',
-    dbFile: path.basename(dbLayer.DB_PATH),
-    uploadsDir: path.basename(UPLOADS_DIR),
+    dbFile: '(postgres)',
+    uploadsDir: `r2://${R2_BUCKET}`,
     counts: {
       areas: (db.areas || []).length,
       records: (db.records || []).length,
       reviews: (db.reviews || []).length,
-      uploadFiles: files.length,
+      uploadFiles: fileCount,
     },
     notes: [
-      'Backup includes db.sqlite and uploads/ directory when present.',
+      'DB is hosted on Neon (Postgres). Uploads are stored in Cloudflare R2.',
       'Store backups securely and test restores periodically.',
     ],
   };
@@ -424,13 +424,7 @@ app.get('/api/backup/export', requireBackupToken, async (req, res) => {
   const manifest = await getBackupManifest();
   archive.append(`${JSON.stringify(manifest, null, 2)}\n`, { name: 'manifest.json' });
 
-  if (fs.existsSync(dbLayer.DB_PATH)) {
-    archive.file(dbLayer.DB_PATH, { name: 'db.sqlite' });
-  }
-
-  if (fs.existsSync(UPLOADS_DIR)) {
-    archive.directory(UPLOADS_DIR, 'uploads');
-  }
+  archive.append(`${JSON.stringify({ note: 'DB is on Neon (Postgres). Download separately via pg_dump.' }, null, 2)}\n`, { name: 'db-note.txt' });
 
   await archive.finalize();
 });
@@ -540,44 +534,68 @@ app.post('/api/reviews', async (req, res) => {
 // ── FILE ROUTES ──────────────────────────────────────────────────────────────
 
 // List all uploaded files
-app.get('/api/files', (req, res) => {
-  const files = fs.readdirSync(UPLOADS_DIR)
-    .filter(f => !f.startsWith('.'))
-    .map(f => {
-      const stat = fs.statSync(path.join(UPLOADS_DIR, f));
-      return { name: f, size: stat.size, uploadedAt: stat.birthtime };
-    })
-    .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
-  res.json(files);
+app.get('/api/files', async (req, res) => {
+  try {
+    const list = await r2.send(new ListObjectsV2Command({ Bucket: R2_BUCKET }));
+    const files = (list.Contents || [])
+      .map(obj => ({ name: obj.Key, size: obj.Size, uploadedAt: obj.LastModified }))
+      .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+    res.json(files);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Upload file(s)
-app.post('/api/files', upload.array('files', 20), (req, res) => {
-  const uploaded = req.files.map(f => ({
-    name: f.filename,
-    originalName: f.originalname,
-    size: f.size,
-    uploadedAt: new Date()
-  }));
-  res.json(uploaded);
+app.post('/api/files', upload.array('files', 20), async (req, res) => {
+  try {
+    const uploaded = [];
+    for (const f of req.files) {
+      let key = f.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+      try {
+        await r2.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: key }));
+        key = Date.now() + '_' + key;
+      } catch (e) { /* file doesn't exist, use as-is */ }
+      await r2.send(new PutObjectCommand({
+        Bucket: R2_BUCKET, Key: key,
+        Body: f.buffer, ContentType: f.mimetype,
+      }));
+      uploaded.push({ name: key, originalName: f.originalname, size: f.size, uploadedAt: new Date() });
+    }
+    res.json(uploaded);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Rename file
-app.put('/api/files/:name', (req, res) => {
-  const oldPath = path.join(UPLOADS_DIR, req.params.name);
-  const newName = req.body.name?.replace(/[^a-zA-Z0-9._-]/g, '_');
-  if (!newName) return res.status(400).json({ error: 'Invalid name' });
-  const newPath = path.join(UPLOADS_DIR, newName);
-  if (!fs.existsSync(oldPath)) return res.status(404).json({ error: 'Not found' });
-  fs.renameSync(oldPath, newPath);
-  res.json({ name: newName });
+app.put('/api/files/:name', async (req, res) => {
+  const oldKey = req.params.name;
+  const newKey = req.body.name?.replace(/[^a-zA-Z0-9._-]/g, '_');
+  if (!newKey) return res.status(400).json({ error: 'Invalid name' });
+  try {
+    const obj = await r2.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: oldKey }));
+    const chunks = [];
+    for await (const chunk of obj.Body) chunks.push(chunk);
+    await r2.send(new PutObjectCommand({
+      Bucket: R2_BUCKET, Key: newKey,
+      Body: Buffer.concat(chunks), ContentType: obj.ContentType,
+    }));
+    await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: oldKey }));
+    res.json({ name: newKey });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Delete file
-app.delete('/api/files/:name', (req, res) => {
-  const filePath = path.join(UPLOADS_DIR, req.params.name);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  res.json({ deleted: req.params.name });
+app.delete('/api/files/:name', async (req, res) => {
+  try {
+    await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: req.params.name }));
+    res.json({ deleted: req.params.name });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Catch-all → index.html
