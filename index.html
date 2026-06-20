@@ -1187,7 +1187,7 @@ function renderAreaView(areaId) {
     const grouped = groupRecordsByType(filtered);
     el.innerHTML = (Object.entries(grouped).map(([type, recs]) => `
       <div style="margin-bottom:20px">
-        <div class="dash-section-label" style="margin-bottom:8px">${capitalize(type)}s</div>
+        <div class="dash-section-label" style="margin-bottom:8px">${pluralize(type)}</div>
         <div class="record-list">${recs.map(r => recordCard(r)).join('')}</div>
       </div>`).join('') || '<div class="empty">No active records.</div>') +
       `<div style="margin-top:8px"><button class="btn btn-sm" onclick="currentFilter=null;renderAreaView('${areaId}')">← All</button></div>`;
@@ -1202,7 +1202,7 @@ function renderAreaView(areaId) {
     const grouped = groupRecordsByType(activeRecs);
     el.innerHTML = (Object.entries(grouped).map(([type, recs]) => `
       <div style="margin-bottom:20px">
-        <div class="dash-section-label" style="margin-bottom:8px">${capitalize(type)}s</div>
+        <div class="dash-section-label" style="margin-bottom:8px">${pluralize(type)}</div>
         <div class="record-list">${recs.map(r => recordCard(r)).join('')}</div>
       </div>`).join('') || '<div class="empty">No active records. Add one above.</div>') +
       (completedRecs.length ? collapsibleGroup('Completed', completedRecs, false, 'completed-'+areaId) : '') +
@@ -3724,6 +3724,7 @@ function fmtTime(t) {
   return `${h % 12 || 12}:${String(m).padStart(2,'0')} ${h < 12 ? 'AM' : 'PM'}`;
 }
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : ''; }
+function pluralize(type) { return {company:'Companies',activity:'Activities',category:'Categories'}[type] || capitalize(type)+'s'; }
 function typeIcon(type) {
   return { job:'💼', contact:'👤', event:'📅', goal:'🎯', task:'✓', project:'🔨', note:'📝', account:'💳', transaction:'💸' }[type] || '•';
 }
