@@ -566,7 +566,8 @@ app.post('/api/files', upload.array('files', 20), async (req, res) => {
     }
     res.json(uploaded);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Upload error:', err);
+    res.status(500).json({ error: err.message, cause: err.cause?.message, code: err.Code || err.code });
   }
 });
 
