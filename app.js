@@ -5,8 +5,7 @@ const multer = require('multer');
 const crypto = require('crypto');
 const archiver = require('archiver');
 const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command, HeadObjectCommand } = require('@aws-sdk/client-s3');
-const { NodeHttpHandler } = require('@smithy/node-http-handler');
-const https = require('https');
+const { FetchHttpHandler } = require('@smithy/fetch-http-handler');
 const dbLayer = require('./lib/db-layer');
 
 const app = express();
@@ -24,12 +23,7 @@ const r2 = new S3Client({
     accessKeyId: process.env.R2_ACCESS_KEY_ID || '',
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
   },
-  requestHandler: new NodeHttpHandler({
-    httpsAgent: new https.Agent({
-      minVersion: 'TLSv1.2',
-      rejectUnauthorized: false,
-    }),
-  }),
+  requestHandler: new FetchHttpHandler(),
 });
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
