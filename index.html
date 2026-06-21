@@ -334,6 +334,7 @@ textarea.modal-input{resize:vertical;min-height:70px}
 .doc-name:hover{text-decoration:underline}
 .doc-meta{font-size:11px;color:var(--dim);white-space:nowrap}
 #doc-dropzone.drag-over{border-color:var(--accent);background:rgba(91,155,213,.05)}
+@keyframes spin{to{transform:rotate(360deg)}}
 .doc-ref{font-size:11px;line-height:1.2;padding:3px 9px;border-radius:12px;background:var(--bg3);color:var(--accent);border:1px solid var(--border);cursor:pointer;margin-right:4px;margin-bottom:3px;display:inline-block}
 .doc-ref:hover{border-color:var(--accent)}
 .doc-ref-area{color:var(--text)}
@@ -3167,9 +3168,24 @@ async function renderDocumentsView(){
   }).join('');
 }
 async function uploadFiles(files){
-  const fd=new FormData();for(const f of files)fd.append('files',f);
-  const res=await fetch('/api/files',{method:'POST',body:fd});const uploaded=await res.json();
-  await loadFiles();if(currentView==='documents')renderDocumentsView();return uploaded;
+  const toast=document.createElement('div');
+  toast.style.cssText='position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--text);z-index:9999;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.3)';
+  const names=[...files].map(f=>f.name).join(', ');
+  toast.innerHTML=`<span style="display:inline-block;width:14px;height:14px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite"></span><span>Uploading ${files.length===1?`<b>${names}</b>`:`${files.length} files`}…</span>`;
+  document.body.appendChild(toast);
+  try{
+    const fd=new FormData();for(const f of files)fd.append('files',f);
+    const res=await fetch('/api/files',{method:'POST',body:fd});
+    const uploaded=await res.json();
+    if(!res.ok)throw new Error(uploaded.error||'Upload failed');
+    toast.innerHTML=`<span style="color:var(--green)">✓</span><span>Uploaded ${files.length===1?`<b>${names}</b>`:`${files.length} files`}</span>`;
+    setTimeout(()=>toast.remove(),2500);
+    await loadFiles();if(currentView==='documents')renderDocumentsView();return uploaded;
+  }catch(err){
+    toast.innerHTML=`<span style="color:var(--red)">✗</span><span>Upload failed: ${err.message}</span>`;
+    setTimeout(()=>toast.remove(),4000);
+    return [];
+  }
 }
 function docDragOver(e){e.preventDefault();document.getElementById('doc-dropzone')?.classList.add('drag-over');}
 function docDragLeave(e){document.getElementById('doc-dropzone')?.classList.remove('drag-over');}
