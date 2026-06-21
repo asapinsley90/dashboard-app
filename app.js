@@ -25,7 +25,10 @@ const r2 = new S3Client({
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
   },
   requestHandler: new NodeHttpHandler({
-    httpsAgent: new https.Agent({ secureProtocol: 'TLSv1_2_method' }),
+    httpsAgent: new https.Agent({
+      minVersion: 'TLSv1.2',
+      rejectUnauthorized: false,
+    }),
   }),
 });
 
