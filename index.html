@@ -836,9 +836,19 @@ function navigate(view, areaId, recordId, push = true) {
   const record = DB.records.find(r => r.id === recordId);
   const bcParts = [];
   if (area) {
+    const parent = area.parentId ? DB.areas.find(a => a.id === area.parentId) : null;
+    if (parent) {
+      bcParts.push(`<span class="doc-ref doc-ref-area" data-area-link="${parent.id}" style="background:${parent.color}18;border:1px solid ${parent.color}44;color:${parent.color}">${escapeHtml(parent.title)}</span>`);
+    }
     bcParts.push(`<span class="doc-ref doc-ref-area" data-area-link="${area.id}" style="background:${area.color}18;border:1px solid ${area.color}44;color:${area.color}">${escapeHtml(area.title)}</span>`);
   }
   if (record) {
+    const recArea = DB.areas.find(a => a.id === record.areaId);
+    if (recArea && recArea.id !== areaId) {
+      const recParent = recArea.parentId ? DB.areas.find(a => a.id === recArea.parentId) : null;
+      if (recParent && !bcParts.length) bcParts.push(`<span class="doc-ref doc-ref-area" data-area-link="${recParent.id}" style="background:${recParent.color}18;border:1px solid ${recParent.color}44;color:${recParent.color}">${escapeHtml(recParent.title)}</span>`);
+      if (!bcParts.some(p => p.includes(`data-area-link="${recArea.id}"`))) bcParts.push(`<span class="doc-ref doc-ref-area" data-area-link="${recArea.id}" style="background:${recArea.color}18;border:1px solid ${recArea.color}44;color:${recArea.color}">${escapeHtml(recArea.title)}</span>`);
+    }
     bcParts.push(`<span class="doc-ref" data-record-link data-area-id="${record.areaId}" data-record-id="${record.id}">${escapeHtml(record.title)}</span>`);
   }
   document.getElementById('topbar-breadcrumb').innerHTML = bcParts.join('<span style="color:var(--dim);margin:0 6px">&#8250;</span>');
@@ -4471,7 +4481,39 @@ function showRecordCtxMenu(e,recordId){
   statusOpts.forEach(s=>addI((r.status===s?'✓ ':'')+s.charAt(0).toUpperCase()+s.slice(1),()=>setRecordStatus(recordId,s),r.status===s?'checked':s==='archived'?'dim':''));
   addD();
   addI('→ Open record',()=>navigate('record',r.areaId,recordId));
+  addD();
+  addI('Move to area…', () => {
+    const leafAreas = DB.areas.filter(a => !DB.areas.some(b => b.parentId === a.id));
+    const opts = leafAreas.map(a => {
+      const parent = a.parentId ? DB.areas.find(p => p.id === a.parentId) : null;
+      const label = parent ? `${parent.title} › ${a.title}` : a.title;
+      return `<option value="${a.id}" ${a.id === r.areaId ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center';
+    modal.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:24px;width:320px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:14px">Move "${r.title}"</div>
+      <select id="move-area-select" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:8px;color:var(--text);font-size:13px;margin-bottom:16px">${opts}</select>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn-s" onclick="this.closest('[style*=fixed]').remove()">Cancel</button>
+        <button class="btn-p" onclick="confirmMoveRecord('${recordId}',this)">Move</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+  });
   document.body.appendChild(menu);_ctxMenu=menu;
+}
+
+async function confirmMoveRecord(recordId, btn) {
+  const modal = btn.closest('[style*=fixed]');
+  const newAreaId = document.getElementById('move-area-select').value;
+  modal.remove();
+  if (!newAreaId) return;
+  await api('PUT', `/api/records/${recordId}`, { areaId: newAreaId });
+  const r = DB.records.find(r => r.id === recordId);
+  if (r) r.areaId = newAreaId;
+  if (currentView === 'record') navigate('record', newAreaId, recordId);
+  else renderAreaView(currentAreaId);
 }
 
 boot();
