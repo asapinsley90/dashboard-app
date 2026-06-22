@@ -939,7 +939,7 @@ function renderSidebar() {
   // Dash area cards
   const dashAreas = document.getElementById('dash-areas');
   if (dashAreas) {
-    dashAreas.innerHTML = areas.map(area => {
+    dashAreas.innerHTML = topAreas.map(area => {
       const records = DB.records.filter(r => r.areaId === area.id);
       const sub = areaSubtitle(area, records);
       return `<div class="area-card" data-area-link="${area.id}">
