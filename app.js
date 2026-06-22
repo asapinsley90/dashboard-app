@@ -589,19 +589,24 @@ app.post('/api/records/:id/parse-statement', upload.single('file'), async (req, 
 
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 256,
+      max_tokens: 512,
       messages: [{
         role: 'user',
         content: [
           contentBlock,
-          { type: 'text', text: 'Extract the ending/closing account balance and the statement end date from this financial statement. Respond ONLY with valid JSON in this exact format: {"balance": 12345.67, "date": "2026-05-31"}. Use numbers only for balance (no $ or commas). Use YYYY-MM-DD for date.' }
+          { type: 'text', text: 'Extract the following from this financial statement summary: beginning account value, ending account value, contributions this period (0 if none or dashes), and the statement period end date. Respond ONLY with valid JSON: {"beginBalance": 12345.67, "endBalance": 12345.67, "contributions": 0, "date": "2026-05-31"}. Numbers only (no $ or commas). Date in YYYY-MM-DD.' }
         ]
       }]
     });
 
     const text = message.content[0].text.trim();
     const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
-    res.json({ balance: parsed.balance, date: parsed.date });
+    const beginBalance = parsed.beginBalance || 0;
+    const endBalance = parsed.endBalance || 0;
+    const contributions = parsed.contributions || 0;
+    const investmentGain = endBalance - beginBalance - contributions;
+    const returnPct = beginBalance > 0 ? Math.round((investmentGain / beginBalance) * 10000) / 100 : 0;
+    res.json({ beginBalance, endBalance, contributions, returnPct, date: parsed.date });
   } catch (err) {
     console.error('Parse statement error:', err);
     res.status(500).json({ error: err.message });
