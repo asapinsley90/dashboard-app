@@ -1193,7 +1193,7 @@ function renderAreaView(areaId) {
     if (btnEl) {
       btnEl.innerHTML = '';
       const b = document.createElement('button');
-      b.className = 'btn btn-sm'; b.style.color = 'var(--muted)';
+      b.className = 'btn btn-sm btn-p';
       b.textContent = '+ Add sub-area';
       b.onclick = () => promptAddArea(areaId);
       btnEl.appendChild(b);
@@ -1237,7 +1237,7 @@ function renderAreaView(areaId) {
       b.onclick = () => promptAddRecord();
       btnEl.appendChild(b);
       const b2 = document.createElement('button');
-      b2.className = 'btn btn-sm';b2.style.marginLeft='6px';
+      b2.className = 'btn btn-sm btn-p'; b2.style.marginLeft='6px';
       b2.textContent = '+ Add sub-area';
       b2.onclick = () => promptAddArea(areaId);
       btnEl.appendChild(b2);
