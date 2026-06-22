@@ -1815,6 +1815,8 @@ function renderAccountRecord(r, area) {
       <div style="text-align:right">
         <div style="font-size:28px;font-weight:700;color:var(--text);cursor:pointer;line-height:1.2" onclick="editAccountBalance('${r.id}')" title="Click to update balance" id="acct-bal-${r.id}">${balFormatted}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px">${balDate}</div>
+        <button class="btn-s" style="margin-top:8px;font-size:11px" onclick="parseStatementUpload('${r.id}')">⬆ Import statement</button>
+        <input type="file" id="stmt-input-${r.id}" accept="image/*,application/pdf" style="display:none" onchange="handleStatementFile('${r.id}',this)">
       </div>
     </div>
   </div>
@@ -1865,6 +1867,45 @@ async function editAccountBalance(recordId) {
   r.timeline = r.timeline || [];
   r.timeline.push(entry);
   renderRecordView(recordId);
+}
+
+function parseStatementUpload(recordId) {
+  document.getElementById(`stmt-input-${recordId}`)?.click();
+}
+
+async function handleStatementFile(recordId, input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--text);z-index:9999;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.3)';
+  toast.innerHTML = `<span style="display:inline-block;width:14px;height:14px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite"></span><span>Reading statement…</span>`;
+  document.body.appendChild(toast);
+
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`/api/records/${recordId}/parse-statement`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Parse failed');
+
+    const r = getRecord(recordId);
+    const balStr = `$${Number(data.balance).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    r.fields.balance = data.balance;
+    r.fields.balanceDate = data.date;
+    await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+    await api('POST', `/api/records/${recordId}/timeline`, { text: `Balance updated to ${balStr} (imported from statement)` });
+    r.timeline = r.timeline || [];
+    r.timeline.push({ id: Date.now().toString(36), date: new Date().toISOString(), text: `Balance updated to ${balStr} (imported from statement)`, author: 'aaron' });
+
+    toast.innerHTML = `<span style="color:var(--green)">✓</span><span>Balance set to <b>${balStr}</b> as of ${data.date}</span>`;
+    setTimeout(() => toast.remove(), 5000);
+    renderRecordView(recordId);
+  } catch (err) {
+    toast.innerHTML = `<span style="color:var(--red)">✗</span><span>${err.message}</span>`;
+    setTimeout(() => toast.remove(), 4000);
+  }
 }
 
 function renderGenericRecord(r, area) {

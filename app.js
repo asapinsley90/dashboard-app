@@ -7,6 +7,7 @@ const archiver = require('archiver');
 const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const { FetchHttpHandler } = require('@smithy/fetch-http-handler');
 const dbLayer = require('./lib/db-layer');
+const Anthropic = require('@anthropic-ai/sdk');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -568,6 +569,42 @@ app.post('/api/files', upload.array('files', 20), async (req, res) => {
   } catch (err) {
     console.error('Upload error:', err);
     res.status(500).json({ error: err.message, cause: err.cause?.message, code: err.Code || err.code });
+  }
+});
+
+// Parse statement image/PDF with Claude vision → extract balance + date
+app.post('/api/records/:id/parse-statement', upload.single('file'), async (req, res) => {
+  try {
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const base64 = file.buffer.toString('base64');
+    const mediaType = file.mimetype === 'application/pdf' ? 'application/pdf' : file.mimetype;
+
+    const isPdf = mediaType === 'application/pdf';
+    const contentBlock = isPdf
+      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
+      : { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } };
+
+    const message = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 256,
+      messages: [{
+        role: 'user',
+        content: [
+          contentBlock,
+          { type: 'text', text: 'Extract the ending/closing account balance and the statement end date from this financial statement. Respond ONLY with valid JSON in this exact format: {"balance": 12345.67, "date": "2026-05-31"}. Use numbers only for balance (no $ or commas). Use YYYY-MM-DD for date.' }
+        ]
+      }]
+    });
+
+    const text = message.content[0].text.trim();
+    const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+    res.json({ balance: parsed.balance, date: parsed.date });
+  } catch (err) {
+    console.error('Parse statement error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
