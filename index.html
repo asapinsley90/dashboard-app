@@ -1926,9 +1926,9 @@ async function handleStatementFile(recordId, file) {
 }
 
 function showStatementConfirmModal(recordId, data) {
-  const date = new Date(data.date + 'T12:00:00');
-  const year = date.getFullYear();
-  const month = date.getMonth(); // 0-indexed
+  const parts = (data.date || '').split('-');
+  const year = parseInt(parts[0]) || new Date().getFullYear();
+  const month = parts[1] ? parseInt(parts[1]) - 1 : new Date().getMonth();
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const years = Array.from({length: 6}, (_, i) => year - 2 + i);
   const fmt = n => '$' + Number(n).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
