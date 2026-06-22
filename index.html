@@ -1822,7 +1822,12 @@ function renderAccountRecord(r, area) {
       </tr>`).join('')}</tbody>
     </table>` : '<div style="color:var(--muted);font-size:12px">No history yet — import a statement to start tracking.</div>';
 
-  setTimeout(() => attachStatementPasteListener(r.id), 0);
+  const chartHistory = (r.fields.history || []).slice().sort((a,b) => a.month.localeCompare(b.month));
+  const chartId = `acct-charts-${r.id}`;
+  setTimeout(() => {
+    attachStatementPasteListener(r.id);
+    renderAccountCharts(chartId, chartHistory);
+  }, 0);
 
   return `<div class="record-view-header">
     <div class="record-view-icon">💳</div>
@@ -1845,6 +1850,7 @@ function renderAccountRecord(r, area) {
       </div>
     </div>
   </div>
+  <div id="${chartId}" style="padding:0 0 4px 0"></div>
   <div class="record-sections">
     <div class="record-main">
       <div class="section-card">
@@ -2022,6 +2028,103 @@ function detachStatementPasteListener() {
     document.removeEventListener('paste', window._stmtPasteHandler);
     window._stmtPasteHandler = null;
   }
+}
+
+function renderAccountCharts(containerId, history) {
+  const el = document.getElementById(containerId);
+  if (!el || history.length < 2) { if (el) el.innerHTML = ''; return; }
+
+  const W = el.offsetWidth || 700;
+  const labels = history.map(h => h.month.slice(0, 7));
+  const shortLabels = labels.map(l => { const [y,m] = l.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1] + ' ' + y.slice(2); });
+
+  // ── Balance line chart ──────────────────────────────────────────────
+  function lineChart(values, title, fmtY) {
+    const H = 140, PL = 72, PR = 16, PT = 28, PB = 28;
+    const cW = W/3 - 16, cH = H;
+    const min = Math.min(...values), max = Math.max(...values);
+    const range = max - min || 1;
+    const xStep = (cW - PL - PR) / (values.length - 1);
+    const y = v => PT + (H - PT - PB) * (1 - (v - min) / range);
+    const pts = values.map((v, i) => `${PL + i * xStep},${y(v)}`).join(' ');
+    const areaPath = `M${PL},${H - PB} ` + values.map((v,i) => `L${PL + i*xStep},${y(v)}`).join(' ') + ` L${PL + (values.length-1)*xStep},${H-PB} Z`;
+    const ticks = [min, (min+max)/2, max];
+    return `<svg width="${cW}" height="${cH}" style="overflow:visible">
+      <text x="${PL}" y="16" font-size="11" fill="var(--muted)" font-family="inherit">${title}</text>
+      ${ticks.map(t => `<text x="${PL-4}" y="${y(t)+4}" font-size="9" fill="var(--muted)" text-anchor="end" font-family="inherit">${fmtY(t)}</text><line x1="${PL}" y1="${y(t)}" x2="${cW-PR}" y2="${y(t)}" stroke="var(--border1)" stroke-width="1"/>`).join('')}
+      <path d="${areaPath}" fill="var(--accent)" opacity="0.08"/>
+      <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${values.map((v,i) => `<circle cx="${PL+i*xStep}" cy="${y(v)}" r="3" fill="var(--accent)"/>`).join('')}
+      ${shortLabels.filter((_,i) => i===0||i===history.length-1||history.length<=6).map((_,i) => {
+        const idx = history.length<=6 ? i : (i===0?0:i===1?history.length-1:-1);
+        if (idx<0) return '';
+        return `<text x="${PL+idx*xStep}" y="${cH-6}" font-size="9" fill="var(--muted)" text-anchor="middle" font-family="inherit">${shortLabels[idx]}</text>`;
+      }).filter(s=>s).join('')}
+    </svg>`;
+  }
+
+  // ── Return % bar chart ───────────────────────────────────────────────
+  function returnChart(values, title) {
+    const H = 140, PL = 36, PR = 8, PT = 28, PB = 28;
+    const cW = W/3 - 16, cH = H;
+    const max = Math.max(...values.map(Math.abs), 0.5);
+    const zeroY = PT + (H - PT - PB) / 2;
+    const totalW = cW - PL - PR;
+    const barW = Math.max(4, totalW / values.length - 3);
+    const barX = i => PL + (totalW / values.length) * i + (totalW / values.length - barW) / 2;
+    const barH = v => Math.abs(v) / max * (H - PT - PB) / 2;
+    return `<svg width="${cW}" height="${cH}" style="overflow:visible">
+      <text x="${PL}" y="16" font-size="11" fill="var(--muted)" font-family="inherit">${title}</text>
+      <line x1="${PL}" y1="${zeroY}" x2="${cW-PR}" y2="${zeroY}" stroke="var(--border2)" stroke-width="1"/>
+      <text x="${PL-4}" y="${PT+4}" font-size="9" fill="var(--muted)" text-anchor="end" font-family="inherit">+${max.toFixed(1)}%</text>
+      <text x="${PL-4}" y="${H-PB+4}" font-size="9" fill="var(--muted)" text-anchor="end" font-family="inherit">-${max.toFixed(1)}%</text>
+      ${values.map((v,i) => {
+        const pos = v >= 0;
+        const bh = barH(v);
+        const by = pos ? zeroY - bh : zeroY;
+        return `<rect x="${barX(i)}" y="${by}" width="${barW}" height="${bh}" fill="${pos?'var(--green)':'var(--red)'}" rx="2" opacity="0.85"/>
+          <title>${shortLabels[i]}: ${v>=0?'+':''}${v.toFixed(2)}%</title>`;
+      }).join('')}
+    </svg>`;
+  }
+
+  // ── Contributions vs gain stacked bars ──────────────────────────────
+  function contribChart(hist, title) {
+    const H = 140, PL = 56, PR = 8, PT = 28, PB = 28;
+    const cW = W/3 - 16, cH = H;
+    const gains = hist.map(h => h.endBalance - h.beginBalance - (h.contributions||0));
+    const contribs = hist.map(h => h.contributions || 0);
+    const totals = hist.map((_,i) => Math.abs(gains[i]) + contribs[i]);
+    const max = Math.max(...totals, 1);
+    const totalW = cW - PL - PR;
+    const barW = Math.max(4, totalW / hist.length - 3);
+    const barX = i => PL + (totalW / hist.length) * i + (totalW / hist.length - barW) / 2;
+    const availH = H - PT - PB;
+    const fmt = n => n >= 1000 ? '$' + (n/1000).toFixed(1) + 'k' : '$' + n.toFixed(0);
+    return `<svg width="${cW}" height="${cH}" style="overflow:visible">
+      <text x="${PL}" y="16" font-size="11" fill="var(--muted)" font-family="inherit">${title}</text>
+      ${[0, max/2, max].map(t => `<text x="${PL-4}" y="${PT + availH*(1-t/max)+4}" font-size="9" fill="var(--muted)" text-anchor="end" font-family="inherit">${fmt(t)}</text><line x1="${PL}" y1="${PT+availH*(1-t/max)}" x2="${cW-PR}" y2="${PT+availH*(1-t/max)}" stroke="var(--border1)" stroke-width="1"/>`).join('')}
+      ${hist.map((_,i) => {
+        const gh = availH * Math.abs(gains[i]) / max;
+        const ch = availH * contribs[i] / max;
+        const gainColor = gains[i] >= 0 ? 'var(--green)' : 'var(--red)';
+        return `<rect x="${barX(i)}" y="${PT + availH - gh - ch}" width="${barW}" height="${ch}" fill="var(--accent)" opacity="0.7" rx="2"/>
+          <rect x="${barX(i)}" y="${PT + availH - gh}" width="${barW}" height="${gh}" fill="${gainColor}" opacity="0.6" rx="2"/>`;
+      }).join('')}
+      <text x="${PL + 4}" y="${cH-6}" font-size="9" fill="var(--accent)" font-family="inherit">■ Contrib</text>
+      <text x="${PL + 52}" y="${cH-6}" font-size="9" fill="var(--green)" font-family="inherit">■ Gain</text>
+    </svg>`;
+  }
+
+  const balances = history.map(h => h.endBalance);
+  const returns = history.map(h => h.returnPct);
+  const fmtK = n => n >= 1000 ? '$'+(n/1000).toFixed(0)+'k' : '$'+n.toFixed(0);
+
+  el.innerHTML = `<div style="display:flex;gap:8px;padding:0 0 16px 0;overflow:hidden">
+    ${lineChart(balances, 'Balance', fmtK)}
+    ${returnChart(returns, 'Monthly return %')}
+    ${contribChart(history, 'Contributions vs gain')}
+  </div>`;
 }
 
 function renderGenericRecord(r, area) {
