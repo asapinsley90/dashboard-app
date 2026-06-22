@@ -882,31 +882,50 @@ window.addEventListener('popstate', e => {
 
 // ── SIDEBAR ───────────────────────────────────────────────────────────────────
 function getAreaSubitems(areaId) {
+  // Child sub-areas take priority over status filters
+  const children = DB.areas.filter(a => a.parentId === areaId).sort((a,b) => (a.order_??0)-(b.order_??0));
+  if (children.length > 0) {
+    return children.map(a => ({ label: a.title, areaId: a.id, type: 'area' }));
+  }
   if (areaId === 'area-jobs') {
     return [
-      { label: 'Active', filter: 'active' },
-      { label: 'Applied', filter: 'applied' },
-      { label: 'Archived', filter: 'archived' },
-      { label: 'Contacts', filter: 'contacts' },
+      { label: 'Active', filter: 'active', type: 'filter' },
+      { label: 'Applied', filter: 'applied', type: 'filter' },
+      { label: 'Archived', filter: 'archived', type: 'filter' },
+      { label: 'Contacts', filter: 'contacts', type: 'filter' },
     ];
   }
   return [
-    { label: 'Active', filter: 'active' },
-    { label: 'Completed', filter: 'completed' },
-    { label: 'Archived', filter: 'archived' },
+    { label: 'Active', filter: 'active', type: 'filter' },
+    { label: 'Completed', filter: 'completed', type: 'filter' },
+    { label: 'Archived', filter: 'archived', type: 'filter' },
   ];
 }
 
 function renderSidebar() {
   const el = document.getElementById('sidebar-areas');
-  const areas = [...DB.areas].sort((a, b) => a.order - b.order);
-  el.innerHTML = areas.map(area => {
+  const allAreas = [...DB.areas].sort((a, b) => (a.order_??a.order??0) - (b.order_??b.order??0));
+  // Only render top-level areas (no parentId) in main list
+  const topAreas = allAreas.filter(a => !a.parentId);
+  el.innerHTML = topAreas.map(area => {
     const count = DB.records.filter(r => r.areaId === area.id && r.type === 'job' && ['interviewing','awaiting'].includes(r.status)).length;
-    const isActive = currentAreaId === area.id && (currentView === 'area' || currentView === 'record');
+    const childIds = allAreas.filter(a => a.parentId === area.id).map(a => a.id);
+    const isActive = (currentAreaId === area.id || childIds.includes(currentAreaId)) && (currentView === 'area' || currentView === 'record');
     const subs = getAreaSubitems(area.id);
-    const subsHTML = subs && isActive ? `<div class="sidebar-subitems visible" id="subitems-${area.id}">
-      ${subs.map(s => `<div class="sidebar-subitem ${currentFilter===s.filter?'active':''}" data-filter-link data-area-id="${area.id}" data-filter="${s.filter}">${s.label}</div>`).join('')}
-    </div>` : (subs ? `<div class="sidebar-subitems" id="subitems-${area.id}"></div>` : '');
+    let subsHTML = '';
+    if (subs && isActive) {
+      const itemsHTML = subs.map(s => {
+        if (s.type === 'area') {
+          const isSubActive = currentAreaId === s.areaId;
+          return `<div class="sidebar-subitem ${isSubActive?'active':''}" data-area-link="${s.areaId}">${s.label}</div>`;
+        } else {
+          return `<div class="sidebar-subitem ${currentFilter===s.filter?'active':''}" data-filter-link data-area-id="${area.id}" data-filter="${s.filter}">${s.label}</div>`;
+        }
+      }).join('');
+      subsHTML = `<div class="sidebar-subitems visible" id="subitems-${area.id}">${itemsHTML}</div>`;
+    } else if (subs) {
+      subsHTML = `<div class="sidebar-subitems" id="subitems-${area.id}"></div>`;
+    }
     return `<div class="sidebar-item ${isActive?'active':''}" data-area="${area.id}" data-area-link="${area.id}">
       <div class="sidebar-dot" style="background:${area.color}"></div>
       <span class="sidebar-item-title" ondblclick="renameArea(event,'${area.id}')">${area.title}</span>
@@ -1164,6 +1183,38 @@ function renderAreaView(areaId) {
   document.getElementById('area-view-dot').style.background = area.color;
   document.getElementById('topbar-actions').innerHTML = '';
   const btnEl = document.getElementById('area-action-btns');
+  const children = DB.areas.filter(a => a.parentId === areaId).sort((a,b) => (a.order_??0)-(b.order_??0));
+
+  // If this area has sub-areas, show overview cards instead of records
+  if (children.length > 0) {
+    if (btnEl) {
+      btnEl.innerHTML = '';
+      const b = document.createElement('button');
+      b.className = 'btn btn-sm'; b.style.color = 'var(--muted)';
+      b.textContent = '+ Add sub-area';
+      b.onclick = () => promptAddArea(areaId);
+      btnEl.appendChild(b);
+    }
+    const el = document.getElementById('area-view-records');
+    el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:4px">${
+      children.map(child => {
+        const recs = DB.records.filter(r => r.areaId === child.id);
+        const active = recs.filter(r => r.status !== 'archived' && r.status !== 'completed').length;
+        return `<div class="area-card" data-area-link="${child.id}" style="cursor:pointer">
+          <div class="area-card-head">
+            <div class="area-card-dot" style="background:${child.color||area.color}"></div>
+            <div class="area-card-name">${child.title}</div>
+          </div>
+          <div class="area-card-sub">${active} active record${active!==1?'s':''}</div>
+        </div>`;
+      }).join('')
+    }</div>`;
+    const calEl = document.getElementById('area-cal');
+    if (calEl) { window._calAreaFilter = areaId; renderAreaCalWidget('area-cal', areaId); }
+    renderSidebar();
+    return;
+  }
+
   if (btnEl) {
     btnEl.innerHTML = '';
     if (areaId === 'area-jobs') {
@@ -2060,7 +2111,7 @@ function promptAddRecord(forceType) {
 }
 
 
-async function promptAddArea() {
+async function promptAddArea(parentId = null) {
   const PALETTE = [
     '#e05555','#d4943a','#4caf7d','#d4705a','#9b7fd4','#c4607a',
     '#5b9bd5','#4db6ac','#8d6e63','#78909c','#7cb342','#e8834a',
@@ -2070,18 +2121,20 @@ async function promptAddArea() {
   const swatches = PALETTE.map(c =>
     `<span class="color-swatch${usedColors.has(c.toLowerCase()) ? ' cs-used' : ''}" data-color="${c}" style="background:${c}" onclick="selectAreaColor('${c}')"></span>`
   ).join('');
+  const parentArea = parentId ? DB.areas.find(a => a.id === parentId) : null;
 
-  openModal('New area', `
-    <div class="modal-field"><div class="modal-label">Name</div><input class="modal-input" id="na-title" placeholder="Area name" autofocus></div>
+  openModal(parentArea ? `New sub-area in ${parentArea.title}` : 'New area', `
+    <div class="modal-field"><div class="modal-label">Name</div><input class="modal-input" id="na-title" placeholder="${parentArea ? 'Sub-area name' : 'Area name'}" autofocus></div>
     <div class="modal-field"><div class="modal-label">Color</div><div class="color-swatch-grid" id="na-swatch-grid">${swatches}</div><input type="hidden" id="na-color" value="${defaultColor}"></div>`,
     [{ label: 'Create', primary: true, onclick: async () => {
       const title = document.getElementById('na-title').value.trim();
       const color = document.getElementById('na-color').value;
       if (!title) return;
-      const area = await api('POST', '/api/areas', { title, color, icon: '📁', order: DB.areas.length });
+      const area = await api('POST', '/api/areas', { title, color, icon: '📁', order: DB.areas.length, parentId });
       DB.areas.push(area);
       closeModal();
       renderSidebar();
+      if (parentId) navigate('area', parentId);
     }},
     { label: 'Cancel', onclick: closeModal }]);
   setTimeout(() => { document.getElementById('na-title')?.focus(); selectAreaColor(defaultColor); }, 50);
