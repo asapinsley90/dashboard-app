@@ -1393,14 +1393,18 @@ function recordCard(r) {
   const icons = { job: '💼', contact: '👤', event: '📅', goal: '🎯', task: '✓', project: '🔨', note: '📝', account: '💳', transaction: '💸' };
   let sub = r.fields.role || r.fields.notes?.slice(0, 80) || r.fields.date || '';
   let right = statusBadge(r);
+  let cardIcon = `<div class="record-card-icon">${icons[r.type] || '•'}</div>`;
   if (r.type === 'account') {
     const parts = [r.fields.institution, r.fields.accountType, r.fields.owner].filter(Boolean);
     sub = parts.join(' · ');
     const bal = r.fields.balance !== undefined && r.fields.balance !== '' ? '$'+Number(r.fields.balance).toLocaleString() : '';
     right = bal ? `<span style="font-size:14px;font-weight:600;color:var(--text)">${bal}</span>` : '';
+    const instDef = getInstitutionDefaults(r.fields.institution);
+    const domain = r.fields.institutionDomain || instDef?.domain;
+    if (domain) cardIcon = `<div class="record-card-icon" style="padding:0;display:flex;align-items:center;justify-content:center"><img src="https://www.google.com/s2/favicons?domain=${domain}&sz=64" style="width:22px;height:22px;object-fit:contain" onerror="this.outerHTML='💳'"></div>`;
   }
   return `<div class="record-card" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
-    <div class="record-card-icon">${icons[r.type] || '•'}</div>
+    ${cardIcon}
     <div class="record-card-body">
       <div class="record-card-title">${r.title}</div>
       ${sub ? `<div class="record-card-sub">${sub}</div>` : ''}
