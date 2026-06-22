@@ -243,6 +243,7 @@ textarea.modal-input{resize:vertical;min-height:70px}
 .ctx-item:hover{background:var(--bg3)}
 .ctx-item.checked{font-weight:600}
 .ctx-item.dim{color:var(--dim)}
+.ctx-item.danger{color:var(--red)}
 .ctx-divider{height:1px;background:var(--border);margin:3px 4px}
 .ctx-header{padding:5px 12px 3px;font-size:10px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.07em}
 .urgency-widget{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
@@ -757,6 +758,8 @@ function bindGlobalDelegation() {
   });
 
   document.addEventListener('contextmenu', e => {
+    const areaEl = e.target.closest('[data-area]');
+    if (areaEl?.dataset.area) { showAreaCtxMenu(e, areaEl.dataset.area); return; }
     const ctxEl = e.target.closest('[data-ctx-record-id], [data-record-link]');
     if (!ctxEl) return;
     const recordId = ctxEl.dataset.ctxRecordId || ctxEl.dataset.recordId;
@@ -4020,6 +4023,51 @@ async function setUrgency(recordId,level){
 let _ctxMenu=null;
 function closeCtxMenu(){if(_ctxMenu){_ctxMenu.remove();_ctxMenu=null;}}
 document.addEventListener('click',closeCtxMenu);
+
+function showAreaCtxMenu(e, areaId) {
+  e.preventDefault(); e.stopPropagation(); closeCtxMenu();
+  const area = DB.areas.find(a => a.id === areaId); if (!area) return;
+  const menu = document.createElement('div'); menu.className = 'ctx-menu';
+  menu.style.cssText = 'left:'+Math.min(e.clientX,window.innerWidth-200)+'px;top:'+Math.min(e.clientY,window.innerHeight-200)+'px';
+  const addH = t => { const h=document.createElement('div');h.className='ctx-header';h.textContent=t;menu.appendChild(h); };
+  const addI = (label,fn,cls) => { const i=document.createElement('div');i.className='ctx-item'+(cls?' '+cls:'');i.textContent=label;i.onclick=()=>{fn();closeCtxMenu();};menu.appendChild(i); };
+  const addD = () => { const d=document.createElement('div');d.className='ctx-divider';menu.appendChild(d); };
+  addH(area.title);
+  addI('Rename', () => {
+    const val = prompt('Rename area:', area.title);
+    if (!val || !val.trim()) return;
+    api('PUT', `/api/areas/${areaId}`, { title: val.trim() });
+    area.title = val.trim();
+    renderSidebar();
+    if (currentView === 'area' && currentAreaId === areaId) renderAreaView(areaId);
+  });
+  if (area.parentId) {
+    addI('+ Add sub-area', () => promptAddArea(areaId));
+  } else {
+    addI('+ Add sub-area', () => promptAddArea(areaId));
+  }
+  addD();
+  addI('Delete area', async () => {
+    const children = DB.areas.filter(a => a.parentId === areaId);
+    const records = DB.records.filter(r => r.areaId === areaId);
+    const msg = children.length
+      ? `Delete "${area.title}" and its ${children.length} sub-area(s)? This cannot be undone.`
+      : records.length
+      ? `Delete "${area.title}" and its ${records.length} record(s)? This cannot be undone.`
+      : `Delete "${area.title}"? This cannot be undone.`;
+    if (!confirm(msg)) return;
+    // Delete children first
+    for (const child of children) {
+      await api('DELETE', `/api/areas/${child.id}`);
+      DB.areas = DB.areas.filter(a => a.id !== child.id);
+    }
+    await api('DELETE', `/api/areas/${areaId}`);
+    DB.areas = DB.areas.filter(a => a.id !== areaId);
+    if (currentAreaId === areaId || children.some(c => c.id === currentAreaId)) navigate('dashboard');
+    else renderSidebar();
+  }, 'danger');
+  document.body.appendChild(menu); _ctxMenu = menu;
+}
 
 function showRecordCtxMenu(e,recordId){
   e.preventDefault();e.stopPropagation();closeCtxMenu();
