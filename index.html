@@ -1795,12 +1795,36 @@ function renderCompaniesView() {
   }).join('');
 }
 
+const INSTITUTION_DEFAULTS = {
+  'fidelity':   { domain: 'fidelity.com',     url: 'https://www.fidelity.com/customer-service/log-in' },
+  'chase':      { domain: 'chase.com',         url: 'https://secure.chase.com/web/auth/dashboard' },
+  'wealthfront':{ domain: 'wealthfront.com',   url: 'https://www.wealthfront.com/login' },
+  'vanguard':   { domain: 'vanguard.com',      url: 'https://investor.vanguard.com/home' },
+  'schwab':     { domain: 'schwab.com',        url: 'https://client.schwab.com/Login/SignOn' },
+  'betterment': { domain: 'betterment.com',    url: 'https://www.betterment.com/login' },
+  'bofa':       { domain: 'bankofamerica.com', url: 'https://www.bankofamerica.com/deposits/login.go' },
+  'bank of america': { domain: 'bankofamerica.com', url: 'https://www.bankofamerica.com/deposits/login.go' },
+};
+
+function getInstitutionDefaults(name) {
+  if (!name) return null;
+  return INSTITUTION_DEFAULTS[name.toLowerCase()] || null;
+}
+
 function renderAccountRecord(r, area) {
   const bal = r.fields.balance !== undefined && r.fields.balance !== '' ? Number(r.fields.balance) : null;
   const balFormatted = bal !== null ? '$' + bal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
   const balDate = r.fields.balanceDate ? `Updated ${formatDate(r.fields.balanceDate)}` : 'Balance not set';
   const ownerOpts = ['Aaron','Ale','Joint'];
   const typeOpts = ['Checking','Savings','Roth IRA','Traditional IRA','Taxable','401k','HYSA','Money Market','Credit Card','Other'];
+  const instDefaults = getInstitutionDefaults(r.fields.institution);
+  const domain = r.fields.institutionDomain || (instDefaults?.domain) || null;
+  const loginUrl = r.fields.institutionUrl || (instDefaults?.url) || null;
+  const logoHTML = domain
+    ? `<a href="${loginUrl || '#'}" target="_blank" rel="noopener" title="Log in to ${r.fields.institution}" style="display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:10px;background:var(--bg3);border:1px solid var(--border1);overflow:hidden;flex-shrink:0;text-decoration:none">
+        <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=64" style="width:32px;height:32px;object-fit:contain" onerror="this.parentElement.innerHTML='💳'">
+       </a>`
+    : `<div class="record-view-icon">💳</div>`;
   const fmt = n => '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
   const fmtPct = n => (n>=0?'+':'')+Number(n).toFixed(2)+'%';
   const history = (r.fields.history || []).slice().sort((a,b) => b.month.localeCompare(a.month));
@@ -1830,7 +1854,7 @@ function renderAccountRecord(r, area) {
   }, 0);
 
   return `<div class="record-view-header">
-    <div class="record-view-icon">💳</div>
+    ${logoHTML}
     <div class="record-view-title-wrap">
       <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
       <div class="record-view-meta">
@@ -1873,6 +1897,8 @@ function renderAccountRecord(r, area) {
           </select>
         </div></div>
         ${editableField(r, 'last4', 'Last 4 digits')}
+        ${editableField(r, 'institutionUrl', 'Login URL')}
+        ${editableField(r, 'institutionDomain', 'Logo domain')}
       </div>
       ${renderNotesSection(r)}
     </div>
