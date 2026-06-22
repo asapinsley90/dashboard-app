@@ -1233,6 +1233,11 @@ function renderAreaView(areaId) {
       b.textContent = '+ Add record';
       b.onclick = () => promptAddRecord();
       btnEl.appendChild(b);
+      const b2 = document.createElement('button');
+      b2.className = 'btn btn-sm'; b2.style.cssText = 'margin-left:6px;color:var(--muted)';
+      b2.textContent = '+ Add sub-area';
+      b2.onclick = () => promptAddArea(areaId);
+      btnEl.appendChild(b2);
     }
   }
   const records = DB.records.filter(r => r.areaId === areaId);
