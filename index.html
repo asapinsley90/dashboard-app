@@ -920,7 +920,7 @@ function renderSidebar() {
       const itemsHTML = subs.map(s => {
         if (s.type === 'area') {
           const isSubActive = currentAreaId === s.areaId;
-          return `<div class="sidebar-subitem ${isSubActive?'active':''}" data-area-link="${s.areaId}">${s.label}</div>`;
+          return `<div class="sidebar-subitem ${isSubActive?'active':''}" data-area="${s.areaId}" data-area-link="${s.areaId}">${s.label}</div>`;
         } else {
           return `<div class="sidebar-subitem ${currentFilter===s.filter?'active':''}" data-filter-link data-area-id="${area.id}" data-filter="${s.filter}">${s.label}</div>`;
         }
@@ -1193,10 +1193,15 @@ function renderAreaView(areaId) {
     if (btnEl) {
       btnEl.innerHTML = '';
       const b = document.createElement('button');
-      b.className = 'btn btn-sm btn-p';
-      b.textContent = '+ Add sub-area';
-      b.onclick = () => promptAddArea(areaId);
+      b.className = 'btn btn-p btn-sm';
+      b.textContent = '+ Add record';
+      b.onclick = () => promptAddRecord(null, areaId);
       btnEl.appendChild(b);
+      const b2 = document.createElement('button');
+      b2.className = 'btn btn-sm btn-p'; b2.style.marginLeft = '6px';
+      b2.textContent = '+ Add sub-area';
+      b2.onclick = () => promptAddArea(areaId);
+      btnEl.appendChild(b2);
     }
     const el = document.getElementById('area-view-records');
     el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:4px">${
@@ -2085,12 +2090,16 @@ async function doLinkContact(recordId, contactId) {
 // addDocument replaced by drag-and-drop upload
 
 // ── ADD RECORD / AREA ─────────────────────────────────────────────────────────
-function promptAddRecord(forceType) {
-  const areaId = currentAreaId;
-  const type = forceType || (currentAreaId === 'area-jobs' ? 'job' : null);
-  if (type === 'job' || (!forceType && currentAreaId === 'area-jobs')) { openJobModal(areaId); return; }
+function promptAddRecord(forceType, targetAreaId = null) {
+  const areaId = targetAreaId || currentAreaId;
+  const type = forceType || (areaId === 'area-jobs' ? 'job' : null);
+  if (type === 'job' || (!forceType && areaId === 'area-jobs')) { openJobModal(areaId); return; }
   if (type === 'company') { openAddCompanyModal(areaId); return; }
   const types = ['contact','event','goal','task','project','note','company'];
+  // If area has sub-areas, show only sub-areas in picker; otherwise show all
+  const children = DB.areas.filter(a => a.parentId === areaId);
+  const areaOptions = children.length > 0 ? children : DB.areas.filter(a => !DB.areas.some(p => p.parentId === a.id) || a.id === areaId);
+  const defaultArea = children.length > 0 ? children[0].id : areaId;
   openModal('New record', `
     <div class="modal-field"><div class="modal-label">Title</div><input class="modal-input" id="nr-title" placeholder="Record name" autofocus></div>
     <div class="modal-field"><div class="modal-label">Type</div>
@@ -2100,7 +2109,7 @@ function promptAddRecord(forceType) {
     </div>
     <div class="modal-field"><div class="modal-label">Area</div>
       <select class="modal-select" id="nr-area">
-        ${DB.areas.map(a => `<option value="${a.id}" ${a.id === areaId ? 'selected' : ''}>${a.title}</option>`).join('')}
+        ${areaOptions.map(a => `<option value="${a.id}" ${a.id === defaultArea ? 'selected' : ''}>${a.title}</option>`).join('')}
       </select>
     </div>`,
     [{ label: 'Create', primary: true, onclick: async () => {
@@ -2208,8 +2217,12 @@ async function deleteRecord(recordId) {
   else navigate('dashboard');
 }
 
-function promptAddEvent() {
+function promptAddEvent(targetAreaId = null) {
   const today = new Date().toISOString().split('T')[0];
+  const defaultArea = targetAreaId || currentAreaId;
+  const children = defaultArea ? DB.areas.filter(a => a.parentId === defaultArea) : [];
+  const areaOptions = children.length > 0 ? children : DB.areas.filter(a => !DB.areas.some(p => p.parentId === a.id));
+  const defaultAreaId = children.length > 0 ? children[0].id : defaultArea;
   openModal('New event', `
     <div class="modal-field"><div class="modal-label">Title</div><input class="modal-input" id="ev-title" autofocus></div>
     <div class="modal-field"><div class="modal-label">Date</div><input class="modal-input" id="ev-date" type="date" value="${today}" style="font-size:14px"></div>
@@ -2218,7 +2231,7 @@ function promptAddEvent() {
     <div class="modal-field"><div class="modal-label">Location / link</div><input class="modal-input" id="ev-loc"></div>
     <div class="modal-field"><div class="modal-label">Area</div>
       <select class="modal-select" id="ev-area">
-        ${DB.areas.map(a => `<option value="${a.id}">${a.title}</option>`).join('')}
+        ${areaOptions.map(a => `<option value="${a.id}" ${a.id === defaultAreaId ? 'selected' : ''}>${a.title}</option>`).join('')}
       </select>
     </div>`,
     [{ label: 'Add event', primary: true, onclick: async () => {
@@ -4033,6 +4046,9 @@ function showAreaCtxMenu(e, areaId) {
   const addI = (label,fn,cls) => { const i=document.createElement('div');i.className='ctx-item'+(cls?' '+cls:'');i.textContent=label;i.onclick=()=>{fn();closeCtxMenu();};menu.appendChild(i); };
   const addD = () => { const d=document.createElement('div');d.className='ctx-divider';menu.appendChild(d); };
   addH(area.title);
+  addI('+ Add record', () => promptAddRecord(null, areaId));
+  addI('+ Add event', () => promptAddEvent(areaId));
+  addD();
   addI('Rename', () => {
     const val = prompt('Rename area:', area.title);
     if (!val || !val.trim()) return;
