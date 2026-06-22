@@ -1390,16 +1390,21 @@ function jobCard(r) {
 
 function recordCard(r) {
   const icons = { job: '💼', contact: '👤', event: '📅', goal: '🎯', task: '✓', project: '🔨', note: '📝', account: '💳', transaction: '💸' };
-  const sub = r.fields.role || r.fields.notes?.slice(0, 80) || r.fields.date || '';
+  let sub = r.fields.role || r.fields.notes?.slice(0, 80) || r.fields.date || '';
+  let right = statusBadge(r);
+  if (r.type === 'account') {
+    const parts = [r.fields.institution, r.fields.accountType, r.fields.owner].filter(Boolean);
+    sub = parts.join(' · ');
+    const bal = r.fields.balance !== undefined && r.fields.balance !== '' ? '$'+Number(r.fields.balance).toLocaleString() : '';
+    right = bal ? `<span style="font-size:14px;font-weight:600;color:var(--text)">${bal}</span>` : '';
+  }
   return `<div class="record-card" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
     <div class="record-card-icon">${icons[r.type] || '•'}</div>
     <div class="record-card-body">
       <div class="record-card-title">${r.title}</div>
       ${sub ? `<div class="record-card-sub">${sub}</div>` : ''}
     </div>
-    <div class="record-card-right">
-      ${statusBadge(r)}
-    </div>
+    <div class="record-card-right">${right}</div>
   </div>`;
 }
 
@@ -1471,6 +1476,7 @@ function renderRecordView(recordId) {
   else if (r.type === 'contact') el.innerHTML = renderContactRecord(r, area);
   else if (r.type === 'company') el.innerHTML = renderCompanyRecord(r, area);
   else if (r.type === 'event') el.innerHTML = renderEventRecord(r, area);
+  else if (r.type === 'account') el.innerHTML = renderAccountRecord(r, area);
   else el.innerHTML = renderGenericRecord(r, area);
 }
 
@@ -1788,6 +1794,79 @@ function renderCompaniesView() {
   }).join('');
 }
 
+function renderAccountRecord(r, area) {
+  const bal = r.fields.balance !== undefined && r.fields.balance !== '' ? Number(r.fields.balance) : null;
+  const balFormatted = bal !== null ? '$' + bal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+  const balDate = r.fields.balanceDate ? `Updated ${formatDate(r.fields.balanceDate)}` : 'Balance not set';
+  const ownerOpts = ['Aaron','Ale','Joint'];
+  const typeOpts = ['Checking','Savings','Roth IRA','Traditional IRA','Taxable','401k','HYSA','Money Market','Credit Card','Other'];
+  return `<div class="record-view-header">
+    <div class="record-view-icon">💳</div>
+    <div class="record-view-title-wrap">
+      <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
+      <div class="record-view-meta">
+        ${r.fields.institution ? `<span>${r.fields.institution}</span>` : ''}
+        ${r.fields.accountType ? `<span>${r.fields.accountType}</span>` : ''}
+        ${r.fields.owner ? `<span>${r.fields.owner}</span>` : ''}
+        ${r.fields.last4 ? `<span>····${r.fields.last4}</span>` : ''}
+      </div>
+    </div>
+    <div class="record-view-actions">
+      <div style="text-align:right">
+        <div style="font-size:28px;font-weight:700;color:var(--text);cursor:pointer;line-height:1.2" onclick="editAccountBalance('${r.id}')" title="Click to update balance" id="acct-bal-${r.id}">${balFormatted}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${balDate}</div>
+      </div>
+    </div>
+  </div>
+  <div class="record-sections">
+    <div class="record-main">
+      <div class="section-card">
+        <div class="section-title">Account details</div>
+        ${editableField(r, 'institution', 'Institution')}
+        <div class="field-row"><div class="field-label">Type</div><div class="field-value">
+          <select class="field-edit" onchange="saveFieldText('${r.id}','accountType',this.value)">
+            <option value="">—</option>
+            ${typeOpts.map(t => `<option value="${t}" ${r.fields.accountType===t?'selected':''}>${t}</option>`).join('')}
+          </select>
+        </div></div>
+        <div class="field-row"><div class="field-label">Owner</div><div class="field-value">
+          <select class="field-edit" onchange="saveFieldText('${r.id}','owner',this.value)">
+            <option value="">—</option>
+            ${ownerOpts.map(o => `<option value="${o}" ${r.fields.owner===o?'selected':''}>${o}</option>`).join('')}
+          </select>
+        </div></div>
+        ${editableField(r, 'last4', 'Last 4 digits')}
+      </div>
+      ${renderNotesSection(r)}
+    </div>
+    <div class="record-sidebar">
+      <div class="section-card">
+        <div class="section-title">Balance history</div>
+        ${renderTimeline(r)}
+      </div>
+    </div>
+  </div>`;
+}
+
+async function editAccountBalance(recordId) {
+  const r = getRecord(recordId);
+  if (!r) return;
+  const current = r.fields.balance !== undefined ? r.fields.balance : '';
+  const val = prompt('Update balance:', current);
+  if (val === null) return;
+  const num = parseFloat(val.replace(/[$,]/g, ''));
+  if (isNaN(num)) return;
+  const today = new Date().toISOString().split('T')[0];
+  r.fields.balance = num;
+  r.fields.balanceDate = today;
+  await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+  await api('POST', `/api/records/${recordId}/timeline`, { text: `Balance updated to $${num.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}` });
+  const entry = { id: Date.now().toString(36), date: new Date().toISOString(), text: `Balance updated to $${num.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`, author: 'aaron' };
+  r.timeline = r.timeline || [];
+  r.timeline.push(entry);
+  renderRecordView(recordId);
+}
+
 function renderGenericRecord(r, area) {
   const fieldEntries = Object.entries(r.fields || {}).filter(([k]) => !['notes'].includes(k));
   return `<div class="record-view-header">
@@ -2095,7 +2174,7 @@ function promptAddRecord(forceType, targetAreaId = null) {
   const type = forceType || (areaId === 'area-jobs' ? 'job' : null);
   if (type === 'job' || (!forceType && areaId === 'area-jobs')) { openJobModal(areaId); return; }
   if (type === 'company') { openAddCompanyModal(areaId); return; }
-  const types = ['contact','event','goal','task','project','note','company'];
+  const types = ['contact','event','goal','task','project','note','company','account'];
   // If area has sub-areas, show only sub-areas in picker; otherwise show all
   const children = DB.areas.filter(a => a.parentId === areaId);
   const areaOptions = children.length > 0 ? children : DB.areas.filter(a => !DB.areas.some(p => p.parentId === a.id) || a.id === areaId);
@@ -2118,7 +2197,7 @@ function promptAddRecord(forceType, targetAreaId = null) {
       const aid = document.getElementById('nr-area').value;
       if (!title) return;
       if (t === 'company') { closeModal(); openAddCompanyModal(aid); return; }
-      const defaults = { contact:{role:'',company:'',email:'',phone:'',linkedin:'',notes:''}, event:{date:'',time:'',endTime:'',location:'',link:'',category:'',notes:''}, goal:{targetDate:'',progress:'',notes:''}, task:{frequency:'',lastDone:'',nextDue:'',notes:''}, project:{description:'',nextAction:'',notes:''}, note:{body:'',notes:''} };
+      const defaults = { contact:{role:'',company:'',email:'',phone:'',linkedin:'',notes:''}, event:{date:'',time:'',endTime:'',location:'',link:'',category:'',notes:''}, goal:{targetDate:'',progress:'',notes:''}, task:{frequency:'',lastDone:'',nextDue:'',notes:''}, project:{description:'',nextAction:'',notes:''}, note:{body:'',notes:''}, account:{institution:'',accountType:'',owner:'',last4:'',balance:'',balanceDate:'',notes:''} };
       const rec = await api('POST', '/api/records', { type:t, areaId:aid, title, urgency:'new', fields:defaults[t]||{}, contacts:t==='job'?[]:undefined, interviews:t==='job'?[]:undefined, documents:t==='job'?[]:undefined });
       DB.records.push(rec);
       closeModal(); renderSidebar(); navigate('record', aid, rec.id);
