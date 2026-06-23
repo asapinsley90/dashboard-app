@@ -4389,19 +4389,16 @@ async function setRecordStatus(recordId,newStatus){
   const prev=r.status;
   pushUndo({type:'status',recordId,before:prev,after:newStatus});
   r.status=newStatus;
-  if (newStatus === 'completed' || newStatus === 'archived') {
-    r.urgency = 'none';
-    await api('PUT',`/api/records/${recordId}`,{status:newStatus,urgency:'none'});
-  } else {
-    await api('PUT',`/api/records/${recordId}`,{status:newStatus});
-  }
-  await api('POST',`/api/records/${recordId}/timeline`,{text:'Status: '+prev+' → '+newStatus});
-  const updated=await api('GET',`/api/records/${recordId}`);
-  DB.records=DB.records.map(rec=>rec.id===recordId?updated:rec);
+  if(newStatus==='completed'||newStatus==='archived') r.urgency='none';
+  // Re-render immediately with local state
   renderSidebar();
   if(currentView==='record')renderRecordView(recordId);
   if(currentView==='dashboard')renderAttention();
   if(currentView==='area')renderAreaView(currentAreaId);
+  // Persist in background
+  const payload = (newStatus==='completed'||newStatus==='archived') ? {status:newStatus,urgency:'none'} : {status:newStatus};
+  api('PUT',`/api/records/${recordId}`,payload);
+  api('POST',`/api/records/${recordId}/timeline`,{text:'Status: '+prev+' → '+newStatus});
 }
 
 async function setUrgency(recordId,level){
@@ -4409,11 +4406,13 @@ async function setUrgency(recordId,level){
   const prev=r.urgency||'none';
   pushUndo({type:'urgency',recordId,before:prev,after:level});
   r.urgency=level;
-  await api('PUT',`/api/records/${recordId}`,{urgency:level});
+  // Re-render immediately with local state
   renderSidebar();
   if(currentView==='record')renderRecordView(recordId);
   if(currentView==='dashboard')renderAttention();
   if(currentView==='area')renderAreaView(currentAreaId);
+  // Persist in background
+  api('PUT',`/api/records/${recordId}`,{urgency:level});
 }
 
 // Context menu
