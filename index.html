@@ -2044,29 +2044,34 @@ async function confirmStatementImport(recordId, btn) {
 
 // Paste handler — attached when an account record view is rendered
 function attachStatementPasteListener(recordId) {
-  const existing = document.getElementById('stmt-paste-handler');
-  if (existing) existing.remove();
+  detachStatementPasteListener(); // always clean up before attaching
   const handler = (e) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (const item of items) {
-      if (item.type.startsWith('image/')) {
-        e.preventDefault();
-        const file = item.getAsFile();
-        handleStatementFile(recordId, file);
-        return;
+    try {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          handleStatementFile(recordId, file);
+          return;
+        }
       }
+    } catch (err) {
+      console.error('Paste handler error:', err);
     }
   };
   document.addEventListener('paste', handler);
-  // Store reference so we can clean up when navigating away
   window._stmtPasteHandler = handler;
 }
 
 function detachStatementPasteListener() {
   if (window._stmtPasteHandler) {
-    document.removeEventListener('paste', window._stmtPasteHandler);
-    window._stmtPasteHandler = null;
+    try {
+      document.removeEventListener('paste', window._stmtPasteHandler);
+    } finally {
+      window._stmtPasteHandler = null;
+    }
   }
 }
 

@@ -14,6 +14,52 @@ const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
 const BACKUP_TOKEN = process.env.BACKUP_TOKEN || '';
 const BACKUP_TOKEN_SEED = process.env.BACKUP_TOKEN_SEED || '';
+const SESSION_PASSWORD = process.env.SESSION_PASSWORD || '';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-me';
+
+function signToken(val) {
+  return crypto.createHmac('sha256', SESSION_SECRET).update(val).digest('hex');
+}
+
+function parseCookies(req) {
+  const list = {};
+  const header = req.headers.cookie;
+  if (!header) return list;
+  header.split(';').forEach(c => {
+    const [k, ...v] = c.split('=');
+    list[k.trim()] = decodeURIComponent(v.join('=').trim());
+  });
+  return list;
+}
+
+function isAuthenticated(req) {
+  if (!SESSION_PASSWORD) return true; // no password set → open
+  const cookies = parseCookies(req);
+  const token = cookies['dash_session'];
+  if (!token) return false;
+  const [val, sig] = token.split('.');
+  return val === 'authenticated' && sig === signToken('authenticated');
+}
+
+function requireAuth(req, res, next) {
+  if (isAuthenticated(req)) return next();
+  if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
+  res.redirect('/login');
+}
+
+const LOGIN_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dashboard</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#0f0f0f;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui,sans-serif}
+.box{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:40px;width:320px;text-align:center}
+h2{color:#fff;font-size:18px;margin-bottom:24px;font-weight:600}
+input{width:100%;background:#111;border:1px solid #333;border-radius:8px;padding:10px 14px;color:#fff;font-size:14px;margin-bottom:14px;outline:none}
+input:focus{border-color:#3b82f6}
+button{width:100%;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer}
+button:hover{background:#2563eb}.err{color:#f87171;font-size:13px;margin-top:10px}</style></head>
+<body><div class="box"><h2>Dashboard</h2>
+<form method="POST" action="/login">
+<input type="password" name="password" placeholder="Password" autofocus autocomplete="current-password">
+<button type="submit">Sign in</button>
+</form><div class="err" id="e">{{ERROR}}</div></div></body></html>`;
 
 // R2 storage
 const R2_BUCKET = process.env.R2_BUCKET || 'dashboard-uploads';
@@ -30,6 +76,32 @@ const r2 = new S3Client({
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
+// Auth routes (unprotected)
+app.get('/login', (req, res) => {
+  if (isAuthenticated(req)) return res.redirect('/');
+  res.send(LOGIN_HTML.replace('{{ERROR}}', ''));
+});
+
+app.post('/login', (req, res) => {
+  if (!SESSION_PASSWORD || req.body.password === SESSION_PASSWORD) {
+    const token = 'authenticated.' + signToken('authenticated');
+    const maxAge = 60 * 60 * 24 * 30; // 30 days
+    res.setHeader('Set-Cookie', `dash_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/`);
+    return res.redirect('/');
+  }
+  res.send(LOGIN_HTML.replace('{{ERROR}}', 'Incorrect password'));
+});
+
+app.get('/logout', (req, res) => {
+  res.setHeader('Set-Cookie', 'dash_session=; HttpOnly; Max-Age=0; Path=/');
+  res.redirect('/login');
+});
+
+// Protect everything else
+app.use(requireAuth);
+
 app.use(express.static(__dirname, { index: false }));
 
 // Proxy uploads from R2
