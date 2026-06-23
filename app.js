@@ -87,8 +87,7 @@ app.get('/login', (req, res) => {
 app.post('/login', (req, res) => {
   if (!SESSION_PASSWORD || req.body.password === SESSION_PASSWORD) {
     const token = 'authenticated.' + signToken('authenticated');
-    const maxAge = 60 * 60 * 24 * 30; // 30 days
-    res.setHeader('Set-Cookie', `dash_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Path=/`);
+    res.setHeader('Set-Cookie', `dash_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Max-Age=2147483647; Path=/`);
     return res.redirect('/');
   }
   res.send(LOGIN_HTML.replace('{{ERROR}}', 'Incorrect password'));
