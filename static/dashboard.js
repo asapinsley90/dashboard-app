@@ -427,7 +427,7 @@ function renderAreaView(areaId) {
     if (btnEl) {
       btnEl.innerHTML = '';
       const b = document.createElement('button');
-      b.className = 'btn btn-p btn-sm';
+      b.className = 'btn btn-p btn-sm new-record-btn';
       b.textContent = '+ Add record';
       b.onclick = () => promptAddRecord(null, areaId);
       btnEl.appendChild(b);
@@ -476,7 +476,7 @@ function renderAreaView(areaId) {
       btnEl.appendChild(b1); btnEl.appendChild(b2);
     } else {
       const b = document.createElement('button');
-      b.className = 'btn btn-p btn-sm';
+      b.className = 'btn btn-p btn-sm new-record-btn';
       b.textContent = '+ Add record';
       b.onclick = () => promptAddRecord();
       btnEl.appendChild(b);
