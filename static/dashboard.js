@@ -1,8 +1,88 @@
 ﻿// â”€â”€ DASHBOARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Dashboard widget customization
+const DASH_WIDGETS = [
+  { id: 'attention', label: 'Needs attention' },
+  { id: 'today', label: 'Today' },
+  { id: 'week', label: 'This week' },
+  { id: 'areas', label: 'Life areas' },
+  { id: 'calendar', label: 'Calendar' },
+];
+
+function getDashPrefs() {
+  const saved = currentUser.dashboardPrefs;
+  return {
+    order: saved?.order || DASH_WIDGETS.map(w => w.id),
+    hidden: saved?.hidden || [],
+  };
+}
+
+async function saveDashPrefs(prefs) {
+  currentUser.dashboardPrefs = prefs;
+  await api('PATCH', '/api/me', { dashboardPrefs: prefs });
+}
+
+function openDashCustomize() {
+  let order = [...getDashPrefs().order];
+  const hidden = new Set(getDashPrefs().hidden);
+
+  function renderList() {
+    return '<div id="dw-list">' + order.map((id, i) => {
+      const w = DASH_WIDGETS.find(x => x.id === id);
+      if (!w) return '';
+      return `<div class="field-row" style="align-items:center;gap:8px;padding:6px 0">
+        <span style="flex:1">${w.label}</span>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--muted)">
+          <input type="checkbox" ${hidden.has(id) ? '' : 'checked'} class="dw-toggle" data-wid="${id}" style="width:auto"> Show
+        </label>
+        ${i > 0 ? `<button class="btn btn-sm" style="padding:2px 8px;font-size:11px" onclick="dashMoveWidget('${id}',-1)">&#8593;</button>` : '<span style="width:32px"></span>'}
+        ${i < order.length-1 ? `<button class="btn btn-sm" style="padding:2px 8px;font-size:11px" onclick="dashMoveWidget('${id}',1)">&#8595;</button>` : '<span style="width:32px"></span>'}
+      </div>`;
+    }).join('') + '</div>';
+  }
+
+  window.dashMoveWidget = (id, delta) => {
+    const idx = order.indexOf(id);
+    const newIdx = idx + delta;
+    if (newIdx < 0 || newIdx >= order.length) return;
+    [order[idx], order[newIdx]] = [order[newIdx], order[idx]];
+    document.getElementById('modal-body').innerHTML = renderList();
+  };
+
+  openModal('Customize dashboard', renderList(),
+    [{ label: 'Save', primary: true, onclick: async () => {
+      const currentHidden = Array.from(document.querySelectorAll('.dw-toggle:not(:checked)')).map(c => c.dataset.wid);
+      await saveDashPrefs({ order, hidden: currentHidden });
+      closeModal();
+      renderDashboard();
+    }},
+    { label: 'Cancel', onclick: closeModal }]);
+}
+
 function renderDashboard() {
-  document.getElementById('topbar-actions').innerHTML = '';
+  document.getElementById('topbar-actions').innerHTML = '<button class="btn btn-sm" onclick="openDashCustomize()" style="font-size:11px">&#9881; Customize</button>';
   document.getElementById('topbar-breadcrumb').textContent = '';
   renderSidebar();
+  const _prefs = getDashPrefs();
+  const _hidden = new Set(_prefs.hidden);
+  // Widget element map: id -> container ids to show/hide
+  const _widgetEls = {
+    attention: ['dash-attention', 'attention-filters'],
+    today: ['dash-today', 'today-label'],
+    week: ['dash-week', 'week-label'],
+    areas: ['dash-areas'],
+    calendar: ['dash-cal', 'dash-cal-label'],
+  };
+  Object.entries(_widgetEls).forEach(([id, elIds]) => {
+    const show = !_hidden.has(id);
+    elIds.forEach(elId => {
+      const el = document.getElementById(elId);
+      if (el) el.closest('[style*="display"]') || (el.style.display = show ? '' : 'none');
+    });
+  });
+  // Also handle parent section label for attention
+  const _attnHeader = document.querySelector('.attention-header');
+  if (_attnHeader) _attnHeader.style.display = _hidden.has('attention') ? 'none' : '';
+
   renderAttention();
   renderTodayStrip();
   renderThisWeekStrip();
@@ -202,6 +282,11 @@ function renderAreaView(areaId) {
       b2.textContent = '+ Add sub-area';
       b2.onclick = () => promptAddArea(areaId);
       btnEl.appendChild(b2);
+      const b3 = document.createElement('button');
+      b3.className = 'btn btn-sm'; b3.style.marginLeft = '6px';
+      b3.textContent = 'Save as template';
+      b3.onclick = () => promptSaveAsTemplate(area);
+      btnEl.appendChild(b3);
     }
     const el = document.getElementById('area-view-records');
     el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:4px">${
@@ -246,6 +331,11 @@ function renderAreaView(areaId) {
       b2.textContent = '+ Add sub-area';
       b2.onclick = () => promptAddArea(areaId);
       btnEl.appendChild(b2);
+      const b3 = document.createElement('button');
+      b3.className = 'btn btn-sm'; b3.style.marginLeft='6px';
+      b3.textContent = 'Save as template';
+      b3.onclick = () => promptSaveAsTemplate(area);
+      btnEl.appendChild(b3);
     }
   }
   const records = DB.records.filter(r => r.areaId === areaId);

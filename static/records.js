@@ -14,11 +14,11 @@ function renderRecordView(recordId) {
     <button class="btn btn-sm btn-danger" onclick="deleteRecord('${r.id}')">Delete</button>`;
 
   const el = document.getElementById('record-view-content');
+  // Bespoke renderers for types with custom UI; schema-driven for everything else
   if (r.type === 'job') el.innerHTML = renderJobRecord(r, area);
-  else if (r.type === 'contact') el.innerHTML = renderContactRecord(r, area);
-  else if (r.type === 'company') el.innerHTML = renderCompanyRecord(r, area);
-  else if (r.type === 'event') el.innerHTML = renderEventRecord(r, area);
   else if (r.type === 'account') el.innerHTML = renderAccountRecord(r, area);
+  else if (r.type === 'company') el.innerHTML = renderCompanyRecord(r, area);
+  else if (TYPE_SCHEMAS.find(s => s.id === r.type)) el.innerHTML = renderSchemaRecord(r, area);
   else el.innerHTML = renderGenericRecord(r, area);
 }
 
@@ -698,23 +698,47 @@ function renderAccountCharts(containerId, history) {
   </div>`;
 }
 
-function renderGenericRecord(r, area) {
-  const fieldEntries = Object.entries(r.fields || {}).filter(([k]) => !['notes'].includes(k));
+function renderSchemaRecord(r, area) {
+  const schema = TYPE_SCHEMAS.find(s => s.id === r.type);
+  const fields = schema ? [...schema.fields].sort((a,b) => a.order - b.order) : [];
+  const notesField = fields.find(f => f.key === 'notes');
+  const mainFields = fields.filter(f => f.key !== 'notes');
+
+  function renderFieldInput(f) {
+    const val = r.fields?.[f.key] || '';
+    if (f.type === 'textarea') {
+      return `<textarea class="field-edit" style="resize:vertical;min-height:60px" placeholder="—"
+        onblur="saveFieldText('${r.id}','${f.key}',this.value)">${val}</textarea>`;
+    }
+    return `<input class="field-edit" type="${f.type === 'email' ? 'email' : f.type === 'url' ? 'url' : f.type === 'date' ? 'date' : f.type === 'tel' ? 'tel' : 'text'}"
+      value="${val}" placeholder="—" onblur="saveFieldText('${r.id}','${f.key}',this.value)">`;
+  }
+
+  const icon = schema?.icon || typeIcon(r.type);
   return `<div class="record-view-header">
-    <div class="record-view-icon">${typeIcon(r.type)}</div>
+    <div class="record-view-icon">${icon}</div>
     <div class="record-view-title-wrap">
       <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
-      <div class="record-view-meta"><span>${r.type}</span>${area ? `<span class="doc-ref doc-ref-area" data-area-link="${area.id}" style="background:${area.color}18;border:1px solid ${area.color}44;color:${area.color}">${area.title}</span>` : ''}</div>
+      <div class="record-view-meta">
+        <span>${schema?.name || r.type}</span>
+        ${area ? `<span class="doc-ref doc-ref-area" data-area-link="${area.id}" style="background:${area.color}18;border:1px solid ${area.color}44;color:${area.color}">${area.title}</span>` : ''}
+      </div>
     </div>
-    <div class="record-view-actions">${statusBadge(r)}</div>
+    <div class="record-view-actions">
+      ${statusBadge(r)}
+      <button class="btn btn-sm" onclick="openEditTypeSchema('${r.type}')" title="Edit field definitions" style="margin-left:6px;font-size:11px">Fields ⚙</button>
+    </div>
   </div>
   <div class="record-sections">
     <div class="record-main">
-      ${fieldEntries.length ? `<div class="section-card">
+      ${mainFields.length ? `<div class="section-card">
         <div class="section-title">Details</div>
-        ${fieldEntries.map(([k, v]) => v ? `<div class="field-row"><div class="field-label">${capitalize(k)}</div><div class="field-value">${v}</div></div>` : '').join('')}
+        ${mainFields.map(f => `<div class="field-row">
+          <div class="field-label">${f.label}</div>
+          <div class="field-value">${renderFieldInput(f)}</div>
+        </div>`).join('')}
       </div>` : ''}
-${renderNotesSection(r)}
+      ${notesField ? renderNotesSection(r) : ''}
     </div>
     <div class="record-sidebar">
       <div class="section-card">
@@ -723,6 +747,85 @@ ${renderNotesSection(r)}
       </div>
     </div>
   </div>`;
+}
+
+// Keep for backward compat (used as fallback)
+function renderGenericRecord(r, area) {
+  return renderSchemaRecord(r, area);
+}
+
+// Edit type schema modal
+function openEditTypeSchema(typeId) {
+  const schema = TYPE_SCHEMAS.find(s => s.id === typeId);
+  if (!schema) return;
+  const fields = [...schema.fields].sort((a,b) => a.order - b.order);
+
+  function fieldRow(f, i) {
+    return `<div class="field-row" style="align-items:center;gap:6px" id="schema-field-${i}">
+      <input class="modal-input" style="flex:1" value="${f.label}" placeholder="Label" id="sf-label-${i}">
+      <select class="modal-select" style="width:90px" id="sf-type-${i}">
+        ${['text','textarea','date','time','url','email','tel','number'].map(t =>
+          `<option value="${t}" ${f.type===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+      <button class="btn btn-sm" style="color:var(--red);flex-shrink:0" onclick="this.closest('.field-row').remove()">×</button>
+    </div>`;
+  }
+
+  openModal(`Fields: ${schema.name}`, `
+    <div id="schema-fields-list" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">
+      ${fields.map((f,i) => fieldRow(f,i)).join('')}
+    </div>
+    <button class="btn btn-sm" style="margin-top:10px" onclick="
+      const list=document.getElementById('schema-fields-list');
+      const i=list.children.length;
+      const div=document.createElement('div');
+      div.innerHTML=\`<div class='field-row' style='align-items:center;gap:6px'>
+        <input class='modal-input' style='flex:1' placeholder='Label' id='sf-label-\${i}'>
+        <select class='modal-select' style='width:90px' id='sf-type-\${i}'>
+          <option>text</option><option>textarea</option><option>date</option><option>time</option><option>url</option><option>email</option><option>tel</option><option>number</option>
+        </select>
+        <button class='btn btn-sm' style='color:var(--red);flex-shrink:0' onclick='this.closest(&quot;.field-row&quot;).remove()'>×</button>
+      </div>\`;
+      list.appendChild(div.firstChild);
+    ">+ Add field</button>`,
+    [{ label: 'Save', primary: true, onclick: async () => {
+      const rows = document.getElementById('schema-fields-list').children;
+      const newFields = [];
+      for (let i = 0; i < rows.length; i++) {
+        const label = rows[i].querySelector(`[id^="sf-label-"]`)?.value?.trim();
+        const type = rows[i].querySelector(`[id^="sf-type-"]`)?.value || 'text';
+        if (label) {
+          const existing = fields.find(f => f.label === label);
+          newFields.push({ key: existing?.key || label.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''), label, type, order: i+1 });
+        }
+      }
+      await api('PUT', `/api/type-schemas/${typeId}`, { name: schema.name, icon: schema.icon, fields: newFields });
+      const updated = await api('GET', '/api/type-schemas');
+      TYPE_SCHEMAS = updated;
+      closeModal();
+      renderRecordView(currentRecordId);
+    }},
+    { label: 'Cancel', onclick: closeModal }]);
+}
+
+// Create custom record type
+function promptCreateCustomType() {
+  openModal('New record type', `
+    <div class="modal-field"><div class="modal-label">Type name</div><input class="modal-input" id="ct-name" autofocus placeholder="e.g. Book, Recipe, Vehicle"></div>
+    <div class="modal-field"><div class="modal-label">Icon (emoji)</div><input class="modal-input" id="ct-icon" placeholder="📖" style="font-size:18px;width:80px"></div>`,
+    [{ label: 'Create', primary: true, onclick: async () => {
+      const name = document.getElementById('ct-name').value.trim();
+      const icon = document.getElementById('ct-icon').value.trim() || '📁';
+      if (!name) return;
+      const schema = await api('POST', '/api/type-schemas', { name, icon, fields: [
+        { key: 'notes', label: 'Notes', type: 'textarea', order: 1 }
+      ]});
+      TYPE_SCHEMAS.push(schema);
+      closeModal();
+      openEditTypeSchema(schema.id);
+    }},
+    { label: 'Cancel', onclick: closeModal }]);
+  setTimeout(() => document.getElementById('ct-name')?.focus(), 50);
 }
 
 function renderTimeline(r) {
@@ -1005,7 +1108,9 @@ function promptAddRecord(forceType, targetAreaId = null) {
   const type = forceType || (areaId === 'area-jobs' ? 'job' : null);
   if (type === 'job' || (!forceType && areaId === 'area-jobs')) { openJobModal(areaId); return; }
   if (type === 'company') { openAddCompanyModal(areaId); return; }
-  const types = ['contact','event','goal','task','project','note','company','account'];
+  const builtinTypes = ['contact','event','goal','task','project','note','company','account'];
+  const customTypes = TYPE_SCHEMAS.filter(s => s.is_custom).map(s => s.id);
+  const allTypes = [...builtinTypes, ...customTypes];
   // If area has sub-areas, show only sub-areas in picker; otherwise show all
   const children = DB.areas.filter(a => a.parentId === areaId);
   const areaOptions = children.length > 0 ? children : DB.areas.filter(a => !DB.areas.some(p => p.parentId === a.id) || a.id === areaId);
@@ -1014,8 +1119,9 @@ function promptAddRecord(forceType, targetAreaId = null) {
     <div class="modal-field"><div class="modal-label">Title</div><input class="modal-input" id="nr-title" placeholder="Record name" autofocus></div>
     <div class="modal-field"><div class="modal-label">Type</div>
       <select class="modal-select" id="nr-type">
-        ${types.map(t => `<option value="${t}" ${forceType === t ? 'selected' : ''}>${capitalize(t)}</option>`).join('')}
+        ${allTypes.map(t => `<option value="${t}" ${forceType === t ? 'selected' : ''}>${capitalize(t)}</option>`).join('')}
       </select>
+      <button class="btn btn-sm" style="margin-top:6px;font-size:11px" onclick="closeModal();promptCreateCustomType()">+ New type</button>
     </div>
     <div class="modal-field"><div class="modal-label">Area</div>
       <select class="modal-select" id="nr-area">
@@ -1028,8 +1134,11 @@ function promptAddRecord(forceType, targetAreaId = null) {
       const aid = document.getElementById('nr-area').value;
       if (!title) return;
       if (t === 'company') { closeModal(); openAddCompanyModal(aid); return; }
-      const defaults = { contact:{role:'',company:'',email:'',phone:'',linkedin:'',notes:''}, event:{date:'',time:'',endTime:'',location:'',link:'',category:'',notes:''}, goal:{targetDate:'',progress:'',notes:''}, task:{frequency:'',lastDone:'',nextDue:'',notes:''}, project:{description:'',nextAction:'',notes:''}, note:{body:'',notes:''}, account:{institution:'',accountType:'',owner:'',last4:'',balance:'',balanceDate:'',notes:''} };
-      const rec = await api('POST', '/api/records', { type:t, areaId:aid, title, urgency:'new', fields:defaults[t]||{}, contacts:t==='job'?[]:undefined, interviews:t==='job'?[]:undefined, documents:t==='job'?[]:undefined });
+      // Build default fields from schema if available, else use legacy defaults
+      const schema = TYPE_SCHEMAS.find(s => s.id === t);
+      const schemaDefaults = schema ? Object.fromEntries(schema.fields.map(f => [f.key, ''])) : null;
+      const legacyDefaults = { contact:{role:'',company:'',email:'',phone:'',linkedin:'',notes:''}, event:{date:'',time:'',endTime:'',location:'',link:'',category:'',notes:''}, goal:{targetDate:'',progress:'',notes:''}, task:{frequency:'',lastDone:'',nextDue:'',notes:''}, project:{description:'',nextAction:'',notes:''}, note:{body:'',notes:''}, account:{institution:'',accountType:'',owner:'',last4:'',balance:'',balanceDate:'',notes:''} };
+      const rec = await api('POST', '/api/records', { type:t, areaId:aid, title, urgency:'new', fields: schemaDefaults || legacyDefaults[t] || {}, contacts:t==='job'?[]:undefined, interviews:t==='job'?[]:undefined, documents:t==='job'?[]:undefined });
       DB.records.push(rec);
       assistantNotify('record-created', rec);
       closeModal(); renderSidebar(); navigate('record', aid, rec.id);

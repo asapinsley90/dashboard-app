@@ -1,5 +1,6 @@
 ﻿// â”€â”€ STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let DB = { areas: [], records: [], reviews: [] };
+let TYPE_SCHEMAS = [];  // { id, name, icon, fields: [{key,label,type,order}], is_custom }
 let currentView = 'dashboard';
 let currentAreaId = null;
 let currentRecordId = null;
@@ -15,11 +16,12 @@ const documentsViewState = { sort: 'alpha', linkFilter: 'all' };
 let currentUser = { name: '' };
 
 async function boot() {
-  const [data, me] = await Promise.all([api('GET', '/api/db'), api('GET', '/api/me')]);
+  const [data, me, schemas] = await Promise.all([api('GET', '/api/db'), api('GET', '/api/me'), api('GET', '/api/type-schemas')]);
   DB.areas = data.areas || [];
   DB.records = data.records || [];
   DB.reviews = data.reviews || [];
   currentUser = me;
+  TYPE_SCHEMAS = schemas || [];
   rebuildLookupCaches();
   const nameEl = document.getElementById('sidebar-name');
   if (nameEl) nameEl.textContent = me.name;

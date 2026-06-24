@@ -16,6 +16,12 @@ const HOST = process.env.HOST || '0.0.0.0';
 const BACKUP_TOKEN = process.env.BACKUP_TOKEN || '';
 const BACKUP_TOKEN_SEED = process.env.BACKUP_TOKEN_SEED || '';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-me';
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
+const RENDER_API_KEY = process.env.RENDER_API_KEY || '';
+const RENDER_OWNER_ID = process.env.RENDER_OWNER_ID || '';
+const NEON_API_KEY = process.env.NEON_API_KEY || '';
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || '';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
 const BCRYPT_ROUNDS = 12;
 
 function signToken(val) {
@@ -469,6 +475,173 @@ function initDB() {
 
 // ── API ROUTES ────────────────────────────────────────────────────────────────
 
+// ── ADMIN PANEL ───────────────────────────────────────────────────────────────
+function requireAdmin(req, res, next) {
+  const token = req.headers['x-admin-token'] || req.query.token;
+  if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
+  next();
+}
+
+const ADMIN_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dashboard Admin</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#0d0d0d;color:#e2e2e2;font-family:system-ui,sans-serif;font-size:14px;padding:32px}
+h1{font-size:20px;font-weight:600;margin-bottom:24px}h2{font-size:15px;font-weight:600;margin:24px 0 12px;color:#888;text-transform:uppercase;letter-spacing:.06em;font-size:11px}
+.card{background:#161616;border:1px solid #252525;border-radius:10px;padding:20px;margin-bottom:12px}
+.field{margin-bottom:12px}.label{font-size:11px;color:#666;margin-bottom:4px}
+input,textarea,select{width:100%;background:#111;border:1px solid #333;border-radius:6px;padding:8px 12px;color:#e2e2e2;font-size:13px;font-family:inherit;outline:none}
+input:focus,textarea:focus{border-color:#3b82f6}
+button{background:#3b82f6;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;margin-right:8px}
+button:hover{opacity:.85}button.danger{background:#e05555}button.secondary{background:#252525;color:#e2e2e2}
+.badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;margin-left:8px}
+.badge-pending{background:rgba(212,148,58,.2);color:#d4943a}
+.badge-approved{background:rgba(76,175,125,.2);color:#4caf7d}
+.badge-denied{background:rgba(224,85,85,.2);color:#e05555}
+.status{font-size:12px;color:#4caf7d;margin-top:8px}
+table{width:100%;border-collapse:collapse}td,th{padding:8px 12px;text-align:left;border-bottom:1px solid #1f1f1f;font-size:13px}th{color:#666;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+</style></head><body>
+<h1>Dashboard Admin</h1>
+
+<h2>Provision new tenant</h2>
+<div class="card">
+  <div class="field"><div class="label">Customer name</div><input id="p-name" placeholder="Jane Smith"></div>
+  <div class="field"><div class="label">Customer email</div><input id="p-email" type="email" placeholder="jane@example.com"></div>
+  <div class="field"><div class="label">Service name (Render)</div><input id="p-svc" placeholder="dashboard-jane" value="dashboard-"></div>
+  <button onclick="provision()">Provision instance</button>
+  <div class="status" id="p-status"></div>
+</div>
+
+<h2>Pending template submissions</h2>
+<div id="pending-list"><div style="color:#444">Loading...</div></div>
+
+<script>
+const TOKEN = new URLSearchParams(location.search).get('token') || '';
+const H = { 'Content-Type': 'application/json', 'x-admin-token': TOKEN };
+
+async function loadPending() {
+  const res = await fetch('/admin/api/pending-templates', { headers: H });
+  const list = await res.json();
+  const el = document.getElementById('pending-list');
+  if (!list.length) { el.innerHTML = '<div style="color:#444;font-size:13px">No pending submissions.</div>'; return; }
+  el.innerHTML = '<table><thead><tr><th>Name</th><th>Description</th><th>Submitted</th><th>Status</th><th></th></tr></thead><tbody>' +
+    list.map(t => \`<tr>
+      <td>\${t.name} <span style="font-size:11px;color:#555">\${t.icon||''}</span></td>
+      <td style="color:#888">\${t.description||'—'}</td>
+      <td style="color:#555">\${t.submitted_at?.slice(0,10)||'—'}</td>
+      <td><span class="badge badge-\${t.status}">\${t.status}</span></td>
+      <td>
+        \${t.status==='pending'?\`<button onclick="setStatus('\${t.id}','approved')">Approve</button><button class="danger" onclick="setStatus('\${t.id}','denied')">Deny</button>\`:''}
+      </td>
+    </tr>\`).join('') + '</tbody></table>';
+}
+
+async function setStatus(id, status) {
+  await fetch(\`/admin/api/pending-templates/\${id}\`, { method:'PATCH', headers:H, body:JSON.stringify({status}) });
+  loadPending();
+}
+
+async function provision() {
+  const name = document.getElementById('p-name').value.trim();
+  const email = document.getElementById('p-email').value.trim();
+  const svc = document.getElementById('p-svc').value.trim();
+  const status = document.getElementById('p-status');
+  if (!name || !email || !svc) { status.style.color='#e05555'; status.textContent='All fields required'; return; }
+  status.style.color='#888'; status.textContent='Provisioning...';
+  const res = await fetch('/admin/api/provision', { method:'POST', headers:H, body:JSON.stringify({name,email,serviceName:svc}) });
+  const data = await res.json();
+  if (data.error) { status.style.color='#e05555'; status.textContent=data.error; }
+  else { status.style.color='#4caf7d'; status.textContent='Done! URL: ' + (data.url||'check Render dashboard'); }
+}
+
+loadPending();
+</script></body></html>`;
+
+app.get('/admin', (req, res) => {
+  const token = req.query.token;
+  if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) return res.status(401).send('Unauthorized');
+  res.send(ADMIN_HTML);
+});
+
+app.get('/admin/api/pending-templates', requireAdmin, async (req, res) => {
+  res.json(await dbLayer.getPendingTemplates());
+});
+
+app.patch('/admin/api/pending-templates/:id', requireAdmin, async (req, res) => {
+  const { status } = req.body;
+  if (!['approved','denied'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  await dbLayer.updatePendingTemplateStatus(req.params.id, status);
+  res.json({ ok: true });
+});
+
+// Provisioning automation
+app.post('/admin/api/provision', requireAdmin, async (req, res) => {
+  const { name, email, serviceName } = req.body;
+  if (!name || !email || !serviceName) return res.status(400).json({ error: 'name, email, serviceName required' });
+  if (!RENDER_API_KEY || !NEON_API_KEY) return res.status(503).json({ error: 'RENDER_API_KEY and NEON_API_KEY must be set' });
+
+  try {
+    // 1. Create Neon project
+    const neonRes = await fetch('https://console.neon.tech/api/v2/projects', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${NEON_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project: { name: serviceName } }),
+    });
+    if (!neonRes.ok) throw new Error(`Neon error: ${await neonRes.text()}`);
+    const neonData = await neonRes.json();
+    const dbUrl = neonData.connection_uris?.[0]?.connection_uri;
+    if (!dbUrl) throw new Error('No connection URI from Neon');
+
+    // 2. Create Render service
+    const sessionSecret = require('crypto').randomBytes(32).toString('hex');
+    const renderRes = await fetch('https://api.render.com/v1/services', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${RENDER_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'web_service',
+        name: serviceName,
+        ownerId: RENDER_OWNER_ID,
+        repo: 'https://github.com/asapinsley90/dashboard-app',
+        branch: 'main',
+        autoDeploy: 'yes',
+        serviceDetails: {
+          runtime: 'node',
+          buildCommand: 'npm install',
+          startCommand: 'node app.js',
+          envSpecificDetails: { buildCommand: 'npm install', startCommand: 'node app.js' },
+        },
+        envVars: [
+          { key: 'DATABASE_URL', value: dbUrl },
+          { key: 'SESSION_SECRET', value: sessionSecret },
+          { key: 'R2_ENDPOINT', value: process.env.R2_ENDPOINT || '' },
+          { key: 'R2_ACCESS_KEY_ID', value: process.env.R2_ACCESS_KEY_ID || '' },
+          { key: 'R2_SECRET_ACCESS_KEY', value: process.env.R2_SECRET_ACCESS_KEY || '' },
+          { key: 'R2_BUCKET', value: serviceName },
+          { key: 'ANTHROPIC_API_KEY', value: process.env.ANTHROPIC_API_KEY || '' },
+        ],
+      }),
+    });
+    if (!renderRes.ok) throw new Error(`Render error: ${await renderRes.text()}`);
+    const renderData = await renderRes.json();
+    const serviceUrl = renderData.service?.serviceDetails?.url || `https://${serviceName}.onrender.com`;
+
+    // 3. Send email via SendGrid if configured
+    if (SENDGRID_API_KEY && email) {
+      await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${SENDGRID_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email }] }],
+          from: { email: ADMIN_EMAIL || 'noreply@dashboard.app' },
+          subject: 'Your Dashboard is ready',
+          content: [{ type: 'text/plain', value: `Hi ${name},\n\nYour personal dashboard is ready at:\n\n${serviceUrl}\n\nVisit the link to create your account and get started.\n\nThanks` }],
+        }),
+      });
+    }
+
+    res.json({ url: serviceUrl, neonProject: neonData.project?.id, renderService: renderData.service?.id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/healthz', async (req, res) => {
   try {
     await getHealthStatus();
@@ -548,13 +721,28 @@ app.get('/api/me', async (req, res) => {
   const userId = getSessionUserId(req);
   const user = await dbLayer.getUserById(userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json({ id: user.id, name: user.name, onboardingStep: user.onboarding_step || 'start' });
+  res.json({
+    id: user.id, name: user.name,
+    onboardingStep: user.onboarding_step || 'start',
+    dashboardPrefs: user.dashboard_prefs ? JSON.parse(user.dashboard_prefs) : null,
+  });
 });
 
 app.patch('/api/me', async (req, res) => {
   const userId = getSessionUserId(req);
-  const { onboardingStep } = req.body;
-  await dbLayer.updateUser(userId, { onboardingStep });
+  const { onboardingStep, name, currentPassword, newPassword, dashboardPrefs } = req.body;
+  if (newPassword) {
+    if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    const user = await dbLayer.getUserById(userId);
+    if (!await bcrypt.compare(currentPassword || '', user.password_hash)) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+    const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    await dbLayer.updateUser(userId, { passwordHash });
+  }
+  if (name !== undefined) await dbLayer.updateUser(userId, { name: name.trim() });
+  if (onboardingStep !== undefined) await dbLayer.updateUser(userId, { onboardingStep });
+  if (dashboardPrefs !== undefined) await dbLayer.updateUser(userId, { dashboardPrefs });
   res.json({ ok: true });
 });
 
@@ -570,7 +758,55 @@ const SYSTEM_TEMPLATES = [
   { id: 'tpl-admin', name: 'Admin & Legal', description: 'Documents, deadlines, renewals, and licenses', color: '#78909c', icon: '📋', recordTypes: ['task', 'event', 'note', 'project'] },
 ];
 
-app.get('/api/templates', (req, res) => res.json(SYSTEM_TEMPLATES));
+// Record type schemas
+app.get('/api/type-schemas', async (req, res) => res.json(await dbLayer.getTypeSchemas()));
+
+app.post('/api/type-schemas', async (req, res) => {
+  const { name, icon, fields } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name required' });
+  const id = 'custom-' + name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Date.now().toString(36);
+  await dbLayer.saveTypeSchema({ id, name, icon, fields, isCustom: true });
+  res.json({ id, name, icon, fields, isCustom: true });
+});
+
+app.put('/api/type-schemas/:id', async (req, res) => {
+  const { name, icon, fields } = req.body;
+  await dbLayer.saveTypeSchema({ id: req.params.id, name, icon, fields });
+  res.json({ ok: true });
+});
+
+app.delete('/api/type-schemas/:id', async (req, res) => {
+  await dbLayer.deleteTypeSchema(req.params.id);
+  res.json({ ok: true });
+});
+
+app.get('/api/templates', async (req, res) => {
+  const personal = await dbLayer.getUserTemplates();
+  const systemWithTag = SYSTEM_TEMPLATES.map(t => ({ ...t, source: 'system' }));
+  const personalWithTag = personal.map(t => ({ ...t, source: 'personal' }));
+  res.json([...systemWithTag, ...personalWithTag]);
+});
+
+app.post('/api/user-templates', async (req, res) => {
+  const { name, color, icon, description, recordTypes } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name required' });
+  const id = 'utpl-' + Date.now().toString(36);
+  await dbLayer.saveUserTemplate({ id, name, color, icon, description, recordTypes });
+  res.json({ id, name, color, icon, description, recordTypes, source: 'personal' });
+});
+
+app.delete('/api/user-templates/:id', async (req, res) => {
+  await dbLayer.deleteUserTemplate(req.params.id);
+  res.json({ ok: true });
+});
+
+app.post('/api/user-templates/:id/submit', async (req, res) => {
+  const templates = await dbLayer.getUserTemplates();
+  const tpl = templates.find(t => t.id === req.params.id);
+  if (!tpl) return res.status(404).json({ error: 'Template not found' });
+  await dbLayer.submitPendingTemplate(tpl);
+  res.json({ ok: true });
+});
 
 // Assistant chat
 app.post('/api/assistant', async (req, res) => {

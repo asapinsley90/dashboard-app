@@ -1173,6 +1173,59 @@ async function confirmMoveRecord(recordId, btn) {
   else renderAreaView(currentAreaId);
 }
 
+// ── ACCOUNT SETTINGS ─────────────────────────────────────────────────────────
+function openAccountSettings() {
+  openModal('Account settings', `
+    <div class="modal-field">
+      <div class="modal-label">Display name</div>
+      <input class="modal-input" id="acct-name" value="${currentUser.name || ''}">
+    </div>
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px">Change password</div>
+      <div class="modal-field">
+        <div class="modal-label">Current password</div>
+        <input class="modal-input" id="acct-cur-pw" type="password" autocomplete="current-password">
+      </div>
+      <div class="modal-field">
+        <div class="modal-label">New password</div>
+        <input class="modal-input" id="acct-new-pw" type="password" autocomplete="new-password">
+      </div>
+      <div class="modal-field">
+        <div class="modal-label">Confirm new password</div>
+        <input class="modal-input" id="acct-confirm-pw" type="password" autocomplete="new-password">
+      </div>
+    </div>
+    <div id="acct-err" style="color:var(--red);font-size:12px;margin-top:8px"></div>`,
+    [{ label: 'Save', primary: true, onclick: saveAccountSettings },
+     { label: 'Cancel', onclick: closeModal },
+     { label: 'Log out', onclick: () => { window.location.href = '/logout'; } }]);
+}
+
+async function saveAccountSettings() {
+  const name = document.getElementById('acct-name').value.trim();
+  const curPw = document.getElementById('acct-cur-pw').value;
+  const newPw = document.getElementById('acct-new-pw').value;
+  const confirmPw = document.getElementById('acct-confirm-pw').value;
+  const errEl = document.getElementById('acct-err');
+
+  if (!name) { errEl.textContent = 'Name cannot be empty'; return; }
+  if (newPw && newPw !== confirmPw) { errEl.textContent = 'New passwords do not match'; return; }
+  if (newPw && newPw.length < 6) { errEl.textContent = 'New password must be at least 6 characters'; return; }
+
+  const body = { name };
+  if (newPw) { body.currentPassword = curPw; body.newPassword = newPw; }
+
+  try {
+    await api('PATCH', '/api/me', body);
+    currentUser.name = name;
+    const nameEl = document.getElementById('sidebar-name');
+    if (nameEl) nameEl.textContent = name;
+    closeModal();
+  } catch (err) {
+    errEl.textContent = err.message || 'Save failed';
+  }
+}
+
 // ── ASSISTANT ────────────────────────────────────────────────────────────────
 const assistant = {
   open: false,
@@ -1346,20 +1399,42 @@ function assistantNotify(event, data) {
 
 // Template browser
 async function openTemplateBrowser(targetCb) {
+  window._templateInstallCb = targetCb || null;
   const templates = await api('GET', '/api/templates');
+  const system = templates.filter(t => t.source === 'system');
+  const personal = templates.filter(t => t.source === 'personal');
+
+  function tplCard(t) {
+    const byline = t.source === 'system'
+      ? `<div style="font-size:10px;color:var(--dim);margin-top:2px">System template</div>`
+      : `<div style="font-size:10px;color:var(--dim);margin-top:2px;display:flex;gap:6px">
+           <span style="cursor:pointer;color:var(--red)" onclick="deleteUserTemplate('${t.id}')">Delete</span>
+           <span style="cursor:pointer;color:var(--accent)" onclick="submitUserTemplate('${t.id}')">Submit to library</span>
+         </div>`;
+    return `<div class="record-card" style="cursor:pointer;flex-direction:column;align-items:flex-start;gap:2px" onclick="installTemplate('${t.id}')">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">${t.icon || '📁'}</span>
+        <span style="font-weight:600;font-size:13px">${t.name}</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted)">${t.description || ''}</div>
+      ${byline}
+    </div>`;
+  }
+
+  const systemSection = system.length ? `
+    <div style="font-size:10px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">System templates</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">${system.map(tplCard).join('')}</div>` : '';
+
+  const personalSection = personal.length ? `
+    <div style="font-size:10px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">My templates</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${personal.map(tplCard).join('')}</div>` : '';
+
   openModal('Choose a template', `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-height:380px;overflow-y:auto;padding:2px">
-      ${templates.map(t => `
-        <div class="record-card" style="cursor:pointer;flex-direction:column;align-items:flex-start;gap:4px" onclick="installTemplate('${t.id}')">
-          <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:18px">${t.icon}</span>
-            <span style="font-weight:600;font-size:13px">${t.name}</span>
-          </div>
-          <div style="font-size:11px;color:var(--muted)">${t.description}</div>
-        </div>`).join('')}
+    <div style="max-height:420px;overflow-y:auto;padding:2px">
+      ${systemSection}${personalSection}
+      ${!system.length && !personal.length ? '<div class="empty">No templates yet.</div>' : ''}
     </div>`,
     [{ label: 'Cancel', onclick: closeModal }]);
-  window._templateInstallCb = targetCb || null;
 }
 
 async function installTemplate(templateId) {
@@ -1368,11 +1443,8 @@ async function installTemplate(templateId) {
   if (!tpl) return;
   closeModal();
   const area = await api('POST', '/api/areas', {
-    title: tpl.name,
-    color: tpl.color,
-    icon: tpl.icon,
-    order: DB.areas.length,
-    parentId: null,
+    title: tpl.name, color: tpl.color, icon: tpl.icon,
+    order: DB.areas.length, parentId: null,
   });
   DB.areas.push(area);
   rebuildLookupCaches();
@@ -1380,6 +1452,39 @@ async function installTemplate(templateId) {
   assistantNotify('area-created', area);
   if (window._templateInstallCb) { window._templateInstallCb(area); window._templateInstallCb = null; }
   navigate('area', area.id);
+}
+
+function promptSaveAsTemplate(area) {
+  openModal('Save as template', `
+    <div class="modal-field"><div class="modal-label">Template name</div>
+      <input class="modal-input" id="save-tpl-name" value="${area?.title || ''}" autofocus>
+    </div>
+    <div class="modal-field"><div class="modal-label">Description</div>
+      <input class="modal-input" id="save-tpl-desc" placeholder="What is this area for?">
+    </div>`,
+    [{ label: 'Save template', primary: true, onclick: async () => {
+      const name = document.getElementById('save-tpl-name').value.trim();
+      const description = document.getElementById('save-tpl-desc').value.trim();
+      if (!name) return;
+      const recordTypes = [...new Set(DB.records.filter(r => r.areaId === area?.id).map(r => r.type))];
+      await api('POST', '/api/user-templates', { name, description, color: area?.color, icon: area?.icon, recordTypes });
+      closeModal();
+    }},
+    { label: 'Cancel', onclick: closeModal }]);
+  setTimeout(() => document.getElementById('save-tpl-name')?.focus(), 50);
+}
+
+async function deleteUserTemplate(id) {
+  if (!confirm('Delete this template?')) return;
+  await api('DELETE', `/api/user-templates/${id}`);
+  openTemplateBrowser();
+}
+
+async function submitUserTemplate(id) {
+  await api('POST', `/api/user-templates/${id}/submit`);
+  closeModal();
+  openModal('Submitted', '<p style="color:var(--muted);font-size:13px">Your template has been submitted for review.</p>',
+    [{ label: 'OK', onclick: closeModal }]);
 }
 
 boot();
