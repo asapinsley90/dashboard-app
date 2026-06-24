@@ -23,6 +23,22 @@ const NEON_API_KEY = process.env.NEON_API_KEY || '';
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || '';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
 const BCRYPT_ROUNDS = 12;
+const APP_URL = process.env.APP_URL || 'https://dashboard-app-jxlb.onrender.com';
+
+async function sendEmail(to, subject, html) {
+  if (!SENDGRID_API_KEY) { console.log(`[email] ${subject} → ${to}`); return; }
+  const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${SENDGRID_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: to }] }],
+      from: { email: ADMIN_EMAIL || 'noreply@dashboard.app', name: 'Dashboard' },
+      subject,
+      content: [{ type: 'text/html', value: html }],
+    }),
+  });
+  if (!r.ok) console.error('[email] SendGrid error:', r.status, await r.text().catch(() => ''));
+}
 
 function signToken(val) {
   return crypto.createHmac('sha256', SESSION_SECRET).update(val).digest('hex');
@@ -59,22 +75,51 @@ function requireAuth(req, res, next) {
   res.redirect('/login');
 }
 
-const PAGE_STYLE = `*{box-sizing:border-box;margin:0;padding:0}body{background:#0f0f0f;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui,sans-serif}.box{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:40px;width:360px}h2{color:#fff;font-size:18px;margin-bottom:6px;font-weight:600}p{color:#666;font-size:13px;margin-bottom:24px}.field{margin-bottom:14px}.label{color:#888;font-size:12px;margin-bottom:4px}input{width:100%;background:#111;border:1px solid #333;border-radius:8px;padding:10px 14px;color:#fff;font-size:14px;outline:none}input:focus{border-color:#3b82f6}button{width:100%;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer;margin-top:6px}button:hover{background:#2563eb}.err{color:#f87171;font-size:13px;margin-top:12px}`;
+const PAGE_STYLE = `*{box-sizing:border-box;margin:0;padding:0}body{background:#0f0f0f;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui,sans-serif}.box{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:40px;width:380px}h2{color:#fff;font-size:18px;margin-bottom:6px;font-weight:600}.sub{color:#666;font-size:13px;margin-bottom:24px}.field{margin-bottom:12px}.label{color:#888;font-size:11px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}input{width:100%;background:#111;border:1px solid #333;border-radius:8px;padding:10px 14px;color:#fff;font-size:14px;outline:none;font-family:inherit}input:focus{border-color:#3b82f6}.btn{width:100%;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}.btn:hover{background:#2563eb}.err{color:#f87171;font-size:13px;margin-top:12px}.link{color:#3b82f6;font-size:12px;text-decoration:none;display:block;text-align:center;margin-top:14px}.link:hover{text-decoration:underline}.info{color:#888;font-size:13px;margin-top:14px;text-align:center}`;
 
-const SETUP_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dashboard — Setup</title><style>${PAGE_STYLE}</style></head>
-<body><div class="box"><h2>Welcome</h2><p>Create your account to get started.</p>
+const SETUP_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dashboard — Create account</title><style>${PAGE_STYLE}</style></head>
+<body><div class="box"><h2>Create your account</h2><p class="sub">Set up your personal dashboard.</p>
 <form method="POST" action="/setup">
-<div class="field"><div class="label">Your name</div><input type="text" name="name" placeholder="First name" autofocus autocomplete="name"></div>
-<div class="field"><div class="label">Password</div><input type="password" name="password" placeholder="Choose a password" autocomplete="new-password"></div>
+<div class="field"><div class="label">Display name</div><input type="text" name="name" placeholder="First name" autofocus autocomplete="name"></div>
+<div class="field"><div class="label">Username</div><input type="text" name="username" placeholder="username" autocomplete="username"></div>
+<div class="field"><div class="label">Email</div><input type="email" name="email" placeholder="you@example.com" autocomplete="email"></div>
+<div class="field"><div class="label">Confirm email</div><input type="email" name="email2" placeholder="Confirm email"></div>
+<div class="field"><div class="label">Password</div><input type="password" name="password" placeholder="Choose a password (6+ chars)" autocomplete="new-password"></div>
 <div class="field"><div class="label">Confirm password</div><input type="password" name="confirm" placeholder="Confirm password" autocomplete="new-password"></div>
-<button type="submit">Create account</button>
+<button class="btn" type="submit">Create account</button>
 </form><div class="err">{{ERROR}}</div></div></body></html>`;
 
 const LOGIN_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dashboard</title><style>${PAGE_STYLE}</style></head>
-<body><div class="box"><h2>Dashboard</h2><p style="margin-bottom:24px"></p>
+<body><div class="box"><h2>Dashboard</h2><p class="sub"></p>
 <form method="POST" action="/login">
-<div class="field"><div class="label">Password</div><input type="password" name="password" placeholder="Password" autofocus autocomplete="current-password"></div>
-<button type="submit">Sign in</button>
+<div class="field"><div class="label">Username or email</div><input type="text" name="identifier" placeholder="username or email" autofocus autocomplete="username"></div>
+<div class="field"><div class="label">Password</div><input type="password" name="password" placeholder="Password" autocomplete="current-password"></div>
+<button class="btn" type="submit">Sign in</button>
+</form>
+<a class="link" href="/forgot-password">Forgot password?</a>
+<div class="err">{{ERROR}}</div></div></body></html>`;
+
+const VERIFY_PENDING_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Check your email</title><style>${PAGE_STYLE}</style></head>
+<body><div class="box"><h2>Check your email</h2><p class="sub">We sent a verification link to <strong>{{EMAIL}}</strong>. Click it to activate your account.</p>
+<div class="info">Didn't receive it? Check your spam folder, or <a class="link" href="/resend-verification?email={{EMAIL}}" style="display:inline">resend</a>.</div>
+</div></body></html>`;
+
+const FORGOT_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Forgot password</title><style>${PAGE_STYLE}</style></head>
+<body><div class="box"><h2>Forgot password</h2><p class="sub">Enter your username or email and we'll send a reset link.</p>
+<form method="POST" action="/forgot-password">
+<div class="field"><div class="label">Username or email</div><input type="text" name="identifier" placeholder="username or email" autofocus></div>
+<button class="btn" type="submit">Send reset link</button>
+</form>
+<a class="link" href="/login">Back to sign in</a>
+<div class="err">{{ERROR}}</div><div class="info" style="color:#4caf7d">{{SUCCESS}}</div></div></body></html>`;
+
+const RESET_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reset password</title><style>${PAGE_STYLE}</style></head>
+<body><div class="box"><h2>Reset password</h2><p class="sub">Choose a new password for your account.</p>
+<form method="POST" action="/reset-password">
+<input type="hidden" name="token" value="{{TOKEN}}">
+<div class="field"><div class="label">New password</div><input type="password" name="password" placeholder="New password (6+ chars)" autofocus autocomplete="new-password"></div>
+<div class="field"><div class="label">Confirm password</div><input type="password" name="confirm" placeholder="Confirm password" autocomplete="new-password"></div>
+<button class="btn" type="submit">Reset password</button>
 </form><div class="err">{{ERROR}}</div></div></body></html>`;
 
 // R2 storage
@@ -111,17 +156,50 @@ app.get('/setup', async (req, res) => {
 });
 
 app.post('/setup', async (req, res) => {
+  const err = t => res.send(SETUP_HTML.replace('{{ERROR}}', t));
   const hasUser = await dbLayer.hasAnyUser().catch(() => false);
   if (hasUser) return res.redirect('/');
-  const { name, password, confirm } = req.body;
-  if (!name || !name.trim()) return res.send(SETUP_HTML.replace('{{ERROR}}', 'Name is required'));
-  if (!password || password.length < 6) return res.send(SETUP_HTML.replace('{{ERROR}}', 'Password must be at least 6 characters'));
-  if (password !== confirm) return res.send(SETUP_HTML.replace('{{ERROR}}', 'Passwords do not match'));
+  const { name, username, email, email2, password, confirm } = req.body;
+  if (!name?.trim()) return err('Display name is required');
+  if (!username?.trim() || !/^[a-zA-Z0-9_]{3,30}$/.test(username.trim())) return err('Username must be 3–30 characters, letters/numbers/underscores only');
+  if (!email?.trim() || !/\S+@\S+\.\S+/.test(email.trim())) return err('Valid email is required');
+  if (email.trim() !== email2?.trim()) return err('Emails do not match');
+  if (!password || password.length < 6) return err('Password must be at least 6 characters');
+  if (password !== confirm) return err('Passwords do not match');
   const id = crypto.randomBytes(8).toString('hex');
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-  await dbLayer.createUser({ id, name: name.trim(), passwordHash });
+  const verificationToken = SENDGRID_API_KEY ? crypto.randomBytes(32).toString('hex') : null;
+  await dbLayer.createUser({ id, name: name.trim(), username: username.trim().toLowerCase(), email: email.trim().toLowerCase(), passwordHash, verificationToken });
+  if (verificationToken) {
+    const link = `${APP_URL}/verify-email?token=${verificationToken}`;
+    await sendEmail(email.trim(), 'Verify your Dashboard account', `<p>Hi ${name.trim()},</p><p>Click the link below to verify your email and activate your account:</p><p><a href="${link}">${link}</a></p>`);
+    return res.send(VERIFY_PENDING_HTML.replace(/\{\{EMAIL\}\}/g, email.trim()));
+  }
+  // No SendGrid — auto-verify and sign in
   setSessionCookie(res, id);
   res.redirect('/');
+});
+
+app.get('/verify-email', async (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.redirect('/login');
+  const userId = await dbLayer.verifyEmailToken(token);
+  if (!userId) return res.send(`<p style="color:#f87171;font-family:system-ui;padding:40px">Invalid or expired verification link. <a href="/login">Sign in</a></p>`);
+  setSessionCookie(res, userId);
+  res.redirect('/');
+});
+
+app.get('/resend-verification', async (req, res) => {
+  const { email } = req.query;
+  if (!email) return res.redirect('/login');
+  const user = await dbLayer.getUserByUsernameOrEmail(email);
+  if (user && !user.email_verified) {
+    const token = crypto.randomBytes(32).toString('hex');
+    await dbLayer.updateUser(user.id, { verificationToken: token });
+    const link = `${APP_URL}/verify-email?token=${token}`;
+    await sendEmail(user.email, 'Verify your Dashboard account', `<p>Click below to verify your email:</p><p><a href="${link}">${link}</a></p>`);
+  }
+  res.send(VERIFY_PENDING_HTML.replace(/\{\{EMAIL\}\}/g, email));
 });
 
 app.get('/login', async (req, res) => {
@@ -130,12 +208,21 @@ app.get('/login', async (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
-  const { password } = req.body;
+  const { identifier, password } = req.body;
   const hasUser = await dbLayer.hasAnyUser().catch(() => false);
   if (!hasUser) return res.redirect('/setup');
-  const row = await dbLayer.getUserByInstance();
+  // Support legacy password-only login (no identifier) for existing single-user instances
+  let row;
+  if (!identifier?.trim()) {
+    row = await dbLayer.getUserByInstance();
+  } else {
+    row = await dbLayer.getUserByUsernameOrEmail(identifier.trim().toLowerCase());
+  }
   if (!row || !await bcrypt.compare(password, row.password_hash)) {
-    return res.send(LOGIN_HTML.replace('{{ERROR}}', 'Incorrect password'));
+    return res.send(LOGIN_HTML.replace('{{ERROR}}', 'Incorrect username or password'));
+  }
+  if (row.email && !row.email_verified) {
+    return res.send(LOGIN_HTML.replace('{{ERROR}}', 'Please verify your email first. Check your inbox or <a href="/resend-verification?email=' + encodeURIComponent(row.email) + '" style="color:#3b82f6">resend the link</a>.'));
   }
   setSessionCookie(res, row.id);
   res.redirect('/');
@@ -144,6 +231,48 @@ app.post('/login', async (req, res) => {
 app.get('/logout', (req, res) => {
   res.setHeader('Set-Cookie', 'dash_session=; HttpOnly; Max-Age=0; Path=/');
   res.redirect('/login');
+});
+
+app.get('/forgot-password', (req, res) => {
+  if (getSessionUserId(req)) return res.redirect('/');
+  res.send(FORGOT_HTML.replace('{{ERROR}}', '').replace('{{SUCCESS}}', ''));
+});
+
+app.post('/forgot-password', async (req, res) => {
+  const { identifier } = req.body;
+  const ok = FORGOT_HTML.replace('{{ERROR}}', '').replace('{{SUCCESS}}', 'If that account exists, a reset link has been sent.');
+  if (!identifier?.trim()) return res.send(ok);
+  const user = await dbLayer.getUserByUsernameOrEmail(identifier.trim().toLowerCase());
+  if (user?.email) {
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 3600_000).toISOString(); // 1 hour
+    await dbLayer.setResetToken(user.id, token, expires);
+    const link = `${APP_URL}/reset-password?token=${token}`;
+    await sendEmail(user.email, 'Reset your Dashboard password', `<p>Click below to reset your password (link expires in 1 hour):</p><p><a href="${link}">${link}</a></p><p>If you didn't request this, ignore this email.</p>`);
+  }
+  res.send(ok);
+});
+
+app.get('/reset-password', async (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.redirect('/login');
+  const user = await dbLayer.getUserByResetToken(token);
+  if (!user) return res.send(`<p style="color:#f87171;font-family:system-ui;padding:40px">Reset link has expired. <a href="/forgot-password">Request a new one</a></p>`);
+  res.send(RESET_HTML.replace('{{TOKEN}}', token).replace('{{ERROR}}', ''));
+});
+
+app.post('/reset-password', async (req, res) => {
+  const { token, password, confirm } = req.body;
+  const err = t => res.send(RESET_HTML.replace('{{TOKEN}}', token).replace('{{ERROR}}', t));
+  if (!token) return res.redirect('/login');
+  const user = await dbLayer.getUserByResetToken(token);
+  if (!user) return err('Reset link has expired. <a href="/forgot-password" style="color:#3b82f6">Request a new one</a>');
+  if (!password || password.length < 6) return err('Password must be at least 6 characters');
+  if (password !== confirm) return err('Passwords do not match');
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  await dbLayer.updateUser(user.id, { passwordHash, clearReset: true });
+  setSessionCookie(res, user.id);
+  res.redirect('/');
 });
 
 // Protect everything else
@@ -749,6 +878,9 @@ app.get('/api/me', async (req, res) => {
   if (!user) return res.status(404).json({ error: 'User not found' });
   res.json({
     id: user.id, name: user.name,
+    username: user.username || null,
+    email: user.email || null,
+    emailVerified: user.email_verified || false,
     onboardingStep: user.onboarding_step || 'start',
     dashboardPrefs: user.dashboard_prefs ? JSON.parse(user.dashboard_prefs) : null,
   });
