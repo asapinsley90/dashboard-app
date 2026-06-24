@@ -846,13 +846,38 @@ function renderTimeline(r) {
   </div>`;
 }
 
+function formatSalary(raw) {
+  if (!raw) return '';
+  const stripped = String(raw).replace(/[$,\s]/g, '');
+  if (!stripped) return '';
+  // Handle range like 85000-110000 or 85000–110000
+  const rangeParts = stripped.split(/[-–]/);
+  if (rangeParts.length === 2 && rangeParts.every(p => /^\d+$/.test(p.trim()))) {
+    return rangeParts.map(p => '$' + Number(p.trim()).toLocaleString()).join('–');
+  }
+  if (/^\d+$/.test(stripped)) return '$' + Number(stripped).toLocaleString();
+  // Keep as-is if it's already formatted or has text
+  return raw.startsWith('$') ? raw : '$' + raw;
+}
+
 function editableField(r, key, label, type = 'text') {
   const val = r.fields?.[key] || '';
   const stepAttr = type === 'time' ? 'step="900"' : '';
+  if (key === 'salary') {
+    const display = formatSalary(val);
+    return `<div class="field-row">
+      <div class="field-label">${label}</div>
+      <div class="field-value">
+        <input class="field-edit" type="text" value="${escapeHtml(display)}" placeholder="$85,000"
+          onfocus="this.value=this.value.replace(/[$,]/g,'')"
+          onblur="this.value=formatSalary(this.value);saveFieldText('${r.id}','${key}',this.value)">
+      </div>
+    </div>`;
+  }
   return `<div class="field-row">
     <div class="field-label">${label}</div>
     <div class="field-value">
-      <input class="field-edit" type="${type}" value="${val}" placeholder="—" ${stepAttr}
+      <input class="field-edit" type="${type}" value="${escapeHtml(val)}" placeholder="—" ${stepAttr}
         onblur="saveFieldText('${r.id}','${key}',this.value)">
     </div>
   </div>`;
@@ -923,13 +948,13 @@ async function changeStatus(recordId) {
     [{ label: 'Save', primary: true, onclick: async () => {
       const val = document.getElementById('status-select').value;
       r.status = val;
-      await api('PUT', `/api/records/${recordId}`, { status: val });
+      r.urgency = 'none';
+      await api('PUT', `/api/records/${recordId}`, { status: val, urgency: 'none' });
       await api('POST', `/api/records/${recordId}/timeline`, { text: `Status changed to: ${val}` });
-      const updated = await api('GET', `/api/records/${recordId}`);
-      DB.records = DB.records.map(rec => rec.id === recordId ? updated : rec);
       closeModal();
-      renderRecordView(recordId);
       renderSidebar();
+      // Navigate back to area so the record immediately appears in the right place
+      navigate('area', r.areaId);
     }},
     { label: 'Cancel', onclick: closeModal }]);
 }
@@ -1210,23 +1235,21 @@ async function cycleUrgency(recordId) {
 async function markComplete(recordId) {
   const r = DB.records.find(r => r.id === recordId);
   if (!r) return;
-  r.status = 'completed';
-  r.urgency = 'none';
+  r.status = 'completed'; r.urgency = 'none';
   await api('PUT', `/api/records/${recordId}`, { status: 'completed', urgency: 'none' });
   await api('POST', `/api/records/${recordId}/timeline`, { text: 'Marked complete' });
   renderSidebar();
-  renderRecordView(recordId);
+  navigate('area', r.areaId);
 }
 
 async function markArchived(recordId) {
   const r = DB.records.find(r => r.id === recordId);
   if (!r) return;
-  r.status = 'archived';
-  r.urgency = 'none';
+  r.status = 'archived'; r.urgency = 'none';
   await api('PUT', `/api/records/${recordId}`, { status: 'archived', urgency: 'none' });
   await api('POST', `/api/records/${recordId}/timeline`, { text: 'Archived' });
   renderSidebar();
-  renderRecordView(recordId);
+  navigate('area', r.areaId);
 }
 
 async function unarchiveRecord(recordId) {
@@ -1236,7 +1259,7 @@ async function unarchiveRecord(recordId) {
   await api('PUT', `/api/records/${recordId}`, { status: 'active' });
   await api('POST', `/api/records/${recordId}/timeline`, { text: 'Unarchived' });
   renderSidebar();
-  renderRecordView(recordId);
+  navigate('area', r.areaId);
 }
 
 async function deleteRecord(recordId) {

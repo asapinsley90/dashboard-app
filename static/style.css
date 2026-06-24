@@ -326,7 +326,7 @@ textarea.modal-input{resize:vertical;min-height:70px}
 .group-count{font-size:10px;color:var(--dim);background:var(--bg3);border-radius:10px;padding:1px 6px}
 .group-body{overflow:hidden;transition:max-height .2s ease}
 /* Sidebar subitems */
-.sidebar-subitem{display:flex;align-items:center;gap:8px;padding:4px 12px 4px 28px;cursor:pointer;color:var(--dim);font-size:12px;transition:background .1s}
+.sidebar-subitem{display:flex;align-items:center;gap:8px;padding:4px 12px 4px 28px;cursor:pointer;color:var(--dim);font-size:12px;transition:background .1s;user-select:none}
 .sidebar-subitem:hover{background:var(--bg3);color:var(--muted)}
 .sidebar-subitem.active{background:var(--bg3);color:var(--text)}
 .sidebar-subitems{display:none}
