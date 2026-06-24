@@ -1336,6 +1336,50 @@ function assistantOpen() {
 function assistantClose() {
   assistant.open = false;
   document.getElementById('assistant-panel')?.classList.remove('open');
+  // If user manually closes during onboarding, mark it complete so it doesn't re-open on refresh
+  if (assistant.onboardingStep && assistant.onboardingStep !== 'complete') {
+    assistant.onboardingStep = 'complete';
+    api('PATCH', '/api/me', { onboardingStep: 'complete' }).catch(() => {});
+  }
+}
+
+// ── TIPS ─────────────────────────────────────────────────────────────────────
+function getAssistantPrefs() {
+  return { tipsEnabled: true, dismissedTips: [], ...((currentUser.dashboardPrefs?.assistantPrefs) || {}) };
+}
+
+function assistantTip(key, message) {
+  const ap = getAssistantPrefs();
+  if (!ap.tipsEnabled) return;
+  if (ap.dismissedTips.includes(key)) return;
+  // Remove any existing tip bubble
+  document.getElementById('tip-bubble')?.remove();
+  const el = document.createElement('div');
+  el.id = 'tip-bubble';
+  el.innerHTML = `
+    <div class="tip-bubble-inner">
+      <span style="font-size:15px;flex-shrink:0">✦</span>
+      <span class="tip-bubble-text">${message}</span>
+    </div>
+    <div class="tip-bubble-actions">
+      <button class="tip-btn-primary" onclick="dismissAssistantTip('${key}',false)">Got it</button>
+      <button class="tip-btn-muted" onclick="dismissAssistantTip('${key}',true)">Turn off tips</button>
+    </div>`;
+  const sidebar = document.getElementById('sidebar-assistant-btn');
+  sidebar ? sidebar.parentNode.insertBefore(el, sidebar) : document.getElementById('sidebar').appendChild(el);
+}
+
+async function dismissAssistantTip(key, dismissAll) {
+  document.getElementById('tip-bubble')?.remove();
+  const prefs = getDashPrefs();
+  prefs.assistantPrefs = prefs.assistantPrefs || { tipsEnabled: true, dismissedTips: [] };
+  if (dismissAll) {
+    prefs.assistantPrefs.tipsEnabled = false;
+  } else if (!prefs.assistantPrefs.dismissedTips.includes(key)) {
+    prefs.assistantPrefs.dismissedTips.push(key);
+  }
+  currentUser.dashboardPrefs = prefs;
+  await saveDashPrefs(prefs);
 }
 
 function assistantAppendMessage(role, text) {

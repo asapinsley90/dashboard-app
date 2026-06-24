@@ -40,6 +40,7 @@ async function hideDashWidget(id) {
   if (!p.hidden.includes(id)) p.hidden.push(id);
   await saveDashPrefs(p);
   renderDashboard();
+  assistantTip('widget-hide', 'Section hidden. The restore bar at the bottom of your dashboard lets you bring it back anytime.');
 }
 
 async function showDashWidget(id) {

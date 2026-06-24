@@ -413,6 +413,16 @@ textarea.modal-input{resize:vertical;min-height:70px}
 .typing-dot:nth-child(3){animation-delay:.3s}
 @keyframes typing-bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
 
+/* Tip bubble */
+#tip-bubble{background:var(--bg3);border:1px solid var(--accent);border-radius:10px;margin:6px 8px 0;padding:10px 12px;animation:tip-in .2s ease}
+@keyframes tip-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.tip-bubble-inner{display:flex;align-items:flex-start;gap:8px;color:var(--text);font-size:12px;line-height:1.5;margin-bottom:8px}
+.tip-bubble-text{flex:1}
+.tip-bubble-actions{display:flex;gap:8px;align-items:center}
+.tip-btn-primary{background:var(--accent);border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:11px;font-weight:600;padding:4px 10px}
+.tip-btn-muted{background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0;text-decoration:underline}
+.tip-btn-muted:hover{color:var(--text)}
+
 /* Collapsible sidebar sections */
 .sidebar-sec-toggle{cursor:pointer;user-select:none}
 .sidebar-sec-toggle:hover{color:var(--text)}

@@ -1146,6 +1146,8 @@ function promptAddRecord(forceType, targetAreaId = null) {
       const rec = await api('POST', '/api/records', { type:t, areaId:aid, title, urgency:'new', fields: schemaDefaults || legacyDefaults[t] || {}, contacts:t==='job'?[]:undefined, interviews:t==='job'?[]:undefined, documents:t==='job'?[]:undefined });
       DB.records.push(rec);
       assistantNotify('record-created', rec);
+      const isFirst = DB.records.filter(r => r.id !== rec.id).length === 0;
+      if (isFirst) assistantTip('first-record', 'Use the urgency flag (⚑ Flag) in the record to mark items that need attention — they\'ll surface on your dashboard.');
       closeModal(); renderSidebar(); navigate('record', aid, rec.id);
     }},
     { label: 'Cancel', onclick: closeModal }]);
@@ -1178,6 +1180,8 @@ async function promptAddArea(parentId = null) {
       closeModal();
       renderSidebar();
       assistantNotify('area-created', area);
+      const isFirst = DB.areas.filter(a => a.id !== area.id).length === 0;
+      if (isFirst) assistantTip('first-area', 'Tip: you can drag areas in the sidebar to reorder them, and click an area name twice to collapse its sub-items.');
       navigate('area', area.id);
     }},
     { label: 'Cancel', onclick: closeModal }]);

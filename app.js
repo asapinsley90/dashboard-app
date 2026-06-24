@@ -500,6 +500,9 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px 12px;text-align:left
 </style></head><body>
 <h1>Dashboard Admin</h1>
 
+<h2>Instance stats</h2>
+<div class="card" id="stats-card"><div style="color:#444">Loading...</div></div>
+
 <h2>Provision new tenant</h2>
 <div class="card">
   <div class="field"><div class="label">Customer name</div><input id="p-name" placeholder="Jane Smith"></div>
@@ -551,6 +554,22 @@ async function provision() {
   else { status.style.color='#4caf7d'; status.textContent='Done! URL: ' + (data.url||'check Render dashboard'); }
 }
 
+async function loadStats() {
+  const res = await fetch('/admin/api/stats', { headers: H });
+  const d = await res.json();
+  const el = document.getElementById('stats-card');
+  if (d.error) { el.innerHTML = '<div style="color:#e05555">'+d.error+'</div>'; return; }
+  el.innerHTML = \`<table><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody>
+    <tr><td>Areas</td><td>\${d.areas}</td></tr>
+    <tr><td>Records</td><td>\${d.records}</td></tr>
+    <tr><td>Reviews</td><td>\${d.reviews}</td></tr>
+    <tr><td>Documents (R2 keys)</td><td>\${d.documents}</td></tr>
+    <tr><td>User name</td><td>\${d.userName||'—'}</td></tr>
+    <tr><td>Onboarding step</td><td>\${d.onboardingStep||'—'}</td></tr>
+  </tbody></table>\`;
+}
+
+loadStats();
 loadPending();
 </script></body></html>`;
 
@@ -558,6 +577,11 @@ app.get('/admin', (req, res) => {
   const token = req.query.token;
   if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) return res.status(401).send('Unauthorized');
   res.send(ADMIN_HTML);
+});
+
+app.get('/admin/api/stats', requireAdmin, async (req, res) => {
+  try { res.json(await dbLayer.getStats()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/admin/api/pending-templates', requireAdmin, async (req, res) => {
