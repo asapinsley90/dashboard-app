@@ -1406,7 +1406,7 @@ async function confirmMoveRecord(recordId, btn) {
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
 function openAdminPanel() {
   const saved = localStorage.getItem('admin_token');
-  if (saved) { window.open('/admin', '_blank'); return; }
+  if (saved) { window.open('/admin?token=' + encodeURIComponent(saved), '_blank'); return; }
   openModal('Admin panel', `
     <div class="modal-field">
       <div class="modal-label">Admin token</div>
