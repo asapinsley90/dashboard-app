@@ -1578,7 +1578,7 @@ function assistantNotify(event, data) {
       assistantSetTyping(true);
       await new Promise(r => setTimeout(r, 1000));
       assistantSetTyping(false);
-      assistantAppendMessage('assistant', `There it is — your home base. I'll be down here if you need anything.`);
+      assistantAppendMessage('assistant', `There it is — your home base. A few things worth knowing: use your browser's back and forward buttons to navigate, Ctrl+Z restores anything you delete within 24 hours, and I'll be down here if you need anything.`);
       await new Promise(r => setTimeout(r, 2000));
       assistantClose();
     }, 500);

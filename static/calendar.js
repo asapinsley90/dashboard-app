@@ -301,6 +301,11 @@ function renderCalWidget(containerId, mini, areaFilter) {
 
 function renderCalFull() {
   const today = new Date();
+  // + Add event pill in topbar
+  const topbarActions = document.getElementById('topbar-actions');
+  if (topbarActions) {
+    topbarActions.innerHTML = `<button class="event-pill-btn" onclick="promptAddEvent()">+ Add event</button>`;
+  }
   // Day panel
   const dayLabel = document.getElementById('cal-day-label');
   if (dayLabel) dayLabel.textContent = 'Today — ' + today.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
