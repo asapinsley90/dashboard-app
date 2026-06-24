@@ -1573,7 +1573,7 @@ async function renderTemplatesView() {
         <button class="btn btn-sm" style="font-size:11px;color:var(--red)" onclick="event.stopPropagation();deleteUserTemplate('${t.id}')">Delete</button>
         <button class="btn btn-sm" style="font-size:11px" onclick="event.stopPropagation();submitUserTemplate('${t.id}')">Submit to library</button>
       </div>` : '';
-    return `<div class="template-tile" onclick="installTemplate('${t.id}')">
+    return `<div class="template-tile" onclick="installTemplate('${t.id}',this)">
       <div style="font-size:28px;margin-bottom:8px">${t.icon || '📁'}</div>
       <div style="font-weight:600;font-size:14px;margin-bottom:4px">${t.name}</div>
       <div style="font-size:12px;color:var(--muted);flex:1">${t.description || ''}</div>
@@ -1603,7 +1603,7 @@ async function openTemplateBrowser(targetCb) {
            <span style="cursor:pointer;color:var(--red)" onclick="deleteUserTemplate('${t.id}')">Delete</span>
            <span style="cursor:pointer;color:var(--accent)" onclick="submitUserTemplate('${t.id}')">Submit to library</span>
          </div>`;
-    return `<div class="record-card" style="cursor:pointer;flex-direction:column;align-items:flex-start;gap:2px" onclick="installTemplate('${t.id}')">
+    return `<div class="record-card" style="cursor:pointer;flex-direction:column;align-items:flex-start;gap:2px" onclick="installTemplate('${t.id}',this)">
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:18px">${t.icon || '📁'}</span>
         <span style="font-weight:600;font-size:13px">${t.name}</span>
@@ -1629,21 +1629,45 @@ async function openTemplateBrowser(targetCb) {
     [{ label: 'Cancel', onclick: closeModal }]);
 }
 
-async function installTemplate(templateId) {
-  const templates = await api('GET', '/api/templates');
-  const tpl = templates.find(t => t.id === templateId);
-  if (!tpl) return;
-  closeModal();
-  const area = await api('POST', '/api/areas', {
-    title: tpl.name, color: tpl.color, icon: tpl.icon,
-    order: DB.areas.length, parentId: null,
-  });
-  DB.areas.push(area);
-  rebuildLookupCaches();
-  renderSidebar();
-  assistantNotify('area-created', area);
-  if (window._templateInstallCb) { window._templateInstallCb(area); window._templateInstallCb = null; }
-  navigate('area', area.id);
+async function installTemplate(templateId, triggerEl) {
+  // Prevent double-click and show immediate feedback
+  const tile = triggerEl?.closest?.('.template-tile') || document.querySelector(`.template-tile[onclick*="${templateId}"]`);
+  if (tile) {
+    if (tile.dataset.installing) return;
+    tile.dataset.installing = '1';
+    tile.style.opacity = '0.5';
+    tile.style.pointerEvents = 'none';
+    const spinner = document.createElement('div');
+    spinner.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);border-radius:10px;font-size:20px';
+    spinner.textContent = '⏳';
+    tile.style.position = 'relative';
+    tile.appendChild(spinner);
+  }
+  try {
+    const templates = await api('GET', '/api/templates');
+    const tpl = templates.find(t => t.id === templateId);
+    if (!tpl) return;
+    const area = await api('POST', '/api/areas', {
+      title: tpl.name, color: tpl.color, icon: tpl.icon,
+      order: DB.areas.length, parentId: null,
+    });
+    DB.areas.push(area);
+    rebuildLookupCaches();
+    renderSidebar();
+    assistantNotify('area-created', area);
+    if (window._templateInstallCb) { window._templateInstallCb(area); window._templateInstallCb = null; }
+    navigate('area', area.id);
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--text);z-index:9999;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.3)';
+    t.innerHTML = `<span style="color:var(--green)">✓</span><span><b>${tpl.name}</b> added to your areas</span>`;
+    document.body.appendChild(t); setTimeout(() => t.remove(), 4000);
+  } catch (err) {
+    if (tile) { tile.style.opacity = ''; tile.style.pointerEvents = ''; delete tile.dataset.installing; tile.querySelector('[style*="inset"]')?.remove(); }
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--text);z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.3)';
+    t.innerHTML = `<span style="color:var(--red)">✗</span> Failed to install template`;
+    document.body.appendChild(t); setTimeout(() => t.remove(), 4000);
+  }
 }
 
 function promptSaveAsTemplate(area) {
