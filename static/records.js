@@ -6,7 +6,8 @@ function renderRecordView(recordId) {
   const isCompleted = r.status === 'completed';
   const isArchived = r.status === 'archived';
   const urgency = r.urgency || 'none';
-  const urgencyLabels = { none: '⚑ Flag', flagged: '🟡 Flagged', priority: '🔵 Priority', urgent: '🔴 Urgent' };
+  const ul = getUrgencyLabels?.() || {};
+  const urgencyLabels = { none: '⚑ Flag', flagged: `🟡 ${ul.flagged||'Follow Up'}`, priority: `🔵 ${ul.priority||'Priority'}`, urgent: `🔴 ${ul.urgent||'Urgent'}` };
   const urgencyNext = { none: 'flagged', flagged: 'priority', priority: 'urgent', urgent: 'none' };
   document.getElementById('topbar-actions').innerHTML = `
     <button class="btn btn-sm" onclick="navigate('area','${r.areaId}')">← Back</button>

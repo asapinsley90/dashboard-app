@@ -174,22 +174,82 @@ function renderDashboard() {
 
 let attentionFilter = 'triage';
 
+const URGENCY_DEFAULTS = { urgent: 'Urgent', flagged: 'Follow Up', new: 'New', priority: 'Priority', none: 'Clear' };
+const URGENCY_CSS = { urgent: 'af-urgent', flagged: 'af-flagged', new: 'af-new', priority: 'af-priority', none: 'af-none', triage: 'af-triage' };
+
+function getUrgencyLabels() {
+  return { ...URGENCY_DEFAULTS, ...(currentUser.dashboardPrefs?.urgencyLabels || {}) };
+}
+function getUrgencyLabel(key) { return getUrgencyLabels()[key] || key; }
+
 function renderAttentionFilters() {
   const el = document.getElementById('attention-filters');
   if (!el) return;
-  const filters = [
-    ['triage', 'Triage', 'af-triage'],
-    ['red', 'Red', 'af-red'],
-    ['yellow', 'Yellow', 'af-yellow'],
-    ['blue', 'Blue', 'af-blue'],
-    ['purple', 'Purple', 'af-purple'],
-    ['none', 'None', 'af-none'],
-  ];
-  el.innerHTML = filters.map(([key, label, cls]) => `<button class="attention-filter${attentionFilter===key ? ' active ' + cls : ''}" onclick="setAttentionFilter('${key}')">${label}</button>`).join('');
+  const labels = getUrgencyLabels();
+  const urgencyKeys = ['urgent', 'flagged', 'new', 'priority'];
+  // Count records per urgency (for hiding empty pills)
+  const counts = {};
+  DB.records.filter(r => r.status !== 'archived' && r.status !== 'completed').forEach(r => {
+    const u = r.urgency || 'none';
+    counts[u] = (counts[u] || 0) + 1;
+  });
+  const triageCount = urgencyKeys.reduce((s, k) => s + (counts[k] || 0), 0);
+
+  const pills = [];
+  // Triage always shown
+  const tActive = attentionFilter === 'triage';
+  pills.push(`<button class="attention-filter af-triage${tActive ? ' active' : ''}" onclick="setAttentionFilter('triage')">Triage${triageCount ? ` <span class="af-count">${triageCount}</span>` : ''}</button>`);
+  // Per-urgency pills — hide if 0 records
+  urgencyKeys.forEach(key => {
+    const cnt = counts[key] || 0;
+    if (!cnt) return;
+    const active = attentionFilter === key;
+    const cls = URGENCY_CSS[key] || '';
+    pills.push(`<button class="attention-filter ${cls}${active ? ' active' : ''}" onclick="setAttentionFilter('${key}')">${labels[key]} <span class="af-count">${cnt}</span></button>`);
+  });
+  // None pill
+  const noneCnt = counts['none'] || 0;
+  if (noneCnt) {
+    const nActive = attentionFilter === 'none';
+    pills.push(`<button class="attention-filter af-none${nActive ? ' active' : ''}" onclick="setAttentionFilter('none')">${labels['none']} <span class="af-count">${noneCnt}</span></button>`);
+  }
+  // Edit labels button
+  pills.push(`<button class="attention-filter af-edit" onclick="openUrgencyLabelEditor()" title="Rename labels">✏</button>`);
+  el.innerHTML = pills.join('');
 }
 
 function setAttentionFilter(filter) {
   attentionFilter = filter;
+  renderDashboard();
+}
+
+function openUrgencyLabelEditor() {
+  const labels = getUrgencyLabels();
+  const urgencyColors = { urgent: 'var(--red)', flagged: 'var(--amber)', new: 'var(--blue)', priority: 'var(--purple)', none: 'var(--muted)' };
+  const keys = ['urgent', 'flagged', 'new', 'priority', 'none'];
+  const body = keys.map(k => `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="width:8px;height:8px;border-radius:50%;background:${urgencyColors[k]};flex-shrink:0"></div>
+      <label style="width:80px;font-size:12px;color:var(--muted);flex-shrink:0">${URGENCY_DEFAULTS[k]}</label>
+      <input class="modal-input" id="ul-${k}" value="${labels[k]}" placeholder="${URGENCY_DEFAULTS[k]}" style="flex:1;padding:4px 8px;font-size:13px">
+    </div>`).join('');
+  openModal('Rename urgency labels', body, [
+    { label: 'Save', primary: true, onclick: 'saveUrgencyLabels()' },
+    { label: 'Cancel', onclick: 'closeModal()' }
+  ]);
+}
+
+async function saveUrgencyLabels() {
+  const keys = ['urgent', 'flagged', 'new', 'priority', 'none'];
+  const newLabels = {};
+  keys.forEach(k => {
+    const v = document.getElementById('ul-' + k)?.value.trim();
+    if (v) newLabels[k] = v;
+  });
+  const prefs = getDashPrefs();
+  prefs.urgencyLabels = newLabels;
+  await saveDashPrefs(prefs);
+  closeModal();
   renderDashboard();
 }
 
