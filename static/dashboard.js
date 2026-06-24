@@ -204,7 +204,7 @@ function renderAttentionFilters() {
   const urgencyKeys = ['urgent', 'flagged', 'new', 'priority'];
   // Count records per urgency (for hiding empty pills)
   const counts = {};
-  DB.records.filter(r => r.status !== 'archived' && r.status !== 'completed').forEach(r => {
+  DB.records.filter(r => !r.deletedAt && r.status !== 'archived' && r.status !== 'completed').forEach(r => {
     const u = r.urgency || 'none';
     counts[u] = (counts[u] || 0) + 1;
   });
@@ -279,7 +279,7 @@ function renderTodayStrip() {
   if (hdr) hdr.textContent = 'Today — ' + today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   const events = DB.records
-    .filter(r => r.type === 'event' && r.fields?.date === todayStr)
+    .filter(r => !r.deletedAt && r.type === 'event' && r.fields?.date === todayStr)
     .sort((a, b) => (a.fields.time || '').localeCompare(b.fields.time || ''));
 
   if (!events.length) {
@@ -314,7 +314,7 @@ function renderThisWeekStrip() {
   const endFmt = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   if (hdr) hdr.textContent = 'This week — through ' + endFmt;
   const items = DB.records
-    .filter(r => r.type === 'event' && r.status !== 'archived' && r.status !== 'completed' && r.fields?.date)
+    .filter(r => !r.deletedAt && r.type === 'event' && r.status !== 'archived' && r.status !== 'completed' && r.fields?.date)
     .filter(r => {
       const d = new Date(r.fields.date + 'T00:00:00');
       return d >= today && d <= end;
@@ -370,7 +370,7 @@ function getAttentionItems() {
   };
 
   // Global urgency triage only
-  DB.records.filter(r => r.urgency && r.urgency !== 'none' && r.status !== 'archived' && r.status !== 'completed').forEach(r => {
+  DB.records.filter(r => !r.deletedAt && r.urgency && r.urgency !== 'none' && r.status !== 'archived' && r.status !== 'completed').forEach(r => {
     const area = getArea(r.areaId);
     if (attentionFilter !== 'triage' && r.urgency !== attentionFilter) return;
     addItem({
@@ -388,7 +388,7 @@ function getAttentionItems() {
   });
 
   if (attentionFilter === 'none') {
-    DB.records.filter(r => (!r.urgency || r.urgency === 'none') && r.status !== 'archived' && r.status !== 'completed').forEach(r => {
+    DB.records.filter(r => !r.deletedAt && (!r.urgency || r.urgency === 'none') && r.status !== 'archived' && r.status !== 'completed').forEach(r => {
       const area = getArea(r.areaId);
       addItem({
         title: r.title + (r.fields?.role ? ' — ' + r.fields.role : ''),
@@ -445,7 +445,7 @@ function renderAreaView(areaId) {
     const el = document.getElementById('area-view-records');
     el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:4px">${
       children.map(child => {
-        const recs = DB.records.filter(r => r.areaId === child.id);
+        const recs = DB.records.filter(r => r.areaId === child.id && !r.deletedAt);
         const active = recs.filter(r => r.status !== 'archived' && r.status !== 'completed').length;
         return `<div class="area-card" data-area-link="${child.id}" style="cursor:pointer">
           <div class="area-card-head">
@@ -492,7 +492,7 @@ function renderAreaView(areaId) {
       btnEl.appendChild(b3);
     }
   }
-  const records = DB.records.filter(r => r.areaId === areaId);
+  const records = DB.records.filter(r => r.areaId === areaId && !r.deletedAt);
   const el = document.getElementById('area-view-records');
 
   if (areaId === 'area-jobs') {
@@ -532,7 +532,7 @@ function renderAreaView(areaId) {
   }
 
   // Add contacts button if area has contacts
-  const areaContacts = DB.records.filter(r => r.areaId === areaId && r.type === 'contact');
+  const areaContacts = DB.records.filter(r => r.areaId === areaId && r.type === 'contact' && !r.deletedAt);
   const calPanel = document.querySelector('.area-cal-panel');
   if (calPanel) {
     const existing = document.getElementById('area-contacts-btn');

@@ -1,5 +1,8 @@
 ﻿// ── STATE ─────────────────────────────────────────────────────────────────────
 let DB = { areas: [], records: [], reviews: [] };
+// Active (non-deleted) records and areas — use these everywhere except Recently Deleted
+function liveRecords() { return DB.records.filter(r => !r.deletedAt); }
+function liveAreas()   { return DB.areas.filter(a => !a.deletedAt); }
 let TYPE_SCHEMAS = [];  // { id, name, icon, fields: [{key,label,type,order}], is_custom }
 let currentView = 'dashboard';
 let currentAreaId = null;

@@ -51,7 +51,7 @@ function renderContactsView() {
   contactsViewState.sort = sortKey;
   contactsViewState.mode = mode;
 
-  let contacts = DB.records.filter(r => r.type === 'contact');
+  let contacts = DB.records.filter(r => r.type === 'contact' && !r.deletedAt);
   if (areaId) contacts = contacts.filter(r => r.areaId === areaId);
   if (linkedType) {
     contacts = contacts.filter(r => getContactLinkedTypes(r).has(linkedType));
@@ -365,7 +365,7 @@ function renderStatusView(status, listId, searchId, areaFilterId) {
   }
   const search = (document.getElementById(searchId)?.value||'').toLowerCase();
   const areaId = document.getElementById(areaFilterId)?.value||'';
-  let records = DB.records.filter(r => r.status === status && r.type !== 'event');
+  let records = DB.records.filter(r => !r.deletedAt && r.status === status && r.type !== 'event');
   if (areaId) records = records.filter(r => r.areaId === areaId);
   if (search) records = records.filter(r => r.title.toLowerCase().includes(search) || (r.fields?.role||'').toLowerCase().includes(search));
   records.sort((a,b) => b.updatedAt?.localeCompare(a.updatedAt||''));
@@ -1197,8 +1197,8 @@ function showAreaCtxMenu(e, areaId) {
   }
   addD();
   addI('Delete area', async () => {
-    const children = DB.areas.filter(a => a.parentId === areaId);
-    const records = DB.records.filter(r => r.areaId === areaId);
+    const children = DB.areas.filter(a => a.parentId === areaId && !a.deletedAt);
+    const records = DB.records.filter(r => r.areaId === areaId && !r.deletedAt);
     const msg = children.length
       ? `Delete "${area.title}" and its ${children.length} sub-area(s)?`
       : records.length
@@ -1662,7 +1662,7 @@ function promptSaveAsTemplate(area) {
       const name = document.getElementById('save-tpl-name').value.trim();
       const description = document.getElementById('save-tpl-desc').value.trim();
       if (!name) return;
-      const recordTypes = [...new Set(DB.records.filter(r => r.areaId === area?.id).map(r => r.type))];
+      const recordTypes = [...new Set(DB.records.filter(r => r.areaId === area?.id && !r.deletedAt).map(r => r.type))];
       await api('POST', '/api/user-templates', { name, description, color: area?.color, icon: area?.icon, recordTypes });
       closeModal();
     }},

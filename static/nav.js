@@ -123,7 +123,7 @@ window.addEventListener('popstate', e => {
 // â"€â"€ SIDEBAR â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function getAreaSubitems(areaId) {
   // Child sub-areas take priority over status filters
-  const children = DB.areas.filter(a => a.parentId === areaId).sort((a,b) => (a.order_??0)-(b.order_??0));
+  const children = DB.areas.filter(a => a.parentId === areaId && !a.deletedAt).sort((a,b) => (a.order_??0)-(b.order_??0));
   if (children.length > 0) {
     return children.map(a => ({ label: a.title, areaId: a.id, type: 'area' }));
   }
@@ -144,11 +144,11 @@ function getAreaSubitems(areaId) {
 
 function renderSidebar() {
   const el = document.getElementById('sidebar-areas');
-  const allAreas = [...DB.areas].sort((a, b) => (a.order_??a.order??0) - (b.order_??b.order??0));
+  const allAreas = [...DB.areas].filter(a => !a.deletedAt).sort((a, b) => (a.order_??a.order??0) - (b.order_??b.order??0));
   // Only render top-level areas (no parentId) in main list
   const topAreas = allAreas.filter(a => !a.parentId);
   el.innerHTML = topAreas.map(area => {
-    const count = DB.records.filter(r => r.areaId === area.id && r.type === 'job' && ['interviewing','awaiting'].includes(r.status)).length;
+    const count = DB.records.filter(r => r.areaId === area.id && !r.deletedAt && r.type === 'job' && ['interviewing','awaiting'].includes(r.status)).length;
     const childIds = allAreas.filter(a => a.parentId === area.id).map(a => a.id);
     const isActive = (currentAreaId === area.id || childIds.includes(currentAreaId)) && (currentView === 'area' || currentView === 'record');
     const subs = getAreaSubitems(area.id);
@@ -180,7 +180,7 @@ function renderSidebar() {
   const dashAreas = document.getElementById('dash-areas');
   if (dashAreas) {
     dashAreas.innerHTML = topAreas.map(area => {
-      const records = DB.records.filter(r => r.areaId === area.id);
+      const records = DB.records.filter(r => r.areaId === area.id && !r.deletedAt);
       const sub = areaSubtitle(area, records);
       return `<div class="area-card" data-area-link="${area.id}">
         <div class="area-card-head">

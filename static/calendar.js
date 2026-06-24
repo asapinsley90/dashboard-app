@@ -14,7 +14,7 @@ function renderAreaCalWidget(containerId, areaId) {
 
   // Temporarily filter DB events to this area
   const allRecords = DB.records;
-  const areaEvents = DB.records.filter(r => r.areaId !== areaId || r.type !== 'event');
+  const areaEvents = DB.records.filter(r => !r.deletedAt && (r.areaId !== areaId || r.type !== 'event'));
   // Patch: override event filter inside renderCalWidget by passing areaId context
   window._areaCalFilter = areaId;
   renderCalWidget(containerId, false, areaId);
@@ -205,7 +205,7 @@ function ensureQuarterHourTimeInputs(root) {
 
 function buildCalBody(mini) {
   const today = new Date(); const todayStr = today.toISOString().split('T')[0];
-  const events = DB.records.filter(r => r.type === 'event' && r.fields?.date);
+  const events = DB.records.filter(r => !r.deletedAt && r.type === 'event' && r.fields?.date);
 
   if (calMode === 'month') {
     const base = new Date(today.getFullYear(), today.getMonth()+calOffset, 1);
@@ -329,7 +329,7 @@ function renderTriCalPanel(containerId, mode) {
   state.mode = mode; // lock mode per panel
   triCals[containerId] = state;
   const today = new Date(); const todayStr = today.toISOString().split('T')[0];
-  const events = DB.records.filter(r => r.type === 'event' && r.fields?.date);
+  const events = DB.records.filter(r => !r.deletedAt && r.type === 'event' && r.fields?.date);
 
   function panelLabel() {
     const t = new Date();
