@@ -1,17 +1,31 @@
 ﻿// â”€â”€ DASHBOARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Dashboard widget customization
+// Dashboard sections — draggable, hideable
 const DASH_WIDGETS = [
   { id: 'attention', label: 'Needs attention' },
-  { id: 'today', label: 'Today' },
-  { id: 'week', label: 'This week' },
-  { id: 'areas', label: 'Life areas' },
-  { id: 'calendar', label: 'Calendar' },
+  { id: 'today',     label: 'Today' },
+  { id: 'week',      label: 'This week' },
+  { id: 'areas',     label: 'Life areas' },
 ];
+
+// Inner HTML for each section's content container
+function dashSectionHTML(id) {
+  switch (id) {
+    case 'attention': return `
+      <div class=”attention-header” style=”margin-bottom:6px”>
+        <div class=”attention-filters” id=”attention-filters”></div>
+      </div>
+      <div class=”attention-card” id=”dash-attention”></div>`;
+    case 'today':  return `<div class=”attention-card” id=”dash-today” style=”margin-bottom:0”></div>`;
+    case 'week':   return `<div class=”attention-card” id=”dash-week”  style=”margin-bottom:0”></div>`;
+    case 'areas':  return `<div class=”area-grid” id=”dash-areas”></div>`;
+    default: return '';
+  }
+}
 
 function getDashPrefs() {
   const saved = currentUser.dashboardPrefs;
   return {
-    order: saved?.order || DASH_WIDGETS.map(w => w.id),
+    order:  saved?.order  || DASH_WIDGETS.map(w => w.id),
     hidden: saved?.hidden || [],
   };
 }
@@ -21,84 +35,129 @@ async function saveDashPrefs(prefs) {
   await api('PATCH', '/api/me', { dashboardPrefs: prefs });
 }
 
-function openDashCustomize() {
-  let order = [...getDashPrefs().order];
-  const hidden = new Set(getDashPrefs().hidden);
+async function hideDashWidget(id) {
+  const p = getDashPrefs();
+  if (!p.hidden.includes(id)) p.hidden.push(id);
+  await saveDashPrefs(p);
+  renderDashboard();
+}
 
-  function renderList() {
-    return '<div id="dw-list">' + order.map((id, i) => {
-      const w = DASH_WIDGETS.find(x => x.id === id);
-      if (!w) return '';
-      return `<div class="field-row" style="align-items:center;gap:8px;padding:6px 0">
-        <span style="flex:1">${w.label}</span>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--muted)">
-          <input type="checkbox" ${hidden.has(id) ? '' : 'checked'} class="dw-toggle" data-wid="${id}" style="width:auto"> Show
-        </label>
-        ${i > 0 ? `<button class="btn btn-sm" style="padding:2px 8px;font-size:11px" onclick="dashMoveWidget('${id}',-1)">&#8593;</button>` : '<span style="width:32px"></span>'}
-        ${i < order.length-1 ? `<button class="btn btn-sm" style="padding:2px 8px;font-size:11px" onclick="dashMoveWidget('${id}',1)">&#8595;</button>` : '<span style="width:32px"></span>'}
-      </div>`;
-    }).join('') + '</div>';
+async function showDashWidget(id) {
+  const p = getDashPrefs();
+  p.hidden = p.hidden.filter(x => x !== id);
+  await saveDashPrefs(p);
+  renderDashboard();
+}
+
+let _dashDragSrc = null;
+
+function buildDashSections() {
+  const col = document.getElementById('dash-sections-col');
+  if (!col) return;
+  const prefs = getDashPrefs();
+  const hidden = new Set(prefs.hidden);
+  const order = prefs.order.filter(id => DASH_WIDGETS.find(w => w.id === id));
+  // Ensure any widget not in saved order still appears
+  DASH_WIDGETS.forEach(w => { if (!order.includes(w.id)) order.push(w.id); });
+
+  col.innerHTML = '';
+
+  order.forEach(id => {
+    const widget = DASH_WIDGETS.find(w => w.id === id);
+    if (!widget || hidden.has(id)) return;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'dash-section-wrap';
+    wrap.dataset.widgetId = id;
+    wrap.draggable = true;
+
+    wrap.innerHTML = `
+      <div class=”dash-section-drag-header” title=”Drag to reorder”>
+        <span class=”drag-grip”>&#8942;</span>
+        <span class=”dash-section-label” style=”margin:0;flex:1”>${widget.label}</span>
+        <button class=”dash-section-hide-btn” onclick=”hideDashWidget('${id}')” title=”Hide section”>&#x2715;</button>
+      </div>
+      <div class=”dash-section-body”>${dashSectionHTML(id)}</div>`;
+
+    // Drag events
+    wrap.addEventListener('dragstart', e => {
+      _dashDragSrc = wrap;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => wrap.classList.add('dragging'), 0);
+    });
+    wrap.addEventListener('dragend', () => {
+      wrap.classList.remove('dragging');
+      col.querySelectorAll('.dash-section-wrap').forEach(w => w.classList.remove('drag-over'));
+    });
+    wrap.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (_dashDragSrc && _dashDragSrc !== wrap) {
+        col.querySelectorAll('.dash-section-wrap').forEach(w => w.classList.remove('drag-over'));
+        wrap.classList.add('drag-over');
+      }
+    });
+    wrap.addEventListener('drop', async e => {
+      e.preventDefault();
+      wrap.classList.remove('drag-over');
+      if (!_dashDragSrc || _dashDragSrc === wrap) return;
+      const kids = [...col.children];
+      const srcIdx = kids.indexOf(_dashDragSrc);
+      const tgtIdx = kids.indexOf(wrap);
+      if (srcIdx < tgtIdx) wrap.after(_dashDragSrc);
+      else wrap.before(_dashDragSrc);
+      // Persist new order
+      const newOrder = [...col.querySelectorAll('[data-widget-id]')].map(el => el.dataset.widgetId);
+      const p = getDashPrefs();
+      p.order = newOrder;
+      await saveDashPrefs(p);
+      _dashDragSrc = null;
+    });
+
+    col.appendChild(wrap);
+  });
+
+  // Hidden sections restore bar
+  const hiddenWidgets = DASH_WIDGETS.filter(w => hidden.has(w.id));
+  if (hiddenWidgets.length) {
+    const bar = document.createElement('div');
+    bar.className = 'dash-hidden-bar';
+    bar.innerHTML = hiddenWidgets.map(w =>
+      `<button class=”btn btn-sm dash-restore-btn” onclick=”showDashWidget('${w.id}')”>+ ${w.label}</button>`
+    ).join('');
+    col.appendChild(bar);
   }
-
-  window.dashMoveWidget = (id, delta) => {
-    const idx = order.indexOf(id);
-    const newIdx = idx + delta;
-    if (newIdx < 0 || newIdx >= order.length) return;
-    [order[idx], order[newIdx]] = [order[newIdx], order[idx]];
-    document.getElementById('modal-body').innerHTML = renderList();
-  };
-
-  openModal('Customize dashboard', renderList(),
-    [{ label: 'Save', primary: true, onclick: async () => {
-      const currentHidden = Array.from(document.querySelectorAll('.dw-toggle:not(:checked)')).map(c => c.dataset.wid);
-      await saveDashPrefs({ order, hidden: currentHidden });
-      closeModal();
-      renderDashboard();
-    }},
-    { label: 'Cancel', onclick: closeModal }]);
 }
 
 function renderDashboard() {
-  document.getElementById('topbar-actions').innerHTML = '<button class="btn btn-sm" onclick="openDashCustomize()" style="font-size:11px">&#9881; Customize</button>';
+  document.getElementById('topbar-actions').innerHTML = '';
   document.getElementById('topbar-breadcrumb').textContent = '';
   renderSidebar();
-  const _prefs = getDashPrefs();
-  const _hidden = new Set(_prefs.hidden);
-  // Widget element map: id -> container ids to show/hide
-  const _widgetEls = {
-    attention: ['dash-attention', 'attention-filters'],
-    today: ['dash-today', 'today-label'],
-    week: ['dash-week', 'week-label'],
-    areas: ['dash-areas'],
-    calendar: ['dash-cal', 'dash-cal-label'],
-  };
-  Object.entries(_widgetEls).forEach(([id, elIds]) => {
-    const show = !_hidden.has(id);
-    elIds.forEach(elId => {
-      const el = document.getElementById(elId);
-      if (el) el.closest('[style*="display"]') || (el.style.display = show ? '' : 'none');
-    });
-  });
-  // Also handle parent section label for attention
-  const _attnHeader = document.querySelector('.attention-header');
-  if (_attnHeader) _attnHeader.style.display = _hidden.has('attention') ? 'none' : '';
 
+  buildDashSections();
+  renderAttentionFilters();
   renderAttention();
   renderTodayStrip();
   renderThisWeekStrip();
-  // Update calendar label
-  const today = new Date();
-  const calLabel = document.querySelector('#view-dashboard .dash-section-label:last-of-type');
+
+  // Calendar label + widget
   const calLabelEl = document.getElementById('dash-cal-label');
   if (calLabelEl) {
-    const _t = new Date();
-    if (calMode === 'day') { const _d = new Date(_t); _d.setDate(_t.getDate()+calOffset); calLabelEl.textContent = _d.toLocaleDateString('en-US',{weekday:'long'}); }
-    else if (calMode === 'week') { const _dow=_t.getDay(); const _mon=new Date(_t); _mon.setDate(_t.getDate()-(_dow===0?6:_dow-1)+calOffset*7); const _sun=new Date(_mon); _sun.setDate(_mon.getDate()+6); calLabelEl.textContent = _mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' â€“ '+_sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
-    else { const _d = new Date(_t.getFullYear(),_t.getMonth()+calOffset,1); calLabelEl.textContent = _d.toLocaleDateString('en-US',{month:'long',year:'numeric'}); }
+    const t = new Date();
+    if (calMode === 'day') {
+      const d = new Date(t); d.setDate(t.getDate() + calOffset);
+      calLabelEl.textContent = d.toLocaleDateString('en-US', { weekday: 'long' });
+    } else if (calMode === 'week') {
+      const dow = t.getDay(); const mon = new Date(t);
+      mon.setDate(t.getDate() - (dow === 0 ? 6 : dow - 1) + calOffset * 7);
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+      calLabelEl.textContent = mon.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+        ' — ' + sun.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } else {
+      const d = new Date(t.getFullYear(), t.getMonth() + calOffset, 1);
+      calLabelEl.textContent = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
   }
   renderCalWidget('dash-cal', true);
-  const _labelEl = document.getElementById('dash-cal-label');
-  if (_labelEl) { const _t=new Date(); if(calMode==='day'){const _d=new Date(_t);_d.setDate(_t.getDate()+calOffset);_labelEl.textContent=_d.toLocaleDateString('en-US',{weekday:'long'});}else if(calMode==='week'){const _dow=_t.getDay();const _mon=new Date(_t);_mon.setDate(_t.getDate()-(_dow===0?6:_dow-1)+calOffset*7);const _sun=new Date(_mon);_sun.setDate(_mon.getDate()+6);_labelEl.textContent=_mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' â€“ '+_sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}else{const _d=new Date(_t.getFullYear(),_t.getMonth()+calOffset,1);_labelEl.textContent=_d.toLocaleDateString('en-US',{month:'long',year:'numeric'});} }
 }
 
 let attentionFilter = 'triage';
@@ -125,11 +184,12 @@ function setAttentionFilter(filter) {
 function renderTodayStrip() {
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
-  const labelEl = document.getElementById('today-label');
   const el = document.getElementById('dash-today');
-  if (!labelEl || !el) return;
-
-  labelEl.textContent = 'Today — ' + today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  if (!el) return;
+  // Update drag header label with date
+  const wrap = el.closest('[data-widget-id="today"]');
+  const hdr = wrap?.querySelector('.dash-section-label');
+  if (hdr) hdr.textContent = 'Today — ' + today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   const events = DB.records
     .filter(r => r.type === 'event' && r.fields?.date === todayStr)
@@ -158,12 +218,14 @@ function renderTodayStrip() {
 }
 
 function renderThisWeekStrip() {
-  const labelEl = document.getElementById('week-label');
   const el = document.getElementById('dash-week');
-  if (!labelEl || !el) return;
+  if (!el) return;
   const today = new Date(); today.setHours(0,0,0,0);
   const end = new Date(today); end.setDate(end.getDate() + 7);
-  labelEl.textContent = 'This Week — ' + today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const wrap = el.closest('[data-widget-id="week"]');
+  const hdr = wrap?.querySelector('.dash-section-label');
+  const endFmt = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (hdr) hdr.textContent = 'This week — through ' + endFmt;
   const items = DB.records
     .filter(r => r.type === 'event' && r.status !== 'archived' && r.status !== 'completed' && r.fields?.date)
     .filter(r => {

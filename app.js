@@ -642,6 +642,8 @@ app.post('/admin/api/provision', requireAdmin, async (req, res) => {
   }
 });
 
+app.get('/api/admin-enabled', (req, res) => res.json({ enabled: !!ADMIN_TOKEN }));
+
 app.get('/healthz', async (req, res) => {
   try {
     await getHealthStatus();

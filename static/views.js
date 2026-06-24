@@ -1181,6 +1181,24 @@ async function confirmMoveRecord(recordId, btn) {
   else renderAreaView(currentAreaId);
 }
 
+// ── ADMIN ─────────────────────────────────────────────────────────────────────
+function openAdminPanel() {
+  openModal('Admin panel', `
+    <div class="modal-field">
+      <div class="modal-label">Admin token</div>
+      <input class="modal-input" id="admin-token-input" type="password" placeholder="Enter ADMIN_TOKEN">
+    </div>
+    <div style="font-size:12px;color:var(--muted)">Opens the admin panel in a new tab.</div>`,
+    [{ label: 'Open', primary: true, onclick: () => {
+      const token = document.getElementById('admin-token-input').value.trim();
+      if (!token) return;
+      window.open('/admin?token=' + encodeURIComponent(token), '_blank');
+      closeModal();
+    }},
+    { label: 'Cancel', onclick: closeModal }]);
+  setTimeout(() => document.getElementById('admin-token-input')?.focus(), 50);
+}
+
 // ── ACCOUNT SETTINGS ─────────────────────────────────────────────────────────
 function openAccountSettings() {
   openModal('Account settings', `

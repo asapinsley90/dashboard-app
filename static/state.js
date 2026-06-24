@@ -16,13 +16,17 @@ const documentsViewState = { sort: 'alpha', linkFilter: 'all' };
 let currentUser = { name: '' };
 
 async function boot() {
-  const [data, me, schemas] = await Promise.all([api('GET', '/api/db'), api('GET', '/api/me'), api('GET', '/api/type-schemas')]);
+  const [data, me, schemas, adminCheck] = await Promise.all([api('GET', '/api/db'), api('GET', '/api/me'), api('GET', '/api/type-schemas'), api('GET', '/api/admin-enabled')]);
   DB.areas = data.areas || [];
   DB.records = data.records || [];
   DB.reviews = data.reviews || [];
   currentUser = me;
   TYPE_SCHEMAS = schemas || [];
   rebuildLookupCaches();
+  if (adminCheck?.enabled) {
+    const adminLink = document.getElementById('sidebar-admin-link');
+    if (adminLink) adminLink.style.display = '';
+  }
   const nameEl = document.getElementById('sidebar-name');
   if (nameEl) nameEl.textContent = me.name;
   document.getElementById('sidebar-date').textContent =

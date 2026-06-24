@@ -1108,7 +1108,7 @@ function promptAddRecord(forceType, targetAreaId = null) {
   const type = forceType || (areaId === 'area-jobs' ? 'job' : null);
   if (type === 'job' || (!forceType && areaId === 'area-jobs')) { openJobModal(areaId); return; }
   if (type === 'company') { openAddCompanyModal(areaId); return; }
-  const builtinTypes = ['contact','event','goal','task','project','note','company','account'];
+  const builtinTypes = ['job','contact','event','goal','task','project','note','company','account'];
   const customTypes = TYPE_SCHEMAS.filter(s => s.is_custom).map(s => s.id);
   const allTypes = [...builtinTypes, ...customTypes];
   // If area has sub-areas, show only sub-areas in picker; otherwise show all
@@ -1135,8 +1135,9 @@ function promptAddRecord(forceType, targetAreaId = null) {
       const t = document.getElementById('nr-type').value;
       const aid = document.getElementById('nr-area').value;
       if (!title) return;
-      if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+      if (t === 'job') { closeModal(); openJobModal(aid); return; }
       if (t === 'company') { closeModal(); openAddCompanyModal(aid); return; }
+      if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
       // Build default fields from schema if available, else use legacy defaults
       const schema = TYPE_SCHEMAS.find(s => s.id === t);
       const schemaDefaults = schema ? Object.fromEntries(schema.fields.map(f => [f.key, ''])) : null;

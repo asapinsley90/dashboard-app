@@ -39,9 +39,23 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .view{display:none;padding:28px 32px;min-width:0;overflow-x:hidden}
 .view.active{display:block}
 
-/* â”€â”€ DASHBOARD â”€â”€ */
+/* ── DASHBOARD ── */
 .dash-layout{display:grid;grid-template-columns:1fr 440px;gap:24px}
 .dash-section-label{font-size:10px;font-weight:600;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px}
+#dash-sections-col{display:flex;flex-direction:column;gap:12px}
+.dash-section-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:opacity .15s}
+.dash-section-wrap.dragging{opacity:.4}
+.dash-section-wrap.drag-over{border-color:var(--accent)}
+.dash-section-drag-header{display:flex;align-items:center;gap:8px;padding:8px 12px 8px 10px;cursor:grab;user-select:none;border-bottom:1px solid var(--border)}
+.dash-section-drag-header:active{cursor:grabbing}
+.drag-grip{font-size:16px;color:var(--dim);line-height:1}
+.dash-section-hide-btn{background:none;border:none;color:var(--dim);font-size:14px;cursor:pointer;padding:0 2px;line-height:1;margin-left:4px}
+.dash-section-hide-btn:hover{color:var(--red)}
+.dash-section-body{padding:10px 12px 12px}
+.dash-section-body .attention-card{background:transparent;border:none;border-radius:0;padding:0;margin:0}
+.attention-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.dash-hidden-bar{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0}
+.dash-restore-btn{color:var(--muted);border:1px dashed var(--border2)}
 .attention-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:8px}
 .attention-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-top:1px solid var(--border);cursor:pointer}
 .attention-item:hover .a-title{color:var(--accent)}
