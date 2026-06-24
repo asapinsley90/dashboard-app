@@ -634,6 +634,9 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px 12px;text-align:left
 <h2>Instance stats</h2>
 <div class="card" id="stats-card"><div style="color:#444">Loading...</div></div>
 
+<h2>Waitlist</h2>
+<div id="waitlist-list"><div style="color:#444">Loading...</div></div>
+
 <h2>Tenants</h2>
 <div id="tenant-list"><div style="color:#444">Loading...</div></div>
 
@@ -673,6 +676,35 @@ async function loadPending() {
 async function setStatus(id, status) {
   await fetch(\`/admin/api/pending-templates/\${id}\`, { method:'PATCH', headers:H, body:JSON.stringify({status}) });
   loadPending();
+}
+
+async function loadWaitlist() {
+  const res = await fetch('/admin/api/waitlist', { headers: H });
+  const list = await res.json();
+  const el = document.getElementById('waitlist-list');
+  if (!list.length) { el.innerHTML = '<div style="color:#444;font-size:13px;padding:4px 0">No waitlist requests yet. Share <b>/join</b> to get signups.</div>'; return; }
+  el.innerHTML = '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Requested</th><th></th></tr></thead><tbody>' +
+    list.map(w => \`<tr>
+      <td>\${w.name}</td>
+      <td style="color:#888">\${w.email}</td>
+      <td><span class="badge badge-\${w.status==='approved'?'approved':w.status==='denied'?'denied':'pending'}">\${w.status}</span></td>
+      <td style="color:#555">\${w.createdAt?.slice(0,10)||'—'}</td>
+      <td>
+        \${w.status==='pending'?\`<button onclick="approveWaitlist('\${w.id}')">Approve</button><button class="danger" onclick="denyWaitlist('\${w.id}')">Deny</button>\`:''}
+      </td>
+    </tr>\`).join('') + '</tbody></table></div>';
+}
+
+async function approveWaitlist(id) {
+  const btn = event.target; btn.disabled=true; btn.textContent='Provisioning...';
+  const res = await fetch(\`/api/waitlist/\${id}/approve?token=\${TOKEN}\`);
+  const text = await res.text();
+  loadWaitlist(); loadTenants();
+}
+
+async function denyWaitlist(id) {
+  await fetch(\`/admin/api/waitlist/\${id}\`, { method:'PATCH', headers:H, body:JSON.stringify({status:'denied'}) });
+  loadWaitlist();
 }
 
 async function loadTenants() {
@@ -735,6 +767,7 @@ async function loadStats() {
 }
 
 loadStats();
+loadWaitlist();
 loadTenants();
 loadPending();
 </script></body></html>`;
@@ -762,6 +795,16 @@ app.patch('/admin/api/pending-templates/:id', requireAdmin, async (req, res) => 
 });
 
 // Provisioning automation
+app.get('/admin/api/waitlist', requireAdmin, async (req, res) => {
+  try { res.json(await dbLayer.getWaitlist()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/admin/api/waitlist/:id', requireAdmin, async (req, res) => {
+  try { await dbLayer.updateWaitlistStatus(req.params.id, req.body.status); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/admin/api/tenants', requireAdmin, async (req, res) => {
   try { res.json(await dbLayer.getTenants()); }
   catch (e) { res.status(500).json({ error: e.message }); }
@@ -852,6 +895,145 @@ app.post('/admin/api/provision', requireAdmin, async (req, res) => {
 });
 
 app.get('/api/admin-enabled', (req, res) => res.json({ enabled: !!ADMIN_TOKEN }));
+
+// ── WAITLIST ──────────────────────────────────────────────────────────────────
+app.get('/join', (req, res) => {
+  res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Request Access — Dashboard</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#0d0d0d;color:#e2e2e2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.card{background:#161616;border:1px solid #252525;border-radius:16px;padding:40px 36px;width:100%;max-width:400px}
+h1{font-size:22px;font-weight:700;margin-bottom:6px}
+p{color:#888;font-size:14px;margin-bottom:28px;line-height:1.5}
+label{display:block;font-size:11px;font-weight:600;color:#666;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px}
+input{width:100%;background:#111;border:1px solid #333;border-radius:8px;padding:10px 14px;color:#e2e2e2;font-size:14px;outline:none;margin-bottom:16px}
+input:focus{border-color:#3b82f6}
+button{width:100%;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;margin-top:4px}
+button:hover{opacity:.88}
+.msg{margin-top:16px;font-size:13px;text-align:center;color:#4caf7d;display:none}
+.err{color:#e05555}
+</style></head><body>
+<div class="card">
+  <h1>Request access</h1>
+  <p>Your own personal dashboard — areas, records, calendar, documents, and an AI assistant. Request early access below.</p>
+  <label>Your name</label>
+  <input id="name" placeholder="Jane Smith" autocomplete="name">
+  <label>Email address</label>
+  <input id="email" type="email" placeholder="jane@example.com" autocomplete="email">
+  <button onclick="submit()">Request access</button>
+  <div class="msg" id="msg"></div>
+</div>
+<script>
+async function submit() {
+  const name = document.getElementById('name').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const msg = document.getElementById('msg');
+  if (!name || !email) { msg.style.display='block'; msg.className='msg err'; msg.textContent='Please fill in both fields.'; return; }
+  const res = await fetch('/api/waitlist', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name,email}) });
+  const data = await res.json();
+  if (data.error) { msg.style.display='block'; msg.className='msg err'; msg.textContent=data.error; return; }
+  msg.style.display='block'; msg.className='msg';
+  msg.textContent="You're on the list! We'll be in touch soon.";
+  document.querySelector('button').disabled=true;
+}
+</script></body></html>`);
+});
+
+app.post('/api/waitlist', async (req, res) => {
+  const { name, email } = req.body;
+  if (!name || !email) return res.status(400).json({ error: 'Name and email required' });
+  const id = 'wl-' + Date.now().toString(36) + '-' + crypto.randomBytes(4).toString('hex');
+  try {
+    await dbLayer.createWaitlistEntry({ id, name, email });
+    // Email Aaron with one-click approve link
+    const approveUrl = `${APP_URL}/api/waitlist/${id}/approve?token=${ADMIN_TOKEN}`;
+    await sendEmail(
+      ADMIN_EMAIL,
+      `New waitlist request: ${name}`,
+      `<p><b>${name}</b> (${email}) has requested access to the dashboard.</p>
+       <p style="margin-top:16px"><a href="${approveUrl}" style="background:#3b82f6;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Approve & provision</a></p>
+       <p style="margin-top:12px;font-size:12px;color:#888">Or copy this link: ${approveUrl}</p>`
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/waitlist/:id/approve', async (req, res) => {
+  const token = req.query.token;
+  if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) return res.status(401).send('Unauthorized');
+  const entry = await dbLayer.getWaitlistEntry(req.params.id);
+  if (!entry) return res.status(404).send('Waitlist entry not found');
+  if (entry.status === 'approved') return res.send(`<html><body style="font-family:sans-serif;padding:40px;background:#0d0d0d;color:#e2e2e2"><h2>Already approved</h2><p>${entry.name} was already provisioned.</p></body></html>`);
+
+  const { name, email } = entry;
+  const serviceName = 'dashboard-' + name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g,'-').slice(0,20) + '-' + crypto.randomBytes(2).toString('hex');
+  const r2Prefix = serviceName;
+  const tenantId = 'tenant-' + Date.now().toString(36);
+
+  try {
+    // Create Neon DB
+    const neonRes = await fetch('https://console.neon.tech/api/v2/projects', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${NEON_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project: { name: serviceName } }),
+    });
+    if (!neonRes.ok) throw new Error(`Neon: ${await neonRes.text()}`);
+    const neonData = await neonRes.json();
+    const dbUrl = neonData.connection_uris?.[0]?.connection_uri;
+    if (!dbUrl) throw new Error('No connection URI from Neon');
+    const neonProjectId = neonData.project?.id || '';
+
+    // Create Render service
+    const sessionSecret = crypto.randomBytes(32).toString('hex');
+    const tenantAdminToken = crypto.randomBytes(20).toString('hex');
+    const githubRepo = process.env.GITHUB_REPO || 'https://github.com/asapinsley90/dashboard-app';
+    const renderRes = await fetch('https://api.render.com/v1/services', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${RENDER_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'web_service', name: serviceName, ownerId: RENDER_OWNER_ID,
+        repo: githubRepo, branch: 'main', autoDeploy: 'yes',
+        serviceDetails: { runtime: 'node', plan: 'starter', buildCommand: 'npm install', startCommand: 'node app.js' },
+        envVars: [
+          { key: 'DATABASE_URL', value: dbUrl },
+          { key: 'SESSION_SECRET', value: sessionSecret },
+          { key: 'ADMIN_TOKEN', value: tenantAdminToken },
+          { key: 'ADMIN_EMAIL', value: ADMIN_EMAIL || '' },
+          { key: 'R2_ENDPOINT', value: process.env.R2_ENDPOINT || '' },
+          { key: 'R2_ACCESS_KEY_ID', value: process.env.R2_ACCESS_KEY_ID || '' },
+          { key: 'R2_SECRET_ACCESS_KEY', value: process.env.R2_SECRET_ACCESS_KEY || '' },
+          { key: 'R2_BUCKET', value: process.env.R2_BUCKET || '' },
+          { key: 'R2_PREFIX', value: r2Prefix },
+          { key: 'SENDGRID_API_KEY', value: SENDGRID_API_KEY || '' },
+          { key: 'ANTHROPIC_API_KEY', value: process.env.ANTHROPIC_API_KEY || '' },
+        ],
+      }),
+    });
+    if (!renderRes.ok) throw new Error(`Render: ${await renderRes.text()}`);
+    const renderData = await renderRes.json();
+    const renderServiceId = renderData.service?.id || '';
+    const serviceUrl = renderData.service?.serviceDetails?.url || `https://${serviceName}.onrender.com`;
+
+    // Save records
+    await dbLayer.createTenant({ id: tenantId, name, email, serviceName, serviceUrl, renderServiceId, neonProjectId, r2Prefix });
+    await dbLayer.updateWaitlistStatus(req.params.id, 'approved');
+
+    // Welcome email to tenant
+    await sendEmail(email, 'Your Dashboard is ready',
+      `<p>Hi ${name},</p><p>Your personal dashboard is ready at:</p><p style="margin:16px 0"><a href="${serviceUrl}" style="background:#3b82f6;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">${serviceUrl}</a></p><p>Click the link to create your account and get started.</p>`
+    );
+
+    res.send(`<html><body style="font-family:sans-serif;padding:40px;background:#0d0d0d;color:#e2e2e2">
+      <h2 style="color:#4caf7d">✓ Provisioned</h2>
+      <p style="margin-top:12px">${name} (${email}) has been provisioned.</p>
+      <p style="margin-top:8px;color:#888">Service: <a href="${serviceUrl}" style="color:#3b82f6">${serviceUrl}</a></p>
+      <p style="margin-top:8px;color:#888">Welcome email sent. Render will finish deploying in ~2 minutes.</p>
+    </body></html>`);
+  } catch (err) {
+    res.status(500).send(`<html><body style="font-family:sans-serif;padding:40px;background:#0d0d0d;color:#e2e2e2"><h2 style="color:#e05555">Error</h2><p>${err.message}</p></body></html>`);
+  }
+});
 
 app.get('/healthz', async (req, res) => {
   try {
