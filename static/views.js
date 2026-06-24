@@ -131,8 +131,9 @@ function getDocumentRows(files) {
   const rows = [];
   files.forEach(f => {
     let linked = false;
+    // Include deleted records so we can show dead-pointer pills
     DB.records.forEach(r => {
-      const area = getArea(r.areaId);
+      const area = DB.areas.find(a => a.id === r.areaId) || null;
       normalizeRecordDocs(r).forEach(d => {
         if (d.name !== f.name) return;
         linked = true;
@@ -146,6 +147,7 @@ function getDocumentRows(files) {
           recordType: r.type || 'other',
           slot: d.slot || 'other',
           unattached: false,
+          recordDeleted: !!r.deletedAt,  // dead pointer flag
         });
       });
     });
@@ -160,6 +162,7 @@ function getDocumentRows(files) {
         recordType: 'unattached',
         slot: 'other',
         unattached: true,
+        recordDeleted: false,
       });
     }
   });
@@ -256,24 +259,31 @@ async function renderDocumentsView(){
 
   el.innerHTML=filteredRows.map(row=>{
     const file = row.file;
+    const isDeleted = row.recordDeleted;
     const areaChip = row.unattached
       ? '<span class="doc-ref doc-ref-area" style="cursor:default">Unattached</span>'
+      : isDeleted
+      ? `<span class="doc-ref doc-ref-area dead-pointer" style="cursor:default;opacity:.45;text-decoration:line-through">${row.areaTitle}</span>`
       : `<span class="doc-ref doc-ref-area" data-area-link="${row.areaId}" style="background:${row.areaColor}18;border:1px solid ${row.areaColor}44;color:${row.areaColor}">${row.areaTitle}</span>`;
     const recordChip = row.unattached
       ? '<span class="doc-ref" style="cursor:default">No linked record</span>'
+      : isDeleted
+      ? `<span class="doc-ref dead-pointer" title="Record deleted — restore from History → Recently Deleted" style="cursor:default;opacity:.45;text-decoration:line-through" onclick="navigate('history','deleted')">${row.recordTitle} <span style="font-size:10px;opacity:.7">(deleted)</span></span>`
       : `<span class="doc-ref" data-record-link data-area-id="${row.areaId}" data-record-id="${row.recordId}">${row.recordTitle}</span>`;
     const slotChip = `<span class="doc-ref" style="cursor:default">${row.slotText}</span>`;
-    return `<div class="doc-item">
+    return `<div class="doc-item"${isDeleted ? ' style="opacity:.6"' : ''}>
       <span class="doc-icon">${fileIcon(file.name)}</span>
       <div style="flex:1;min-width:0">
         <a class="doc-name" href="/uploads/${encodeURIComponent(file.name)}" target="_blank">${row.displayName}</a>
-        <div style="margin-top:3px">${areaChip}${recordChip}${slotChip}</div>
+        <div style="margin-top:3px">${areaChip}${recordChip}${slotChip}${isDeleted ? '<span class="doc-ref" style="cursor:default;color:var(--amber);border-color:var(--amber);opacity:.7;font-size:10px">In trash</span>' : ''}</div>
       </div>
       <span class="doc-meta">${fmtSize(file.size)}</span>
       <div class="doc-actions">
-        <a class="btn btn-xs" href="/uploads/${encodeURIComponent(file.name)}" download="${row.displayName}">Download</a>
-        <button class="btn btn-xs" onclick="renameFile('${file.name}')">Rename</button>
-        <button class="btn btn-xs btn-danger" onclick="deleteFile('${file.name}')">Delete</button>
+        <a class="btn btn-xs" href="/uploads/${encodeURIComponent(file.name)}" target="_blank" download="${row.displayName}">Download</a>
+        ${!isDeleted ? `<button class="btn btn-xs" onclick="renameFile('${file.name}')">Rename</button>` : ''}
+        ${isDeleted
+          ? `<button class="btn btn-xs" onclick="restoreDocRecord('${row.recordId}','${row.areaId}')">Restore record</button>`
+          : `<button class="btn btn-xs btn-danger" onclick="deleteFile('${file.name}')">Delete</button>`}
       </div>
     </div>`;
   }).join('');
@@ -364,6 +374,17 @@ async function deleteFile(name){
   await api('DELETE',`/api/files/${encodeURIComponent(name)}`);
   allFiles=allFiles.filter(f=>f.name!==name);renderDocumentsView();
 }
+
+async function restoreDocRecord(recordId, areaId) {
+  const r = DB.records.find(rec => rec.id === recordId);
+  const label = r?.title || r?.fields?.company || 'this record';
+  if (!confirm(`Restore "${label}" and its documents?`)) return;
+  await api('POST', `/api/records/${recordId}/restore`);
+  if (r) r.deletedAt = null;
+  renderSidebar();
+  renderDocumentsView();
+  navigate('record', areaId, recordId);
+}
 // docDropdown removed - using per-slot upload zones
 
 // â"€â"€ COMPLETED / ARCHIVED VIEWS â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -434,6 +455,15 @@ async function renderRecentlyDeleted() {
   catch { el.innerHTML = `<div style="color:var(--red);padding:24px;text-align:center;font-size:13px">Failed to load</div>`; return; }
 
   const { records = [], areas = [] } = deleted;
+
+  // Gather documents from deleted records
+  const deletedDocs = [];
+  records.forEach(r => {
+    normalizeRecordDocs(r).forEach(d => {
+      deletedDocs.push({ fileName: d.name, slot: d.slot, recordId: r.id, recordTitle: r.title || r.fields?.company || 'Untitled', deletedAt: r.deletedAt });
+    });
+  });
+
   if (!records.length && !areas.length) {
     el.innerHTML = `<div style="color:var(--muted);padding:40px 0;text-align:center">
       <div style="font-size:28px;margin-bottom:10px">🗑</div>
@@ -456,7 +486,7 @@ async function renderRecentlyDeleted() {
     ...records.map(r => ({ kind: 'record', id: r.id, label: r.title || r.fields?.company || 'Untitled', sub: r.type || 'record', deletedAt: r.deletedAt })),
   ].sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
 
-  el.innerHTML = rows.map(row => `
+  const recordSection = rows.map(row => `
     <div class="history-item deleted-item" data-deleted-kind="${row.kind}" data-deleted-id="${row.id}" title="Right-click for options">
       <div class="history-item-main">
         <span class="history-item-title">${escapeHtml(row.label)}</span>
@@ -465,41 +495,80 @@ async function renderRecentlyDeleted() {
       <div class="history-item-meta" style="color:var(--dim);font-size:11px">${timeLeft(row.deletedAt)}</div>
     </div>`).join('');
 
+  const docSection = deletedDocs.length ? `
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;margin-bottom:8px">DOCUMENTS IN TRASH</div>
+      ${deletedDocs.map(d => `
+        <div class="history-item deleted-item" data-deleted-kind="doc" data-deleted-id="${d.recordId}" data-doc-name="${escapeHtml(d.fileName)}" title="Right-click for options">
+          <div class="history-item-main">
+            <span class="history-item-title">${fileIcon(d.fileName)} ${escapeHtml(stripTimestamp(d.fileName))}</span>
+            <span class="history-item-type">via ${escapeHtml(d.recordTitle)}</span>
+          </div>
+          <div class="history-item-meta" style="color:var(--dim);font-size:11px">${timeLeft(d.deletedAt)}</div>
+        </div>`).join('')}
+    </div>` : '';
+
+  el.innerHTML = recordSection + docSection;
+
   // Right-click context menu on deleted items
   el.querySelectorAll('.deleted-item').forEach(item => {
     item.addEventListener('contextmenu', e => {
       e.preventDefault();
       closeCtxMenu();
-      const { deletedKind, deletedId } = item.dataset;
-      const label = item.querySelector('.history-item-title')?.textContent || '';
+      const { deletedKind, deletedId, docName } = item.dataset;
+      const label = item.querySelector('.history-item-title')?.textContent?.trim() || '';
       const menu = document.createElement('div');
       menu.className = 'ctx-menu'; menu.id = 'ctx-menu';
       menu.style.cssText = `position:fixed;top:${e.clientY}px;left:${e.clientX}px`;
-      menu.innerHTML = `
-        <div class="ctx-item" id="ctx-restore">Restore</div>
-        <div class="ctx-item ctx-danger" id="ctx-perm-delete">Delete permanently</div>`;
-      document.body.appendChild(menu); _ctxMenu = menu;
-      menu.querySelector('#ctx-restore').onclick = async () => {
-        closeCtxMenu();
-        await api('POST', `/api/${deletedKind === 'area' ? 'areas' : 'records'}/${deletedId}/restore`);
-        if (deletedKind === 'area') {
-          const restored = DB.areas.find(a => a.id === deletedId);
-          if (restored) restored.deletedAt = null;
-        } else {
-          const restored = DB.records.find(r => r.id === deletedId);
-          if (restored) restored.deletedAt = null;
-        }
-        renderSidebar();
-        renderRecentlyDeleted();
-      };
-      menu.querySelector('#ctx-perm-delete').onclick = async () => {
-        closeCtxMenu();
-        if (!confirm(`Permanently delete "${label}"? This cannot be undone.`)) return;
-        await api('DELETE', `/api/${deletedKind === 'area' ? 'areas' : 'records'}/${deletedId}/permanent`);
-        if (deletedKind === 'area') DB.areas = DB.areas.filter(a => a.id !== deletedId);
-        else DB.records = DB.records.filter(r => r.id !== deletedId);
-        renderRecentlyDeleted();
-      };
+
+      if (deletedKind === 'doc') {
+        menu.innerHTML = `
+          <div class="ctx-item" id="ctx-restore">Restore (restores parent record)</div>
+          <div class="ctx-item ctx-danger" id="ctx-perm-delete">Delete file permanently</div>`;
+        document.body.appendChild(menu); _ctxMenu = menu;
+        menu.querySelector('#ctx-restore').onclick = async () => {
+          closeCtxMenu();
+          const r = DB.records.find(rec => rec.id === deletedId);
+          const recLabel = r?.title || r?.fields?.company || 'record';
+          if (!confirm(`This will also restore "${recLabel}". Continue?`)) return;
+          await api('POST', `/api/records/${deletedId}/restore`);
+          if (r) r.deletedAt = null;
+          renderSidebar();
+          renderRecentlyDeleted();
+        };
+        menu.querySelector('#ctx-perm-delete').onclick = async () => {
+          closeCtxMenu();
+          if (!confirm(`Permanently delete this file? This cannot be undone.`)) return;
+          await api('DELETE', `/api/files/${encodeURIComponent(docName)}`);
+          renderRecentlyDeleted();
+        };
+      } else {
+        menu.innerHTML = `
+          <div class="ctx-item" id="ctx-restore">Restore</div>
+          <div class="ctx-item ctx-danger" id="ctx-perm-delete">Delete permanently</div>`;
+        document.body.appendChild(menu); _ctxMenu = menu;
+        menu.querySelector('#ctx-restore').onclick = async () => {
+          closeCtxMenu();
+          await api('POST', `/api/${deletedKind === 'area' ? 'areas' : 'records'}/${deletedId}/restore`);
+          if (deletedKind === 'area') {
+            const restored = DB.areas.find(a => a.id === deletedId);
+            if (restored) restored.deletedAt = null;
+          } else {
+            const restored = DB.records.find(r => r.id === deletedId);
+            if (restored) restored.deletedAt = null;
+          }
+          renderSidebar();
+          renderRecentlyDeleted();
+        };
+        menu.querySelector('#ctx-perm-delete').onclick = async () => {
+          closeCtxMenu();
+          if (!confirm(`Permanently delete "${label}"? This cannot be undone.`)) return;
+          await api('DELETE', `/api/${deletedKind === 'area' ? 'areas' : 'records'}/${deletedId}/permanent`);
+          if (deletedKind === 'area') DB.areas = DB.areas.filter(a => a.id !== deletedId);
+          else DB.records = DB.records.filter(r => r.id !== deletedId);
+          renderRecentlyDeleted();
+        };
+      }
     });
   });
 }
