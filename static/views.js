@@ -1173,4 +1173,213 @@ async function confirmMoveRecord(recordId, btn) {
   else renderAreaView(currentAreaId);
 }
 
+// ── ASSISTANT ────────────────────────────────────────────────────────────────
+const assistant = {
+  open: false,
+  messages: [],       // { role, content } for API
+  onboardingStep: 'start',
+};
+
+function assistantInit(onboardingStep) {
+  assistant.onboardingStep = onboardingStep || 'complete';
+  renderAssistantBubble();
+  if (onboardingStep && onboardingStep !== 'complete') {
+    setTimeout(() => assistantOpen(), 600);
+  }
+}
+
+function renderAssistantBubble() {
+  let el = document.getElementById('assistant-bubble');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'assistant-bubble';
+    document.getElementById('sidebar-scroll').appendChild(el);
+  }
+  el.innerHTML = `<div id="assistant-bubble-btn" onclick="assistantToggle()" title="Ask me anything">
+    <span style="font-size:14px">✦</span>
+    <span id="assistant-bubble-label" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ask me anything</span>
+  </div>`;
+}
+
+function assistantToggle() {
+  assistant.open ? assistantClose() : assistantOpen();
+}
+
+function assistantOpen() {
+  assistant.open = true;
+  let panel = document.getElementById('assistant-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'assistant-panel';
+    panel.innerHTML = `
+      <div id="assistant-panel-header">
+        <span style="font-size:13px">✦</span>
+        <span style="font-weight:600;font-size:13px;flex:1">Assistant</span>
+        <button onclick="assistantClose()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:0">×</button>
+      </div>
+      <div id="assistant-messages"></div>
+      <div id="assistant-input-row">
+        <input id="assistant-input" placeholder="Ask anything..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();assistantSend()}">
+        <button onclick="assistantSend()" id="assistant-send-btn">↑</button>
+      </div>`;
+    document.body.appendChild(panel);
+  }
+  panel.classList.add('open');
+  document.getElementById('assistant-input')?.focus();
+  if (assistant.messages.length === 0 && assistant.onboardingStep !== 'complete') {
+    assistantStartOnboarding();
+  }
+}
+
+function assistantClose() {
+  assistant.open = false;
+  document.getElementById('assistant-panel')?.classList.remove('open');
+}
+
+function assistantAppendMessage(role, text) {
+  const msgs = document.getElementById('assistant-messages');
+  if (!msgs) return;
+  const div = document.createElement('div');
+  div.className = `assistant-msg assistant-msg-${role}`;
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  if (role === 'assistant') {
+    assistant.messages.push({ role: 'assistant', content: text });
+  }
+}
+
+function assistantSetTyping(on) {
+  let el = document.getElementById('assistant-typing');
+  if (on && !el) {
+    const msgs = document.getElementById('assistant-messages');
+    el = document.createElement('div');
+    el.id = 'assistant-typing';
+    el.className = 'assistant-msg assistant-msg-assistant';
+    el.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+    msgs?.appendChild(el);
+    msgs.scrollTop = msgs.scrollHeight;
+  } else if (!on && el) {
+    el.remove();
+  }
+}
+
+async function assistantSend() {
+  const input = document.getElementById('assistant-input');
+  const text = input?.value?.trim();
+  if (!text) return;
+  input.value = '';
+  assistantAppendMessage('user', text);
+  assistant.messages.push({ role: 'user', content: text });
+
+  // Onboarding shortcut: detect "yes/sure/yeah" to template offer
+  if (assistant.onboardingStep === 'awaiting-template-offer') {
+    const yesWords = ['yes','sure','yeah','ok','okay','show','browse','templates','yep','yup'];
+    if (yesWords.some(w => text.toLowerCase().includes(w))) {
+      assistant.onboardingStep = 'awaiting-area';
+      await api('PATCH', '/api/me', { onboardingStep: 'awaiting-area' });
+      openTemplateBrowser();
+      return;
+    }
+  }
+
+  assistantSetTyping(true);
+  try {
+    const res = await api('POST', '/api/assistant', { messages: assistant.messages.slice(-12) });
+    assistantSetTyping(false);
+    assistantAppendMessage('assistant', res.reply);
+  } catch {
+    assistantSetTyping(false);
+    assistantAppendMessage('assistant', 'Something went wrong. Try again.');
+  }
+}
+
+async function assistantStartOnboarding() {
+  await new Promise(r => setTimeout(r, 400));
+  assistantSetTyping(true);
+  await new Promise(r => setTimeout(r, 800));
+  assistantSetTyping(false);
+  assistantAppendMessage('assistant', `Hey ${currentUser.name}! Welcome to your dashboard. I'll help you get set up — it only takes a minute.`);
+  await new Promise(r => setTimeout(r, 600));
+  assistantSetTyping(true);
+  await new Promise(r => setTimeout(r, 1000));
+  assistantSetTyping(false);
+  assistantAppendMessage('assistant', `First, let's add a life area. Click "+ Add area" in the sidebar, or I can show you some templates to pick from. Want to browse templates?`);
+  assistant.onboardingStep = 'awaiting-template-offer';
+  await api('PATCH', '/api/me', { onboardingStep: 'awaiting-template-offer' });
+}
+
+function assistantNotify(event, data) {
+  if (assistant.onboardingStep === 'complete') return;
+  if (event === 'area-created' && assistant.onboardingStep.startsWith('awaiting-template') || assistant.onboardingStep === 'awaiting-area') {
+    assistant.onboardingStep = 'awaiting-record';
+    api('PATCH', '/api/me', { onboardingStep: 'awaiting-record' });
+    if (!assistant.open) assistantOpen();
+    setTimeout(async () => {
+      assistantSetTyping(true);
+      await new Promise(r => setTimeout(r, 900));
+      assistantSetTyping(false);
+      assistantAppendMessage('assistant', `Nice — ${data?.title || 'your area'} is in the sidebar. Now create your first record inside it. Click the area, then hit "+ New record".`);
+    }, 300);
+  } else if (event === 'record-created' && assistant.onboardingStep === 'awaiting-record') {
+    assistant.onboardingStep = 'awaiting-dashboard';
+    api('PATCH', '/api/me', { onboardingStep: 'awaiting-dashboard' });
+    setTimeout(async () => {
+      assistantSetTyping(true);
+      await new Promise(r => setTimeout(r, 900));
+      assistantSetTyping(false);
+      assistantAppendMessage('assistant', `That's it — that's how the whole app works. Now click Dashboard in the top left to see everything at a glance.`);
+    }, 300);
+  } else if (event === 'navigate-dashboard' && assistant.onboardingStep === 'awaiting-dashboard') {
+    assistant.onboardingStep = 'complete';
+    api('PATCH', '/api/me', { onboardingStep: 'complete' });
+    setTimeout(async () => {
+      assistantSetTyping(true);
+      await new Promise(r => setTimeout(r, 1000));
+      assistantSetTyping(false);
+      assistantAppendMessage('assistant', `There it is — your home base. I'll be down here if you need anything.`);
+      await new Promise(r => setTimeout(r, 2000));
+      assistantClose();
+    }, 500);
+  }
+}
+
+// Template browser
+async function openTemplateBrowser(targetCb) {
+  const templates = await api('GET', '/api/templates');
+  openModal('Choose a template', `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-height:380px;overflow-y:auto;padding:2px">
+      ${templates.map(t => `
+        <div class="record-card" style="cursor:pointer;flex-direction:column;align-items:flex-start;gap:4px" onclick="installTemplate('${t.id}')">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:18px">${t.icon}</span>
+            <span style="font-weight:600;font-size:13px">${t.name}</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted)">${t.description}</div>
+        </div>`).join('')}
+    </div>`,
+    [{ label: 'Cancel', onclick: closeModal }]);
+  window._templateInstallCb = targetCb || null;
+}
+
+async function installTemplate(templateId) {
+  const templates = await api('GET', '/api/templates');
+  const tpl = templates.find(t => t.id === templateId);
+  if (!tpl) return;
+  closeModal();
+  const area = await api('POST', '/api/areas', {
+    title: tpl.name,
+    color: tpl.color,
+    icon: tpl.icon,
+    order: DB.areas.length,
+    parentId: null,
+  });
+  DB.areas.push(area);
+  rebuildLookupCaches();
+  renderSidebar();
+  assistantNotify('area-created', area);
+  if (window._templateInstallCb) { window._templateInstallCb(area); window._templateInstallCb = null; }
+  navigate('area', area.id);
+}
+
 boot();

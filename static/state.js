@@ -29,6 +29,7 @@ async function boot() {
   renderSidebar();
   const hash = location.hash.replace('#', '') || 'dashboard';
   navigateFromHash(hash);
+  assistantInit(me.onboardingStep);
 }
 
 function bindGlobalDelegation() {

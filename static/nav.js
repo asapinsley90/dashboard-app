@@ -40,6 +40,9 @@ function navigate(view, areaId, recordId, push = true) {
     document.querySelector('[data-view="companies"]')?.classList.add('active');
   }
 
+  // Notify assistant of dashboard navigation (for onboarding)
+  if (safeView === 'dashboard' && push) assistantNotify('navigate-dashboard');
+
   // Render
   if (safeView === 'dashboard') renderDashboard();
   else if (safeView === 'area') renderAreaView(areaId);

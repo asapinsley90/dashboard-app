@@ -548,7 +548,59 @@ app.get('/api/me', async (req, res) => {
   const userId = getSessionUserId(req);
   const user = await dbLayer.getUserById(userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json({ id: user.id, name: user.name });
+  res.json({ id: user.id, name: user.name, onboardingStep: user.onboarding_step || 'start' });
+});
+
+app.patch('/api/me', async (req, res) => {
+  const userId = getSessionUserId(req);
+  const { onboardingStep } = req.body;
+  await dbLayer.updateUser(userId, { onboardingStep });
+  res.json({ ok: true });
+});
+
+// Area templates (system-defined)
+const SYSTEM_TEMPLATES = [
+  { id: 'tpl-jobs', name: 'Jobs', description: 'Track applications, interviews, and companies', color: '#5b9bd5', icon: '💼', recordTypes: ['job', 'company', 'contact', 'event'] },
+  { id: 'tpl-health', name: 'Health', description: 'Appointments, goals, habits, and providers', color: '#4caf7d', icon: '🏃', recordTypes: ['event', 'goal', 'task', 'contact', 'note'] },
+  { id: 'tpl-finances', name: 'Finances', description: 'Accounts, budgets, and financial goals', color: '#d4943a', icon: '💰', recordTypes: ['account', 'goal', 'task', 'note'] },
+  { id: 'tpl-home', name: 'Home', description: 'Maintenance, projects, and household tasks', color: '#9b7fd4', icon: '🏠', recordTypes: ['task', 'project', 'event', 'note'] },
+  { id: 'tpl-learning', name: 'Learning', description: 'Courses, books, skills, and certifications', color: '#3da89e', icon: '📚', recordTypes: ['goal', 'task', 'note', 'project'] },
+  { id: 'tpl-travel', name: 'Travel', description: 'Trips, bookings, and itineraries', color: '#c4607a', icon: '✈️', recordTypes: ['event', 'task', 'note', 'project'] },
+  { id: 'tpl-relationships', name: 'Relationships', description: 'Stay in touch, social commitments, and contacts', color: '#d4705a', icon: '👥', recordTypes: ['contact', 'event', 'note', 'task'] },
+  { id: 'tpl-admin', name: 'Admin & Legal', description: 'Documents, deadlines, renewals, and licenses', color: '#78909c', icon: '📋', recordTypes: ['task', 'event', 'note', 'project'] },
+];
+
+app.get('/api/templates', (req, res) => res.json(SYSTEM_TEMPLATES));
+
+// Assistant chat
+app.post('/api/assistant', async (req, res) => {
+  const { messages, context } = req.body;
+  const userId = getSessionUserId(req);
+  const user = await dbLayer.getUserById(userId);
+  const db = await dbLayer.readDB();
+
+  const systemPrompt = `You are a helpful assistant built into a personal life dashboard app called Dashboard. The user's name is ${user?.name || 'there'}.
+
+The dashboard has life areas (like Jobs, Health, Finances, Home), and each area contains records (tasks, events, goals, contacts, projects, notes, accounts, companies, jobs).
+
+Current state:
+- Areas: ${db.areas.map(a => a.title).join(', ') || 'none yet'}
+- Records: ${db.records.length} total
+
+You can help the user navigate the app, understand features, and answer questions. Be concise and friendly. When the user is in onboarding, guide them step by step — don't overwhelm with information. Use plain language, no markdown formatting.`;
+
+  try {
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 300,
+      system: systemPrompt,
+      messages: messages || [],
+    });
+    res.json({ reply: response.content[0].text });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Areas

@@ -1031,6 +1031,7 @@ function promptAddRecord(forceType, targetAreaId = null) {
       const defaults = { contact:{role:'',company:'',email:'',phone:'',linkedin:'',notes:''}, event:{date:'',time:'',endTime:'',location:'',link:'',category:'',notes:''}, goal:{targetDate:'',progress:'',notes:''}, task:{frequency:'',lastDone:'',nextDue:'',notes:''}, project:{description:'',nextAction:'',notes:''}, note:{body:'',notes:''}, account:{institution:'',accountType:'',owner:'',last4:'',balance:'',balanceDate:'',notes:''} };
       const rec = await api('POST', '/api/records', { type:t, areaId:aid, title, urgency:'new', fields:defaults[t]||{}, contacts:t==='job'?[]:undefined, interviews:t==='job'?[]:undefined, documents:t==='job'?[]:undefined });
       DB.records.push(rec);
+      assistantNotify('record-created', rec);
       closeModal(); renderSidebar(); navigate('record', aid, rec.id);
     }},
     { label: 'Cancel', onclick: closeModal }]);
@@ -1051,6 +1052,7 @@ async function promptAddArea(parentId = null) {
   const parentArea = parentId ? DB.areas.find(a => a.id === parentId) : null;
 
   openModal(parentArea ? `New sub-area in ${parentArea.title}` : 'New area', `
+    ${!parentArea ? `<div style="margin-bottom:14px"><button class="btn btn-sm" style="width:100%;justify-content:center" onclick="closeModal();openTemplateBrowser()">✦ Browse templates</button></div>` : ''}
     <div class="modal-field"><div class="modal-label">Name</div><input class="modal-input" id="na-title" placeholder="${parentArea ? 'Sub-area name' : 'Area name'}" autofocus></div>
     <div class="modal-field"><div class="modal-label">Color</div><div class="color-swatch-grid" id="na-swatch-grid">${swatches}</div><input type="hidden" id="na-color" value="${defaultColor}"></div>`,
     [{ label: 'Create', primary: true, onclick: async () => {
@@ -1061,6 +1063,7 @@ async function promptAddArea(parentId = null) {
       DB.areas.push(area);
       closeModal();
       renderSidebar();
+      assistantNotify('area-created', area);
       if (parentId) navigate('area', parentId);
     }},
     { label: 'Cancel', onclick: closeModal }]);
