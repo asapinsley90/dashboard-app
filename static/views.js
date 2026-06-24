@@ -116,7 +116,7 @@ function renderContactsView() {
 // â"€â"€ DOCUMENTS â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 let allFiles = [];
 async function loadFiles(){allFiles=await api('GET','/api/files');return allFiles;}
-function fileIcon(n){const e=n.split('.').pop().toLowerCase();if(e==='pdf')return'📕';if(['doc','docx'].includes(e))return'ðŸ"˜';if(['xls','xlsx'].includes(e))return'📗';if(['jpg','jpeg','png','gif','webp'].includes(e))return'🖼';if(['zip','rar','7z'].includes(e))return'📦';return'📄';}
+function fileIcon(n){const e=n.split('.').pop().toLowerCase();if(e==='pdf')return'📕';if(['doc','docx'].includes(e))return'📘';if(['xls','xlsx'].includes(e))return'📗';if(['jpg','jpeg','png','gif','webp'].includes(e))return'🖼';if(['zip','rar','7z'].includes(e))return'📦';return'📄';}
 function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';return(b/1048576).toFixed(1)+' MB';}
 
 function normalizeRecordDocs(r) {
@@ -1244,11 +1244,7 @@ function showRecordCtxMenu(e,recordId){
   addI('→ Open record',()=>navigate('record',r.areaId,recordId));
   addD();
   addI('Delete record', async () => {
-    if (!confirm(`Delete "${r.title}"? This cannot be undone.`)) return;
-    await api('DELETE', `/api/records/${recordId}`);
-    DB.records = DB.records.filter(x => x.id !== recordId);
-    if (currentRecordId === recordId) navigate('area', r.areaId);
-    else renderSidebar();
+    await deleteRecord(recordId);
   }, 'danger');
   addI('Move to area…', () => {
     const leafAreas = DB.areas.filter(a => !DB.areas.some(b => b.parentId === a.id));
