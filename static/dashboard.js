@@ -1,4 +1,4 @@
-﻿// â”€â”€ DASHBOARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+﻿// â"€â"€ DASHBOARD â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 // Dashboard sections — draggable, hideable
 const DASH_WIDGETS = [
   { id: 'attention', label: 'Needs attention' },
@@ -11,13 +11,13 @@ const DASH_WIDGETS = [
 function dashSectionHTML(id) {
   switch (id) {
     case 'attention': return `
-      <div class=”attention-header” style=”margin-bottom:6px”>
-        <div class=”attention-filters” id=”attention-filters”></div>
+      <div class="attention-header" style="margin-bottom:6px">
+        <div class="attention-filters" id="attention-filters"></div>
       </div>
-      <div class=”attention-card” id=”dash-attention”></div>`;
-    case 'today':  return `<div class=”attention-card” id=”dash-today” style=”margin-bottom:0”></div>`;
-    case 'week':   return `<div class=”attention-card” id=”dash-week”  style=”margin-bottom:0”></div>`;
-    case 'areas':  return `<div class=”area-grid” id=”dash-areas”></div>`;
+      <div class="attention-card" id="dash-attention"></div>`;
+    case 'today':  return `<div class="attention-card" id="dash-today" style="margin-bottom:0"></div>`;
+    case 'week':   return `<div class="attention-card" id="dash-week"  style="margin-bottom:0"></div>`;
+    case 'areas':  return `<div class="area-grid" id="dash-areas"></div>`;
     default: return '';
   }
 }
@@ -79,12 +79,12 @@ function buildDashSections() {
     wrap.draggable = true;
 
     wrap.innerHTML = `
-      <div class=”dash-section-drag-header” title=”Drag to reorder”>
-        <span class=”drag-grip”>&#8942;</span>
-        <span class=”dash-section-label” style=”margin:0;flex:1”>${widget.label}</span>
-        <button class=”dash-section-hide-btn” onclick=”hideDashWidget('${id}')” title=”Hide section”>&#x2715;</button>
+      <div class="dash-section-drag-header" title="Drag to reorder">
+        <span class="drag-grip">&#8942;</span>
+        <span class="dash-section-label" style="margin:0;flex:1">${widget.label}</span>
+        <button class="dash-section-hide-btn" onclick="hideDashWidget('${id}')" title="Hide section">&#x2715;</button>
       </div>
-      <div class=”dash-section-body”>${dashSectionHTML(id)}</div>`;
+      <div class="dash-section-body">${dashSectionHTML(id)}</div>`;
 
     // Drag events
     wrap.addEventListener('dragstart', e => {
@@ -129,7 +129,7 @@ function buildDashSections() {
     const bar = document.createElement('div');
     bar.className = 'dash-hidden-bar';
     bar.innerHTML = hiddenWidgets.map(w =>
-      `<button class=”btn btn-sm dash-restore-btn” onclick=”showDashWidget('${w.id}')”>+ ${w.label}</button>`
+      `<button class="btn btn-sm dash-restore-btn" onclick="showDashWidget('${w.id}')">+ ${w.label}</button>`
     ).join('');
     col.appendChild(bar);
   }
@@ -327,7 +327,7 @@ function getAttentionItems() {
   return items.sort((a,b) => (a.priority-b.priority) || (a.diff||99)-(b.diff||99)).slice(0,8);
 }
 
-// â”€â”€ AREA VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ AREA VIEW â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function renderAreaView(areaId) {
   const area = DB.areas.find(a => a.id === areaId);
   if (!area) return;
@@ -536,7 +536,7 @@ function jobCard(r) {
   const statusLabel = { interviewing: 'Interviewing', awaiting: 'Awaiting', applied: 'Applied', rejected: 'Rejected' };
   const nextI = (r.interviews || []).filter(i => i.date >= new Date().toISOString().split('T')[0]).sort((a,b) => a.date.localeCompare(b.date))[0];
   return `<div class="record-card" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
-    <div class="record-card-icon">ðŸ’¼</div>
+    <div class="record-card-icon">ðŸ'¼</div>
     <div class="record-card-body">
       <div class="record-card-title">${r.title}</div>
       <div class="record-card-sub">${r.fields.role}${r.fields.salary ? ' · ' + r.fields.salary : ''}${nextI ? ' · Next: ' + formatDate(nextI.date) : ''}</div>
@@ -548,7 +548,7 @@ function jobCard(r) {
 }
 
 function recordCard(r) {
-  const icons = { job: 'ðŸ’¼', contact: '👤', event: 'ðŸ“…', goal: '🎯', task: 'âœ“', project: 'ðŸ”¨', note: '📝', account: 'ðŸ’³', transaction: 'ðŸ’¸' };
+  const icons = { job: 'ðŸ'¼', contact: '👤', event: 'ðŸ"…', goal: '🎯', task: 'âœ"', project: 'ðŸ"¨', note: '📝', account: 'ðŸ'³', transaction: 'ðŸ'¸' };
   let sub = r.fields.role || r.fields.notes?.slice(0, 80) || r.fields.date || '';
   let right = statusBadge(r);
   let cardIcon = `<div class="record-card-icon">${icons[r.type] || 'â€¢'}</div>`;
@@ -559,7 +559,7 @@ function recordCard(r) {
     right = bal ? `<span style="font-size:14px;font-weight:600;color:var(--text)">${bal}</span>` : '';
     const instDef = getInstitutionDefaults(r.fields.institution);
     const domain = r.fields.institutionDomain || instDef?.domain;
-    if (domain) cardIcon = `<div class="record-card-icon" style="padding:0;display:flex;align-items:center;justify-content:center"><img src="https://www.google.com/s2/favicons?domain=${domain}&sz=64" style="width:22px;height:22px;object-fit:contain" onerror="this.outerHTML='ðŸ’³'"></div>`;
+    if (domain) cardIcon = `<div class="record-card-icon" style="padding:0;display:flex;align-items:center;justify-content:center"><img src="https://www.google.com/s2/favicons?domain=${domain}&sz=64" style="width:22px;height:22px;object-fit:contain" onerror="this.outerHTML='ðŸ'³'"></div>`;
   }
   return `<div class="record-card" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
     ${cardIcon}

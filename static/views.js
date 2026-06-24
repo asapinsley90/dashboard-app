@@ -1,4 +1,4 @@
-﻿// â”€â”€ CONTACTS VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+﻿// â"€â"€ CONTACTS VIEW â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function splitContactName(name) {
   const parts = (name || '').trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return { first: '', last: '' };
@@ -113,10 +113,10 @@ function renderContactsView() {
     </div>`).join('');
 }
 
-// â”€â”€ DOCUMENTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ DOCUMENTS â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 let allFiles = [];
 async function loadFiles(){allFiles=await api('GET','/api/files');return allFiles;}
-function fileIcon(n){const e=n.split('.').pop().toLowerCase();if(e==='pdf')return'ðŸ“•';if(['doc','docx'].includes(e))return'ðŸ“˜';if(['xls','xlsx'].includes(e))return'ðŸ“—';if(['jpg','jpeg','png','gif','webp'].includes(e))return'ðŸ–¼';if(['zip','rar','7z'].includes(e))return'ðŸ“¦';return'ðŸ“„';}
+function fileIcon(n){const e=n.split('.').pop().toLowerCase();if(e==='pdf')return'ðŸ"•';if(['doc','docx'].includes(e))return'ðŸ"˜';if(['xls','xlsx'].includes(e))return'ðŸ"—';if(['jpg','jpeg','png','gif','webp'].includes(e))return'ðŸ–¼';if(['zip','rar','7z'].includes(e))return'ðŸ"¦';return'ðŸ"„';}
 function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';return(b/1048576).toFixed(1)+' MB';}
 
 function normalizeRecordDocs(r) {
@@ -289,7 +289,7 @@ async function uploadFiles(files){
     const res=await fetch('/api/files',{method:'POST',body:fd});
     const uploaded=await res.json();
     if(!res.ok)throw new Error(uploaded.error||'Upload failed');
-    toast.innerHTML=`<span style="color:var(--green)">âœ“</span><span>Uploaded ${files.length===1?`<b>${names}</b>`:`${files.length} files`}</span>`;
+    toast.innerHTML=`<span style="color:var(--green)">âœ"</span><span>Uploaded ${files.length===1?`<b>${names}</b>`:`${files.length} files`}</span>`;
     setTimeout(()=>toast.remove(),4500);
     await loadFiles();if(currentView==='documents')renderDocumentsView();return uploaded;
   }catch(err){
@@ -355,7 +355,7 @@ async function deleteFile(name){
 }
 // docDropdown removed - using per-slot upload zones
 
-// â”€â”€ COMPLETED / ARCHIVED VIEWS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ COMPLETED / ARCHIVED VIEWS â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function renderStatusView(status, listId, searchId, areaFilterId) {
   const el = document.getElementById(listId);
   if (!el) return;
@@ -412,7 +412,7 @@ function renderHistoryView() {
 function renderCompletedView() { historyTab = 'completed'; renderHistoryView(); }
 function renderArchivedView() { historyTab = 'archived'; renderHistoryView(); }
 
-// â”€â”€ WEEKLY REVIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ WEEKLY REVIEW â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 async function saveReview() {
   const wins = document.getElementById('w-wins').value.trim();
   const stuck = document.getElementById('w-stuck').value.trim();
@@ -437,7 +437,7 @@ function renderWeekly() {
     </div>`).join('') : '<div class="empty">No reviews yet.</div>';
 }
 
-// â”€â”€ MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ MODAL â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function openModal(title, body, actions) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = body;
@@ -452,7 +452,7 @@ function openModal(title, body, actions) {
 
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
 
-// â”€â”€ STICKY NOTES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ STICKY NOTES â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const NOTE_COLORS = ['color-amber','color-red','color-green'];
 function noteColorNext(current) {
   const i = NOTE_COLORS.indexOf(current||'color-amber');
@@ -556,7 +556,7 @@ async function deleteNote(recordId, index) {
   }
 }
 
-// â”€â”€ JOB SCRAPE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ JOB SCRAPE â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 async function triggerScrape(recordId) {
   const urlInput = document.getElementById('posting-url-' + recordId);
   const url = urlInput?.value?.trim();
@@ -700,7 +700,7 @@ async function createCompanyFromJob(recordId, name) {
   await api('PUT', `/api/records/${recordId}`, { companyId: co.id });
 }
 
-// â”€â”€ COPY CONTEXT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ COPY CONTEXT â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function copyRecordContext(recordId) {
   const r = DB.records.find(r => r.id === recordId);
   if (!r) return;
@@ -776,7 +776,7 @@ function copyRecordContext(recordId) {
   const text = lines.join('\n');
   const btn = document.querySelector('[onclick*="copyRecordContext"]');
   const showCopied = function() {
-    if (btn) { const o = btn.innerHTML; btn.innerHTML = 'âœ“ Copied!'; setTimeout(function(){ btn.innerHTML = o; }, 2000); }
+    if (btn) { const o = btn.innerHTML; btn.innerHTML = 'âœ" Copied!'; setTimeout(function(){ btn.innerHTML = o; }, 2000); }
   };
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(showCopied).catch(function() {
@@ -791,7 +791,7 @@ function copyRecordContext(recordId) {
   }
 }
 
-// â”€â”€ UTILS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ UTILS â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function showCompanySuggestions(input, recordId) {
   const val = input.value.trim().toLowerCase();
   const box = document.getElementById('company-suggestions-' + recordId);
@@ -858,9 +858,9 @@ async function saveCompanyField(recordId, name, companyId) {
 function linkableCompany(company, companyId) {
   if (!company) return '';
   const co = companyId ? getRecord(companyId) : getRecordsByType('company').find(r => r.title === company);
-  if (co) return `<span class="doc-ref" data-record-link data-area-id="${co.areaId}" data-record-id="${co.id}" style="color:var(--accent)">${company} â†’</span>`;
+  if (co) return `<span class="doc-ref" data-record-link data-area-id="${co.areaId}" data-record-id="${co.id}" style="color:var(--accent)">${company} â†'</span>`;
   const linked = getRecordsByType('job').find(r => r.title === company);
-  if (linked) return `<span class="doc-ref" data-record-link data-area-id="${linked.areaId}" data-record-id="${linked.id}" style="color:var(--accent)">${company} â†’</span>`;
+  if (linked) return `<span class="doc-ref" data-record-link data-area-id="${linked.areaId}" data-record-id="${linked.id}" style="color:var(--accent)">${company} â†'</span>`;
   return `<span>${company}</span>`;
 }
 function formatDate(ds) {
@@ -880,7 +880,7 @@ function fmtTime(t) {
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : ''; }
 function pluralize(type) { return {company:'Companies',activity:'Activities',category:'Categories'}[type] || capitalize(type)+'s'; }
 function typeIcon(type) {
-  return { job:'ðŸ’¼', contact:'👤', event:'ðŸ“…', goal:'🎯', task:'âœ“', project:'ðŸ”¨', note:'📝', account:'ðŸ’³', transaction:'ðŸ’¸' }[type] || 'â€¢';
+  return { job:'ðŸ'¼', contact:'👤', event:'ðŸ"…', goal:'🎯', task:'âœ"', project:'ðŸ"¨', note:'📝', account:'ðŸ'³', transaction:'ðŸ'¸' }[type] || 'â€¢';
 }
 
 function openJobModal(areaId) {
@@ -893,11 +893,11 @@ function openJobModal(areaId) {
   const cancel = document.createElement('button');
   cancel.className = 'btn'; cancel.textContent = 'Cancel'; cancel.onclick = closeModal;
   const skip = document.createElement('button');
-  skip.className = ‘btn’; skip.style.color = ‘var(--muted)’; skip.textContent = ‘Skip → manual’;
-  skip.onclick = () => showJobFallbackModal(areaId, ‘’, ‘’);
-  const fetch = document.createElement(‘button’);
-  fetch.className = ‘btn btn-p’; fetch.style.cssText = ‘font-size:13px;padding:8px 20px’; fetch.textContent = ‘Fetch posting →’;
-  fetch.onclick = function() { this.disabled = true; this.textContent = ‘Fetching…’; startJobScrape(areaId); };
+  skip.className = 'btn'; skip.style.color = 'var(--muted)'; skip.textContent = 'Skip → manual';
+  skip.onclick = () => showJobFallbackModal(areaId, '', '');
+  const fetch = document.createElement('button');
+  fetch.className = 'btn btn-p'; fetch.style.cssText = 'font-size:13px;padding:8px 20px'; fetch.textContent = 'Fetch posting →';
+  fetch.onclick = function() { this.disabled = true; this.textContent = 'Fetching…'; startJobScrape(areaId); };
   acts.appendChild(cancel); acts.appendChild(skip); acts.appendChild(fetch);
   setTimeout(() => {
     const inp = document.getElementById('job-url-input');
@@ -957,8 +957,8 @@ function showJobScrapeConfirmModal(areaId,data,url){
   body.innerHTML='<div style="margin-bottom:16px"><div style="font-size:13px;color:var(--muted);margin-bottom:14px">Found — confirm to create:</div>'+fields.map(f=>'<div style="display:flex;align-items:baseline;gap:10px;padding:8px 0;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:600;color:'+f.color+';width:70px;text-transform:uppercase;letter-spacing:.05em">'+f.label+'</div><div style="font-size:15px;font-weight:500;color:var(--text)">'+f.value+'</div></div>').join('')+(data.description?'<div style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:6px;font-size:12px;color:var(--muted);max-height:80px;overflow:hidden">'+data.description.slice(0,300)+'...</div>':'')+'</div>';
   const acts=document.getElementById('modal-actions');acts.innerHTML='';
   const cancel=document.createElement('button');cancel.className='btn';cancel.textContent='Cancel';cancel.onclick=closeModal;
-  const apply=document.createElement(‘button’);apply.className=’btn btn-p’;apply.style.cssText=’font-size:13px;padding:8px 20px’;apply.textContent=’Create record →’;
-  apply.onclick=function(){this.disabled=true;this.textContent=’Creating…’;createJobRecord(areaId,JSON.stringify(data),url);};
+  const apply=document.createElement('button');apply.className='btn btn-p';apply.style.cssText='font-size:13px;padding:8px 20px';apply.textContent='Create record →';
+  apply.onclick=function(){this.disabled=true;this.textContent='Creating…';createJobRecord(areaId,JSON.stringify(data),url);};
   acts.appendChild(cancel);acts.appendChild(apply);
 }
 
@@ -976,7 +976,7 @@ function showJobFallbackModal(areaId,url,reason){
   const acts=document.getElementById('modal-actions');acts.innerHTML='';
   const cancel=document.createElement('button');cancel.className='btn';cancel.textContent='Cancel';cancel.onclick=closeModal;
   const parse=document.createElement('button');parse.className='btn';parse.style.color='var(--accent)';parse.textContent='Parse text';parse.onclick=()=>parseJobModalText(areaId,url);
-  const create=document.createElement(‘button’);create.className=’btn btn-p’;create.style.cssText=’font-size:13px;padding:8px 20px’;create.textContent=’Create record →’;create.onclick=function(){createJobFromFallback(areaId,url,this);};
+  const create=document.createElement('button');create.className='btn btn-p';create.style.cssText='font-size:13px;padding:8px 20px';create.textContent='Create record →';create.onclick=function(){createJobFromFallback(areaId,url,this);};
   acts.appendChild(cancel);acts.appendChild(parse);acts.appendChild(create);
 }
 
@@ -1052,7 +1052,7 @@ async function setRecordStatus(recordId,newStatus){
   // Persist in background
   const payload = (newStatus==='completed'||newStatus==='archived') ? {status:newStatus,urgency:'none'} : {status:newStatus};
   api('PUT',`/api/records/${recordId}`,payload);
-  api('POST',`/api/records/${recordId}/timeline`,{text:'Status: '+prev+' â†’ '+newStatus});
+  api('POST',`/api/records/${recordId}/timeline`,{text:'Status: '+prev+' â†' '+newStatus});
 }
 
 async function setUrgency(recordId,level){
@@ -1138,9 +1138,9 @@ function showRecordCtxMenu(e,recordId){
   addD();addH('Status');
   statusOpts.forEach(s=>addI((r.status===s?'✔ ':'')+s.charAt(0).toUpperCase()+s.slice(1),()=>setRecordStatus(recordId,s),r.status===s?'checked':s==='archived'?'dim':''));
   addD();
-  addI(‘→ Open record’,()=>navigate(‘record’,r.areaId,recordId));
+  addI('→ Open record',()=>navigate('record',r.areaId,recordId));
   addD();
-  addI(‘Delete record’, async () => {
+  addI('Delete record', async () => {
     if (!confirm(`Delete "${r.title}"? This cannot be undone.`)) return;
     await api('DELETE', `/api/records/${recordId}`);
     DB.records = DB.records.filter(x => x.id !== recordId);
