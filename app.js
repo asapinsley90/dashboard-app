@@ -653,7 +653,10 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px 12px;text-align:left
 <div id="pending-list"><div style="color:#444">Loading...</div></div>
 
 <script>
-const TOKEN = new URLSearchParams(location.search).get('token') || '';
+const TOKEN = new URLSearchParams(location.search).get('token') || localStorage.getItem('admin_token') || '';
+if (TOKEN) localStorage.setItem('admin_token', TOKEN);
+// Keep URL clean after first load
+if (new URLSearchParams(location.search).get('token')) history.replaceState({}, '', '/admin');
 const H = { 'Content-Type': 'application/json', 'x-admin-token': TOKEN };
 
 async function loadPending() {

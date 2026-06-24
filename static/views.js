@@ -1405,15 +1405,18 @@ async function confirmMoveRecord(recordId, btn) {
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
 function openAdminPanel() {
+  const saved = localStorage.getItem('admin_token');
+  if (saved) { window.open('/admin', '_blank'); return; }
   openModal('Admin panel', `
     <div class="modal-field">
       <div class="modal-label">Admin token</div>
       <input class="modal-input" id="admin-token-input" type="password" placeholder="Enter ADMIN_TOKEN">
     </div>
-    <div style="font-size:12px;color:var(--muted)">Opens the admin panel in a new tab.</div>`,
+    <div style="font-size:12px;color:var(--muted)">Saved in this browser — you won't be asked again.</div>`,
     [{ label: 'Open', primary: true, onclick: () => {
       const token = document.getElementById('admin-token-input').value.trim();
       if (!token) return;
+      localStorage.setItem('admin_token', token);
       window.open('/admin?token=' + encodeURIComponent(token), '_blank');
       closeModal();
     }},
