@@ -36,7 +36,7 @@
         <span class="sidebar-sec-chevron" id="chevron-library">▾</span>
       </div>
       <div class="sidebar-sec-body" id="sidebar-sec-body-library">
-      <div class="sidebar-item" onclick="openTemplateBrowser(null)" style="cursor:pointer">
+      <div class="sidebar-item" data-view="templates" data-nav="templates">
         <div class="sidebar-dot" style="background:var(--amber)"></div>
         <span class="sidebar-item-title">Templates</span>
       </div>
@@ -100,7 +100,7 @@
         <div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
             <div id="dash-cal-label" style="font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.08em;text-transform:uppercase"></div>
-            <button class="btn btn-xs" onclick="promptAddEvent()">+ New event</button>
+            <button class="event-pill-btn" onclick="promptAddEvent()">+ New event</button>
           </div>
           <div id="dash-cal"></div>
         </div>
@@ -121,7 +121,7 @@
         <div class="area-cal-panel">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
             <div class="dash-section-label" id="area-cal-label" style="margin-bottom:0"></div>
-            <button class="btn btn-xs" onclick="promptAddEvent()">+ New event</button>
+            <button class="event-pill-btn" onclick="promptAddEvent()">+ New event</button>
           </div>
           <div id="area-cal"></div>
         </div>
@@ -281,27 +281,54 @@
       </div>
     </div>
 
+    <!-- TEMPLATES -->
+    <div class="view" id="view-templates">
+      <div style="max-width:900px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+          <div style="font-size:20px;font-weight:600">Templates</div>
+          <button class="btn btn-p btn-sm" onclick="promptSaveAsTemplate(null)">+ Save current area</button>
+        </div>
+        <div id="templates-system-section">
+          <div class="dash-section-label" style="margin-bottom:10px">System templates</div>
+          <div class="templates-grid" id="templates-system-grid"></div>
+        </div>
+        <div id="templates-personal-section" style="margin-top:24px">
+          <div class="dash-section-label" style="margin-bottom:10px">My templates</div>
+          <div class="templates-grid" id="templates-personal-grid"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- WEEKLY REVIEW -->
     <div class="view" id="view-weekly">
-      <div style="max-width:680px">
-        <div style="font-size:20px;font-weight:600;margin-bottom:20px">Weekly review</div>
-        <div class="section-card">
-          <div class="review-section">
-            <div class="review-section-label">What moved forward this week?</div>
-            <textarea class="modal-input" id="w-wins" placeholder="Wins, progress, things you did..." style="min-height:80px"></textarea>
+      <div class="weekly-layout">
+        <div class="weekly-form">
+          <div style="font-size:20px;font-weight:600;margin-bottom:20px">Weekly review</div>
+          <div class="section-card">
+            <div class="review-section">
+              <div class="review-section-label">What moved forward this week?</div>
+              <textarea class="modal-input" id="w-wins" placeholder="Wins, progress, things you did..." style="min-height:80px"></textarea>
+            </div>
+            <div class="review-section">
+              <div class="review-section-label">What didn't move — and why?</div>
+              <textarea class="modal-input" id="w-stuck" placeholder="What stalled and what got in the way..."></textarea>
+            </div>
+            <div class="review-section">
+              <div class="review-section-label">Focus for next week (1–3 things only)</div>
+              <textarea class="modal-input" id="w-focus" placeholder="The things that actually matter next week..."></textarea>
+            </div>
+            <button class="btn btn-p" onclick="saveReview()">Save review</button>
           </div>
-          <div class="review-section">
-            <div class="review-section-label">What didn't move — and why?</div>
-            <textarea class="modal-input" id="w-stuck" placeholder="What stalled and what got in the way..."></textarea>
-          </div>
-          <div class="review-section">
-            <div class="review-section-label">Focus for next week (1–3 things only)</div>
-            <textarea class="modal-input" id="w-focus" placeholder="The things that actually matter next week..."></textarea>
-          </div>
-          <button class="btn btn-p" onclick="saveReview()">Save review</button>
+          <div class="dash-section-label" style="margin-top:20px">Past reviews</div>
+          <div id="review-history"></div>
         </div>
-        <div class="dash-section-label" style="margin-top:20px">Past reviews</div>
-        <div id="review-history"></div>
+        <div class="weekly-cal">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div class="dash-section-label" id="weekly-cal-label" style="margin-bottom:0"></div>
+            <button class="btn btn-xs event-pill-btn" onclick="promptAddEvent()">+ New event</button>
+          </div>
+          <div id="weekly-cal-panel"></div>
+        </div>
       </div>
     </div>
 

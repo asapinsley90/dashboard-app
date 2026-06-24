@@ -1,5 +1,5 @@
 ﻿// â"€â"€ NAVIGATION â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-const NAV_VIEWS = new Set(['dashboard', 'area', 'record', 'calendar', 'contacts', 'companies', 'documents', 'history', 'completed', 'archived', 'weekly']);
+const NAV_VIEWS = new Set(['dashboard', 'area', 'record', 'calendar', 'contacts', 'companies', 'documents', 'history', 'completed', 'archived', 'weekly', 'templates']);
 
 function normalizeView(view) {
   return NAV_VIEWS.has(view) ? view : 'dashboard';
@@ -53,6 +53,7 @@ function navigate(view, areaId, recordId, push = true) {
   else if (safeView === 'documents') renderDocumentsView();
   else if (safeView === 'history') { historyTab = areaId === 'archived' ? 'archived' : 'completed'; renderHistoryView(); }
   else if (safeView === 'weekly') renderWeekly();
+  else if (safeView === 'templates') renderTemplatesView();
 
   updatePlanningSubitems();
 

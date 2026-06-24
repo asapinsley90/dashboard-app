@@ -427,6 +427,18 @@ async function saveReview() {
 }
 
 function renderWeekly() {
+  // Render week calendar in right panel
+  const calPanel = document.getElementById('weekly-cal-panel');
+  const calLabel = document.getElementById('weekly-cal-label');
+  if (calPanel) {
+    const today = new Date();
+    const dow = today.getDay();
+    const mon = new Date(today); mon.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+    const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+    if (calLabel) calLabel.textContent = mon.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+      ' — ' + sun.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    renderCalWidget('weekly-cal-panel', false);
+  }
   const el = document.getElementById('review-history');
   el.innerHTML = DB.reviews.length ? DB.reviews.map(r => `
     <div class="review-entry">
@@ -1424,7 +1436,35 @@ function assistantNotify(event, data) {
 }
 
 // Template browser
+async function renderTemplatesView() {
+  const templates = await api('GET', '/api/templates');
+  const system = templates.filter(t => t.source === 'system');
+  const personal = templates.filter(t => t.source === 'personal');
+
+  function tileHTML(t) {
+    const actions = t.source === 'personal' ? `
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-sm" style="font-size:11px;color:var(--red)" onclick="event.stopPropagation();deleteUserTemplate('${t.id}')">Delete</button>
+        <button class="btn btn-sm" style="font-size:11px" onclick="event.stopPropagation();submitUserTemplate('${t.id}')">Submit to library</button>
+      </div>` : '';
+    return `<div class="template-tile" onclick="installTemplate('${t.id}')">
+      <div style="font-size:28px;margin-bottom:8px">${t.icon || '📁'}</div>
+      <div style="font-weight:600;font-size:14px;margin-bottom:4px">${t.name}</div>
+      <div style="font-size:12px;color:var(--muted);flex:1">${t.description || ''}</div>
+      ${actions}
+    </div>`;
+  }
+
+  const sysGrid = document.getElementById('templates-system-grid');
+  const persGrid = document.getElementById('templates-personal-grid');
+  const persSec = document.getElementById('templates-personal-section');
+  if (sysGrid) sysGrid.innerHTML = system.length ? system.map(tileHTML).join('') : '<div class="empty">No system templates yet.</div>';
+  if (persGrid) persGrid.innerHTML = personal.length ? personal.map(tileHTML).join('') : '<div class="empty" style="font-size:12px;color:var(--muted)">No personal templates saved yet.</div>';
+  if (persSec) persSec.style.display = personal.length ? '' : 'none';
+}
+
 async function openTemplateBrowser(targetCb) {
+  if (!targetCb) { navigate('templates'); return; }
   window._templateInstallCb = targetCb || null;
   const templates = await api('GET', '/api/templates');
   const system = templates.filter(t => t.source === 'system');

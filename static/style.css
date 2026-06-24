@@ -408,3 +408,18 @@ textarea.modal-input{resize:vertical;min-height:70px}
 #sidebar-assistant-btn{border-top:1px solid var(--border);margin-top:4px}
 #sidebar-assistant-btn:hover div{opacity:.85}
 #sidebar-assistant-btn div{transition:opacity .15s}
+
+/* Templates page */
+.templates-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px}
+.template-tile{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;display:flex;flex-direction:column;transition:border-color .15s,background .15s;min-height:130px}
+.template-tile:hover{border-color:var(--accent);background:var(--bg3)}
+
+/* Weekly review layout */
+.weekly-layout{display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start}
+.weekly-form{max-width:600px}
+.weekly-cal{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;position:sticky;top:20px}
+@media(max-width:900px){.weekly-layout{grid-template-columns:1fr}.weekly-cal{display:none}}
+
+/* Event pill button */
+.event-pill-btn{border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;background:var(--accent);color:#fff;border:none}
+.event-pill-btn:hover{opacity:.85}
