@@ -1,4 +1,4 @@
-﻿// â"€â"€ STATE â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+﻿// ── STATE ─────────────────────────────────────────────────────────────────────
 let DB = { areas: [], records: [], reviews: [] };
 let TYPE_SCHEMAS = [];  // { id, name, icon, fields: [{key,label,type,order}], is_custom }
 let currentView = 'dashboard';
@@ -12,7 +12,7 @@ let historyTab = 'completed';
 const contactsViewState = { sort: 'name-asc', mode: 'line' };
 const documentsViewState = { sort: 'alpha', linkFilter: 'all' };
 
-// â"€â"€ BOOT â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ── BOOT ──────────────────────────────────────────────────────────────────────
 let currentUser = { name: '' };
 
 async function boot() {
@@ -33,6 +33,7 @@ async function boot() {
     new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   bindGlobalDelegation();
   renderSidebar();
+  initSidebarCollapse();
   const hash = location.hash.replace('#', '') || 'dashboard';
   navigateFromHash(hash);
   assistantInit(me.onboardingStep);
@@ -59,7 +60,14 @@ function bindGlobalDelegation() {
     const areaLinkEl = e.target.closest('[data-area-link]');
     if (areaLinkEl?.dataset.areaLink) {
       e.stopPropagation();
-      navigate('area', areaLinkEl.dataset.areaLink);
+      const clickedId = areaLinkEl.dataset.areaLink;
+      if (currentView === 'area' && currentAreaId === clickedId) {
+        // Second click — toggle subitems
+        const subs = document.getElementById('subitems-' + clickedId);
+        if (subs) subs.classList.toggle('visible');
+      } else {
+        navigate('area', clickedId);
+      }
       return;
     }
 
@@ -96,7 +104,7 @@ function bindGlobalDelegation() {
   });
 }
 
-// â"€â"€ API â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ── API ───────────────────────────────────────────────────────────────────────
 async function api(method, url, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);

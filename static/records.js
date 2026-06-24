@@ -29,13 +29,13 @@ function renderJobRecord(r, area) {
   const statusOrder = ['applied','interviewing','awaiting','offer','rejected','withdrawn','completed','archived'];
 
   return `<div class="record-view-header">
-    <div class="record-view-icon">ðŸ'¼</div>
+    <div class="record-view-icon">💼</div>
     <div class="record-view-title-wrap">
       <div class="record-view-title">
         ${(() => {
           const co = r.companyId ? DB.records.find(rec=>rec.id===r.companyId) : DB.records.find(rec=>rec.type==='company'&&rec.title===r.title);
           return co
-            ? `<span class="doc-ref" data-record-link data-area-id="${co.areaId}" data-record-id="${co.id}" style="color:var(--text)">${r.title} <span style="color:var(--accent);font-size:16px">â†'</span></span>`
+            ? `<span class="doc-ref" data-record-link data-area-id="${co.areaId}" data-record-id="${co.id}" style="color:var(--text)">${r.title} <span style="color:var(--accent);font-size:16px">→</span></span>`
             : `<span>${r.title}</span>`;
         })()}
       </div>
@@ -61,7 +61,7 @@ function renderJobRecord(r, area) {
             ${(() => {
               const co = r.companyId ? DB.records.find(rec=>rec.id===r.companyId) : DB.records.find(rec=>rec.type==='company'&&rec.title===r.title);
               return co
-                ? `<span class="doc-ref" data-record-link data-area-id="${co.areaId}" data-record-id="${co.id}" style="font-size:13px;font-weight:500;color:var(--accent)">${r.title} â†'</span>`
+                ? `<span class="doc-ref" data-record-link data-area-id="${co.areaId}" data-record-id="${co.id}" style="font-size:13px;font-weight:500;color:var(--accent)">${r.title} →</span>`
                 : `<span style="font-size:13px">${r.title}</span>`;
             })()}
           </div>
@@ -79,7 +79,7 @@ function renderJobRecord(r, area) {
                 id="posting-url-${r.id}"
                 onblur="saveFieldText('${r.id}','postingUrl',this.value)"
                 onchange="triggerScrape('${r.id}')">
-              ${r.fields.postingUrl?`<a href="${r.fields.postingUrl}" target="_blank" style="color:var(--accent);font-size:12px;white-space:nowrap">View â†'</a>`:''}
+              ${r.fields.postingUrl?`<a href="${r.fields.postingUrl}" target="_blank" style="color:var(--accent);font-size:12px;white-space:nowrap">View →</a>`:''}
             </div>
             <div id="scrape-panel-${r.id}" style="display:none;margin-top:8px"></div>
           </div>
@@ -96,7 +96,7 @@ function renderJobRecord(r, area) {
               ${i.date ? formatDate(i.date) : ''} ${i.time ? '· ' + fmtTime(i.time) : ''} ${i.format ? '· ' + i.format : ''}
               ${i.location ? '<br>' + i.location : ''}
             </div>
-            ${i.link ? `<a class="interview-link" href="${i.link}" target="_blank">Join meeting â†'</a>` : ''}
+            ${i.link ? `<a class="interview-link" href="${i.link}" target="_blank">Join meeting →</a>` : ''}
             ${i.notes ? `<div class="interview-meta" style="margin-top:6px">${i.notes}</div>` : ''}
           </div>`).join('') : '<div class="empty">No interviews recorded.</div>'}
       </div>
@@ -144,7 +144,7 @@ ${renderNotesSection(r)}
       ${linkedEvents.length ? `<div class="section-card">
         <div class="section-title">Linked events</div>
         ${linkedEvents.map(ev => `<div class="record-card" data-record-link data-area-id="${ev.areaId}" data-record-id="${ev.id}" style="margin-bottom:6px">
-          <div class="record-card-icon">ðŸ"…</div>
+          <div class="record-card-icon">📅</div>
           <div class="record-card-body">
             <div class="record-card-title">${ev.title}</div>
             <div class="record-card-sub">${formatDate(ev.fields.date)}${ev.fields.time ? ' · ' + fmtTime(ev.fields.time) : ''}</div>
@@ -212,7 +212,7 @@ ${renderNotesSection(r)}
 function renderEventRecord(r, area) {
   const linked = (r.links || []).map(id => DB.records.find(rec => rec.id === id)).filter(Boolean);
   return `<div class="record-view-header">
-    <div class="record-view-icon">ðŸ"…</div>
+    <div class="record-view-icon">📅</div>
     <div class="record-view-title-wrap">
       <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
       <div class="record-view-meta">
@@ -230,7 +230,7 @@ function renderEventRecord(r, area) {
         ${editableField(r, 'time', 'Time', 'time')}
         ${editableField(r, 'endTime', 'End time', 'time')}
         ${editableField(r, 'location', 'Location')}
-        ${r.fields.link ? `<div class="field-row"><div class="field-label">Link</div><div class="field-value"><a href="${r.fields.link}" target="_blank">Join â†'</a></div></div>` : ''}
+        ${r.fields.link ? `<div class="field-row"><div class="field-label">Link</div><div class="field-value"><a href="${r.fields.link}" target="_blank">Join →</a></div></div>` : ''}
         ${editableField(r, 'notes', 'Notes')}
       </div>
     </div>
@@ -247,7 +247,7 @@ function renderCompanyRecord(r, area) {
   const contacts = getRecordsByType('contact').filter(rec => rec.companyId === r.id);
   const jobs = getRecordsByType('job').filter(rec => rec.companyId === r.id);
   return `<div class="record-view-header">
-    <div class="record-view-icon">ðŸ¢</div>
+    <div class="record-view-icon">🏢</div>
     <div class="record-view-title-wrap">
       <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
       <div class="record-view-meta">
@@ -290,7 +290,7 @@ function renderCompanyRecord(r, area) {
       ${jobs.length?`<div class="section-card">
         <div class="section-title">Applications (${jobs.length})</div>
         ${jobs.map(j=>`<div class="record-card" data-record-link data-area-id="${j.areaId}" data-record-id="${j.id}" style="margin-bottom:6px">
-          <div class="record-card-icon">ðŸ'¼</div>
+          <div class="record-card-icon">💼</div>
           <div class="record-card-body"><div class="record-card-title">${j.fields.role||j.title}</div><div class="record-card-sub">${j.status}</div></div>
         </div>`).join('')}
       </div>`:''}
@@ -324,7 +324,7 @@ function renderCompaniesView() {
     const area = getArea(co.areaId);
     const contactCount = getRecordsByType('contact').filter(r => r.companyId === co.id).length;
     return `<div class="record-card" data-record-link data-area-id="${co.areaId}" data-record-id="${co.id}">
-      <div class="record-card-icon">ðŸ¢</div>
+      <div class="record-card-icon">🏢</div>
       <div class="record-card-body">
         <div class="record-card-title">${co.title}</div>
         <div class="record-card-sub">${[co.fields.industry, co.fields.location].filter(Boolean).join(' · ')}${contactCount?` · ${contactCount} contact${contactCount>1?'s':''}`:''}</div>
@@ -363,9 +363,9 @@ function renderAccountRecord(r, area) {
   const loginUrl = r.fields.institutionUrl || (instDefaults?.url) || null;
   const logoHTML = domain
     ? `<a href="${loginUrl || '#'}" target="_blank" rel="noopener" title="Log in to ${r.fields.institution}" style="display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:10px;background:var(--bg3);border:1px solid var(--border1);overflow:hidden;flex-shrink:0;text-decoration:none">
-        <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=64" style="width:32px;height:32px;object-fit:contain" onerror="this.parentElement.innerHTML='ðŸ'³'">
+        <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=64" style="width:32px;height:32px;object-fit:contain" onerror="this.parentElement.innerHTML='💳'">
        </a>`
-    : `<div class="record-view-icon">ðŸ'³</div>`;
+    : `<div class="record-view-icon">💳</div>`;
   const fmt = n => '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
   const fmtPct = n => (n>=0?'+':'')+Number(n).toFixed(2)+'%';
   const history = (r.fields.history || []).slice().sort((a,b) => b.month.localeCompare(a.month));
@@ -493,7 +493,7 @@ async function handleStatementFile(recordId, file) {
     toast.remove();
     showStatementConfirmModal(recordId, data);
   } catch (err) {
-    toast.innerHTML = `<span style="color:var(--red)">âœ—</span><span>${err.message}</span>`;
+    toast.innerHTML = `<span style="color:var(--red)">✗</span><span>${err.message}</span>`;
     setTimeout(() => toast.remove(), 4000);
   }
 }
@@ -682,8 +682,8 @@ function renderAccountCharts(containerId, history) {
         return `<rect x="${barX(i)}" y="${PT + availH - gh - ch}" width="${barW}" height="${ch}" fill="var(--accent)" opacity="0.7" rx="2"/>
           <rect x="${barX(i)}" y="${PT + availH - gh}" width="${barW}" height="${gh}" fill="${gainColor}" opacity="0.6" rx="2"/>`;
       }).join('')}
-      <text x="${PL + 4}" y="${cH-6}" font-size="9" fill="var(--accent)" font-family="inherit">â–  Contrib</text>
-      <text x="${PL + 52}" y="${cH-6}" font-size="9" fill="var(--green)" font-family="inherit">â–  Gain</text>
+      <text x="${PL + 4}" y="${cH-6}" font-size="9" fill="var(--accent)" font-family="inherit">■ Contrib</text>
+      <text x="${PL + 52}" y="${cH-6}" font-size="9" fill="var(--green)" font-family="inherit">■ Gain</text>
     </svg>`;
   }
 
@@ -1177,7 +1177,7 @@ async function promptAddArea(parentId = null) {
       closeModal();
       renderSidebar();
       assistantNotify('area-created', area);
-      if (parentId) navigate('area', parentId);
+      navigate('area', area.id);
     }},
     { label: 'Cancel', onclick: closeModal }]);
   setTimeout(() => { document.getElementById('na-title')?.focus(); selectAreaColor(defaultColor); }, 50);

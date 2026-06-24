@@ -644,8 +644,8 @@ function openCalInlineEdit(cid, mini) {
     group.appendChild(inp0);group.appendChild(inp1);
     const arrows=document.createElement('span');arrows.style.cssText='display:flex;flex-direction:column;gap:1px;margin-left:2px';
     const btnS='background:none;border:none;color:var(--dim);cursor:pointer;padding:0 2px;font-size:8px;line-height:1.4;display:block';
-    const up=document.createElement('button');up.textContent='â–²';up.style.cssText=btnS;
-    const dn=document.createElement('button');dn.textContent='â–¼';dn.style.cssText=btnS;
+    const up=document.createElement('button');up.textContent='▲';up.style.cssText=btnS;
+    const dn=document.createElement('button');dn.textContent='▼';dn.style.cssText=btnS;
     up.addEventListener('mouseover',()=>up.style.color='var(--text)');up.addEventListener('mouseout',()=>up.style.color='var(--dim)');
     dn.addEventListener('mouseover',()=>dn.style.color='var(--text)');dn.addEventListener('mouseout',()=>dn.style.color='var(--dim)');
     up.addEventListener('mousedown',e=>{e.preventDefault();setFieldVal(fi,getFieldVal(fi)+1);inp0.focus();});

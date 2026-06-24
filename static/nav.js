@@ -194,6 +194,28 @@ function renderSidebar() {
   updatePlanningSubitems();
 }
 
+// Sidebar section collapse
+const _sidebarCollapsed = JSON.parse(localStorage.getItem('sidebarCollapsed') || '{}');
+
+function toggleSidebarSection(key) {
+  _sidebarCollapsed[key] = !_sidebarCollapsed[key];
+  localStorage.setItem('sidebarCollapsed', JSON.stringify(_sidebarCollapsed));
+  _applySidebarCollapse(key);
+}
+
+function _applySidebarCollapse(key) {
+  const body = document.getElementById('sidebar-sec-body-' + key);
+  const chevron = document.getElementById('chevron-' + key);
+  if (!body) return;
+  const collapsed = !!_sidebarCollapsed[key];
+  body.style.display = collapsed ? 'none' : '';
+  if (chevron) chevron.textContent = collapsed ? '▸' : '▾';
+}
+
+function initSidebarCollapse() {
+  ['areas', 'library', 'planning'].forEach(k => _applySidebarCollapse(k));
+}
+
 function setAreaFilter(areaId, filter) {
   currentFilter = filter;
   navigate('area', areaId, null, true);

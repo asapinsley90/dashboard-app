@@ -138,9 +138,8 @@ function buildDashSections() {
 function renderDashboard() {
   document.getElementById('topbar-actions').innerHTML = '';
   document.getElementById('topbar-breadcrumb').textContent = '';
-  renderSidebar();
-
   buildDashSections();
+  renderSidebar();
   renderAttentionFilters();
   renderAttention();
   renderTodayStrip();

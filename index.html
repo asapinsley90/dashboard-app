@@ -20,15 +20,22 @@
         <span class="sidebar-item-title">Dashboard</span>
       </div>
     </div>
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">
+    <div class="sidebar-section" id="sidebar-sec-areas">
+      <div class="sidebar-section-label sidebar-sec-toggle" onclick="toggleSidebarSection('areas')">
         Life areas
-        <button data-action="promptAddArea" title="Add area">+</button>
+        <span class="sidebar-sec-chevron" id="chevron-areas">▾</span>
+        <button data-action="promptAddArea" title="Add area" onclick="event.stopPropagation()">+</button>
       </div>
-      <div id="sidebar-areas"></div>
+      <div class="sidebar-sec-body" id="sidebar-sec-body-areas">
+        <div id="sidebar-areas"></div>
+      </div>
     </div>
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Library</div>
+    <div class="sidebar-section" id="sidebar-sec-library">
+      <div class="sidebar-section-label sidebar-sec-toggle" onclick="toggleSidebarSection('library')">
+        Library
+        <span class="sidebar-sec-chevron" id="chevron-library">▾</span>
+      </div>
+      <div class="sidebar-sec-body" id="sidebar-sec-body-library">
       <div class="sidebar-item" onclick="openTemplateBrowser(null)" style="cursor:pointer">
         <div class="sidebar-dot" style="background:var(--amber)"></div>
         <span class="sidebar-item-title">Templates</span>
@@ -52,16 +59,28 @@
         <div class="sidebar-dot" style="background:var(--red)"></div>
         <span class="sidebar-item-title">Admin</span>
       </div>
-    </div>
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Planning</div>
-      <div class="sidebar-item" data-view="calendar" data-nav="calendar">
-        <div class="sidebar-dot" style="background:var(--teal)"></div>
-        <span class="sidebar-item-title">Calendar</span>
       </div>
-      <div class="sidebar-item" data-view="weekly" data-nav="weekly">
-        <div class="sidebar-dot" style="background:var(--blue)"></div>
-        <span class="sidebar-item-title">Weekly review</span>
+    </div>
+    <div class="sidebar-section" id="sidebar-sec-planning">
+      <div class="sidebar-section-label sidebar-sec-toggle" onclick="toggleSidebarSection('planning')">
+        Planning
+        <span class="sidebar-sec-chevron" id="chevron-planning">▾</span>
+      </div>
+      <div class="sidebar-sec-body" id="sidebar-sec-body-planning">
+        <div class="sidebar-item" data-view="calendar" data-nav="calendar">
+          <div class="sidebar-dot" style="background:var(--teal)"></div>
+          <span class="sidebar-item-title">Calendar</span>
+        </div>
+        <div class="sidebar-item" data-view="weekly" data-nav="weekly">
+          <div class="sidebar-dot" style="background:var(--blue)"></div>
+          <span class="sidebar-item-title">Weekly review</span>
+        </div>
+      </div>
+    </div>
+    <div id="sidebar-assistant-btn" onclick="assistantOpen()" style="padding:14px 12px 10px;cursor:pointer">
+      <div style="display:flex;align-items:center;gap:6px;color:var(--accent);font-size:13px;font-weight:600;letter-spacing:.01em">
+        <span style="font-size:15px">✦</span>
+        <span>? Ask me anything ?</span>
       </div>
     </div>
   </div>
