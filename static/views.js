@@ -858,9 +858,9 @@ async function saveCompanyField(recordId, name, companyId) {
 function linkableCompany(company, companyId) {
   if (!company) return '';
   const co = companyId ? getRecord(companyId) : getRecordsByType('company').find(r => r.title === company);
-  if (co) return `<span class="doc-ref" data-record-link data-area-id="${co.areaId}" data-record-id="${co.id}" style="color:var(--accent)">${company} â†'</span>`;
+  if (co) return `<span class="doc-ref" data-record-link data-area-id="${co.areaId}" data-record-id="${co.id}" style="color:var(--accent)">${company} →</span>`;
   const linked = getRecordsByType('job').find(r => r.title === company);
-  if (linked) return `<span class="doc-ref" data-record-link data-area-id="${linked.areaId}" data-record-id="${linked.id}" style="color:var(--accent)">${company} â†'</span>`;
+  if (linked) return `<span class="doc-ref" data-record-link data-area-id="${linked.areaId}" data-record-id="${linked.id}" style="color:var(--accent)">${company} →</span>`;
   return `<span>${company}</span>`;
 }
 function formatDate(ds) {
@@ -880,7 +880,7 @@ function fmtTime(t) {
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : ''; }
 function pluralize(type) { return {company:'Companies',activity:'Activities',category:'Categories'}[type] || capitalize(type)+'s'; }
 function typeIcon(type) {
-  return { job:'ðŸ'¼', contact:'👤', event:'ðŸ"…', goal:'🎯', task:'âœ"', project:'ðŸ"¨', note:'📝', account:'ðŸ'³', transaction:'ðŸ'¸' }[type] || 'â€¢';
+  return { job:'💼', contact:'👤', event:'📅', goal:'🎯', task:'✔', project:'📨', note:'📝', account:'💳', transaction:'💸' }[type] || '•';
 }
 
 function openJobModal(areaId) {
@@ -1052,7 +1052,7 @@ async function setRecordStatus(recordId,newStatus){
   // Persist in background
   const payload = (newStatus==='completed'||newStatus==='archived') ? {status:newStatus,urgency:'none'} : {status:newStatus};
   api('PUT',`/api/records/${recordId}`,payload);
-  api('POST',`/api/records/${recordId}/timeline`,{text:'Status: '+prev+' â†' '+newStatus});
+  api('POST',`/api/records/${recordId}/timeline`,{text:'Status: '+prev+' → '+newStatus});
 }
 
 async function setUrgency(recordId,level){
