@@ -411,7 +411,12 @@ function getAttentionItems() {
 function renderAreaView(areaId) {
   const area = DB.areas.find(a => a.id === areaId);
   if (!area) return;
-  document.getElementById('area-view-title').textContent = area.title;
+  const titleEl = document.getElementById('area-view-title');
+  titleEl.textContent = area.title;
+  titleEl.contentEditable = 'false';
+  titleEl.dataset.areaId = areaId;
+  titleEl.onclick = null;
+  titleEl.onclick = () => unlockAreaTitle(titleEl);
   document.getElementById('area-view-dot').style.background = area.color;
   document.getElementById('topbar-actions').innerHTML = '';
   const btnEl = document.getElementById('area-action-btns');
@@ -699,3 +704,35 @@ function getRecordsByType(type) {
   return lookupCache.recordsByType[type] || [];
 }
 
+
+function unlockAreaTitle(el) {
+  if (el.contentEditable === 'true') return; // already editing
+  const areaId = el.dataset.areaId;
+  const original = el.textContent;
+  el.contentEditable = 'true';
+  el.focus();
+  // Select all text
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  async function commit() {
+    el.contentEditable = 'false';
+    const val = el.textContent.trim();
+    if (!val) { el.textContent = original; return; }
+    if (val === original) return;
+    el.textContent = val;
+    const area = DB.areas.find(a => a.id === areaId);
+    if (area) area.title = val;
+    await api('PUT', `/api/areas/${areaId}`, { title: val });
+    renderSidebar();
+  }
+
+  el.onblur = commit;
+  el.onkeydown = e => {
+    if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+    if (e.key === 'Escape') { el.textContent = original; el.blur(); }
+  };
+}

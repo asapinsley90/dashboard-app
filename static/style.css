@@ -75,7 +75,9 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 
 /* â”€â”€ AREA VIEW â”€â”€ */
 .area-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
-.area-title{font-size:20px;font-weight:600;color:var(--text)}
+.area-title{font-size:20px;font-weight:600;color:var(--text);cursor:pointer;border-radius:6px;padding:2px 6px;margin:-2px -6px;outline:none;caret-color:transparent;user-select:none}
+.area-title:hover{background:var(--bg3)}
+.area-title[contenteditable="true"]{caret-color:var(--text);user-select:text;background:var(--bg3);outline:1px solid var(--border)}
 .record-list{display:flex;flex-direction:column;gap:6px}
 .record-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;cursor:pointer;transition:border-color .15s,background .12s;display:flex;align-items:center;gap:12px}
 .record-card:hover{border-color:var(--border2);background:var(--bg3)}
