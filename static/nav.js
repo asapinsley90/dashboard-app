@@ -7,6 +7,7 @@ function normalizeView(view) {
 
 function navigate(view, areaId, recordId, push = true) {
   detachStatementPasteListener();
+  closeMobileSidebar();
   // #37 — offer save-as-template when leaving a populated area (once per area)
   maybeOfferSaveAsTemplate(view, areaId);
   let safeView = normalizeView(view);

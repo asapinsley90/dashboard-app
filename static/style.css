@@ -490,3 +490,60 @@ body:has(#tip-overlay) #sidebar{z-index:201;position:relative}
 .history-item-main{display:flex;align-items:center;gap:10px}
 .history-item-title{color:var(--text);font-size:13px}
 .history-item-type{color:var(--dim);font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+
+/* ── MOBILE FOUNDATION ───────────────────────────────────────────────────── */
+#sidebar-hamburger{display:none;background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:0 8px 0 0;line-height:1;flex-shrink:0}
+#sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:399}
+
+/* Mobile record action button (replaces right-click) */
+.record-card-actions{display:none;position:absolute;top:8px;right:8px}
+.record-card-action-btn{background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:16px;line-height:1;padding:2px 8px;cursor:pointer}
+
+@media(max-width:768px){
+  /* Show hamburger, hide sidebar by default */
+  #sidebar-hamburger{display:block}
+  #sidebar{position:fixed;left:-240px;top:0;z-index:400;width:240px;transition:left .22s ease;box-shadow:none}
+  #sidebar.mobile-open{left:0;box-shadow:4px 0 24px rgba(0,0,0,.4)}
+  #sidebar-overlay.visible{display:block}
+
+  /* Main fills full width */
+  body{overflow:auto}
+  #main{width:100vw;overflow:auto}
+  #content{overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+  /* Topbar */
+  #topbar{padding:0 12px;gap:8px}
+  #topbar-breadcrumb{font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* Views fill viewport */
+  .view{padding:12px}
+  #view-dashboard .dash-layout{display:block}
+  #view-dashboard .dash-layout > div:last-child{margin-top:12px}
+
+  /* Cards stack, fill width */
+  .record-card{position:relative}
+  .record-card-actions{display:block}
+
+  /* Modals full-screen on mobile */
+  .modal-overlay{align-items:flex-end}
+  .modal{width:100vw;max-width:100vw;border-radius:16px 16px 0 0;max-height:85vh;margin:0}
+
+  /* Bigger tap targets */
+  .btn{min-height:36px;padding:6px 14px}
+  .sidebar-item{padding:8px 12px 8px 16px}
+  .sidebar-subitem{padding:6px 12px 6px 32px}
+
+  /* Calendar simplified */
+  .cal-grid-head,.cal-day-label{font-size:10px}
+  .cal-week-row .cal-cell{min-height:52px}
+
+  /* Hide non-essential topbar elements */
+  #topbar-title{display:none}
+
+  /* Context menu larger on mobile */
+  .ctx-menu{font-size:15px}
+  .ctx-item{padding:12px 16px}
+
+  /* Tour bubble full-width on mobile */
+  #tour-bubble{width:calc(100vw - 24px);left:12px !important;right:12px;bottom:24px;top:auto !important;transform:none !important}
+}
