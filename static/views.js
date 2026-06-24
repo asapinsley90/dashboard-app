@@ -282,7 +282,7 @@ async function renderDocumentsView(){
         <a class="btn btn-xs" href="/uploads/${encodeURIComponent(file.name)}" target="_blank" download="${row.displayName}">Download</a>
         ${!isDeleted ? `<button class="btn btn-xs" onclick="renameFile('${file.name}')">Rename</button>` : ''}
         ${isDeleted
-          ? `<button class="btn btn-xs" onclick="restoreDocRecord('${row.recordId}','${row.areaId}')">Restore record</button>`
+          ? `<button class="btn btn-xs" onclick="restoreDocRecord('${row.recordId}','${row.areaId}','${escapeHtml(file.name)}')">Restore record</button>`
           : `<button class="btn btn-xs btn-danger" onclick="deleteFile('${file.name}')">Delete</button>`}
       </div>
     </div>`;
@@ -375,15 +375,43 @@ async function deleteFile(name){
   allFiles=allFiles.filter(f=>f.name!==name);renderDocumentsView();
 }
 
-async function restoreDocRecord(recordId, areaId) {
+async function restoreDocRecord(recordId, areaId, fileName) {
   const r = DB.records.find(rec => rec.id === recordId);
   const label = r?.title || r?.fields?.company || 'this record';
-  if (!confirm(`Restore "${label}" and its documents?`)) return;
-  await api('POST', `/api/records/${recordId}/restore`);
-  if (r) r.deletedAt = null;
-  renderSidebar();
-  renderDocumentsView();
-  navigate('record', areaId, recordId);
+  const choice = await showRestoreDocChoice(label);
+  if (choice === 'record') {
+    await api('POST', `/api/records/${recordId}/restore`);
+    if (r) r.deletedAt = null;
+    renderSidebar();
+    renderDocumentsView();
+    navigate('record', areaId, recordId);
+  } else if (choice === 'unattach' && fileName && r) {
+    const updatedDocs = normalizeRecordDocs(r).filter(d => d.name !== fileName);
+    r.documents = updatedDocs;
+    await api('PUT', `/api/records/${recordId}`, { documents: updatedDocs });
+    renderDocumentsView();
+  }
+}
+
+function showRestoreDocChoice(recordLabel) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.id = 'restore-doc-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;display:flex;align-items:center;justify-content:center';
+    overlay.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:24px 28px;max-width:340px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.4)">
+      <div style="font-size:14px;font-weight:600;margin-bottom:6px">Restore file</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:18px">This file belongs to the deleted record <b>${escapeHtml(recordLabel)}</b>. What would you like to do?</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button id="rdc-record" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;text-align:left">Restore record too</button>
+        <button id="rdc-unattach" style="background:var(--bg3,var(--bg));border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer;text-align:left">Keep file only — show as Unattached</button>
+        <button id="rdc-cancel" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;padding:4px 0">Cancel</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#rdc-record').onclick = () => { overlay.remove(); resolve('record'); };
+    overlay.querySelector('#rdc-unattach').onclick = () => { overlay.remove(); resolve('unattach'); };
+    overlay.querySelector('#rdc-cancel').onclick = () => { overlay.remove(); resolve(null); };
+  });
 }
 // docDropdown removed - using per-slot upload zones
 
@@ -523,7 +551,8 @@ async function renderRecentlyDeleted() {
 
       if (deletedKind === 'doc') {
         menu.innerHTML = `
-          <div class="ctx-item" id="ctx-restore">Restore (restores parent record)</div>
+          <div class="ctx-item" id="ctx-restore">Restore with record</div>
+          <div class="ctx-item" id="ctx-unattach">Keep file only (unattach)</div>
           <div class="ctx-item ctx-danger" id="ctx-perm-delete">Delete file permanently</div>`;
         document.body.appendChild(menu); _ctxMenu = menu;
         menu.querySelector('#ctx-restore').onclick = async () => {
@@ -534,6 +563,16 @@ async function renderRecentlyDeleted() {
           await api('POST', `/api/records/${deletedId}/restore`);
           if (r) r.deletedAt = null;
           renderSidebar();
+          renderRecentlyDeleted();
+        };
+        menu.querySelector('#ctx-unattach').onclick = async () => {
+          closeCtxMenu();
+          const r = DB.records.find(rec => rec.id === deletedId);
+          if (!r) return;
+          // Strip this file from the record's documents so it shows as Unattached
+          const updatedDocs = normalizeRecordDocs(r).filter(d => d.name !== docName);
+          r.documents = updatedDocs;
+          await api('PUT', `/api/records/${deletedId}`, { documents: updatedDocs });
           renderRecentlyDeleted();
         };
         menu.querySelector('#ctx-perm-delete').onclick = async () => {
@@ -1445,8 +1484,10 @@ const assistant = {
 function assistantInit(onboardingStep) {
   assistant.onboardingStep = onboardingStep || 'complete';
   renderAssistantBubble();
-  if (onboardingStep && onboardingStep !== 'complete') {
-    setTimeout(() => assistantOpen(), 600);
+  // New users get the guided tour instead of the chat-based onboarding
+  const prefs = currentUser.dashboardPrefs || {};
+  if (!prefs.tourDismissed && onboardingStep && onboardingStep !== 'complete') {
+    setTimeout(() => startTour(), 800);
   }
 }
 
@@ -1620,6 +1661,8 @@ async function assistantStartOnboarding() {
 }
 
 function assistantNotify(event, data) {
+  // Tour takes over onboarding — route events to tour, skip chat onboarding
+  if (tour.active) { tourNotify(event, data); return; }
   if (assistant.onboardingStep === 'complete') return;
   if (event === 'area-created' && assistant.onboardingStep.startsWith('awaiting-template') || assistant.onboardingStep === 'awaiting-area') {
     assistant.onboardingStep = 'awaiting-record';
