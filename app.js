@@ -910,6 +910,15 @@ app.put('/api/records/:id', async (req, res) => {
 
 app.delete('/api/records/:id', async (req, res) => {
   const db = await dbLayer.readDB();
+  const record = db.records.find(r => r.id === req.params.id);
+  // Delete any uploaded files from R2
+  if (record?.documents?.length) {
+    for (const doc of record.documents) {
+      if (doc.key) {
+        await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: doc.key })).catch(() => {});
+      }
+    }
+  }
   db.records = db.records.filter(r => r.id !== req.params.id);
   res.json(await dbLayer.writeDB(db));
 });
