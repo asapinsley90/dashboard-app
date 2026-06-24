@@ -124,6 +124,8 @@ const RESET_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Rese
 
 // R2 storage
 const R2_BUCKET = process.env.R2_BUCKET || 'dashboard-uploads';
+// Tenant isolation: prefix all R2 keys with tenant's service name so shared bucket stays clean
+const R2_PREFIX = process.env.R2_PREFIX ? process.env.R2_PREFIX + '/' : '';
 const r2 = new S3Client({
   region: 'auto',
   endpoint: process.env.R2_ENDPOINT,
@@ -283,7 +285,7 @@ app.use(express.static(__dirname, { index: false }));
 // Proxy uploads from R2
 app.get('/uploads/:name', async (req, res) => {
   try {
-    const obj = await r2.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: req.params.name }));
+    const obj = await r2.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + req.params.name }));
     if (obj.ContentType) res.setHeader('Content-Type', obj.ContentType);
     if (obj.ContentLength) res.setHeader('Content-Length', obj.ContentLength);
     obj.Body.pipe(res);
@@ -361,7 +363,7 @@ async function getHealthStatus() {
   const db = await dbLayer.readDB();
   let uploadsWritable = false;
   try {
-    await r2.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: '.health' }));
+    await r2.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + '.health' }));
     uploadsWritable = true;
   } catch (err) {
     uploadsWritable = err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404;
@@ -386,7 +388,7 @@ async function getBackupManifest() {
   const db = await dbLayer.readDB();
   let fileCount = 0;
   try {
-    const list = await r2.send(new ListObjectsV2Command({ Bucket: R2_BUCKET }));
+    const list = await r2.send(new ListObjectsV2Command({ Bucket: R2_BUCKET, Prefix: R2_PREFIX }));
     fileCount = (list.Contents || []).length;
   } catch (err) { /* ignore */ }
 
@@ -632,11 +634,14 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px 12px;text-align:left
 <h2>Instance stats</h2>
 <div class="card" id="stats-card"><div style="color:#444">Loading...</div></div>
 
+<h2>Tenants</h2>
+<div id="tenant-list"><div style="color:#444">Loading...</div></div>
+
 <h2>Provision new tenant</h2>
 <div class="card">
   <div class="field"><div class="label">Customer name</div><input id="p-name" placeholder="Jane Smith"></div>
   <div class="field"><div class="label">Customer email</div><input id="p-email" type="email" placeholder="jane@example.com"></div>
-  <div class="field"><div class="label">Service name (Render)</div><input id="p-svc" placeholder="dashboard-jane" value="dashboard-"></div>
+  <div class="field"><div class="label">Service name (Render, must be unique)</div><input id="p-svc" placeholder="dashboard-jane" value="dashboard-"></div>
   <button onclick="provision()">Provision instance</button>
   <div class="status" id="p-status"></div>
 </div>
@@ -670,17 +675,48 @@ async function setStatus(id, status) {
   loadPending();
 }
 
+async function loadTenants() {
+  const res = await fetch('/admin/api/tenants', { headers: H });
+  const list = await res.json();
+  const el = document.getElementById('tenant-list');
+  if (!list.length) { el.innerHTML = '<div style="color:#444;font-size:13px;padding:4px 0">No tenants yet.</div>'; return; }
+  el.innerHTML = '<div class="card" style="padding:0;overflow:hidden"><table><thead><tr><th>Name</th><th>Email</th><th>URL</th><th>Status</th><th>Created</th><th></th></tr></thead><tbody>' +
+    list.map(t => \`<tr>
+      <td>\${t.name}</td>
+      <td style="color:#888">\${t.email}</td>
+      <td>\${t.serviceUrl ? \`<a href="\${t.serviceUrl}" target="_blank" style="color:#3b82f6">\${t.serviceUrl.replace('https://','')}</a>\` : '<span style="color:#555">pending</span>'}</td>
+      <td><span class="badge badge-\${t.status==='active'?'approved':t.status==='suspended'?'denied':'pending'}">\${t.status}</span></td>
+      <td style="color:#555">\${t.createdAt?.slice(0,10)||'—'}</td>
+      <td>
+        \${t.status==='active'?\`<button class="secondary" onclick="setTenantStatus('\${t.id}','suspended')">Suspend</button>\`:''}
+        \${t.status==='suspended'?\`<button onclick="setTenantStatus('\${t.id}','active')">Reactivate</button>\`:''}
+      </td>
+    </tr>\`).join('') + '</tbody></table></div>';
+}
+
+async function setTenantStatus(id, status) {
+  await fetch(\`/admin/api/tenants/\${id}\`, { method:'PATCH', headers:H, body:JSON.stringify({status}) });
+  loadTenants();
+}
+
 async function provision() {
   const name = document.getElementById('p-name').value.trim();
   const email = document.getElementById('p-email').value.trim();
   const svc = document.getElementById('p-svc').value.trim();
   const status = document.getElementById('p-status');
   if (!name || !email || !svc) { status.style.color='#e05555'; status.textContent='All fields required'; return; }
-  status.style.color='#888'; status.textContent='Provisioning...';
+  status.style.color='#888'; status.textContent='Provisioning — this takes 30-60 seconds...';
   const res = await fetch('/admin/api/provision', { method:'POST', headers:H, body:JSON.stringify({name,email,serviceName:svc}) });
   const data = await res.json();
   if (data.error) { status.style.color='#e05555'; status.textContent=data.error; }
-  else { status.style.color='#4caf7d'; status.textContent='Done! URL: ' + (data.url||'check Render dashboard'); }
+  else {
+    status.style.color='#4caf7d';
+    status.textContent='Done! URL: ' + (data.url||'check Render dashboard') + ' — welcome email sent.';
+    loadTenants();
+    document.getElementById('p-name').value='';
+    document.getElementById('p-email').value='';
+    document.getElementById('p-svc').value='dashboard-';
+  }
 }
 
 async function loadStats() {
@@ -699,6 +735,7 @@ async function loadStats() {
 }
 
 loadStats();
+loadTenants();
 loadPending();
 </script></body></html>`;
 
@@ -725,10 +762,25 @@ app.patch('/admin/api/pending-templates/:id', requireAdmin, async (req, res) => 
 });
 
 // Provisioning automation
+app.get('/admin/api/tenants', requireAdmin, async (req, res) => {
+  try { res.json(await dbLayer.getTenants()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/admin/api/tenants/:id', requireAdmin, async (req, res) => {
+  try { await dbLayer.updateTenantStatus(req.params.id, req.body.status); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/admin/api/provision', requireAdmin, async (req, res) => {
   const { name, email, serviceName } = req.body;
   if (!name || !email || !serviceName) return res.status(400).json({ error: 'name, email, serviceName required' });
   if (!RENDER_API_KEY || !NEON_API_KEY) return res.status(503).json({ error: 'RENDER_API_KEY and NEON_API_KEY must be set' });
+  if (!RENDER_OWNER_ID) return res.status(503).json({ error: 'RENDER_OWNER_ID must be set' });
+
+  const tenantId = 'tenant-' + Date.now().toString(36);
+  // Use shared R2 bucket with per-tenant prefix to avoid bucket creation complexity
+  const r2Prefix = serviceName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
 
   try {
     // 1. Create Neon project
@@ -741,9 +793,12 @@ app.post('/admin/api/provision', requireAdmin, async (req, res) => {
     const neonData = await neonRes.json();
     const dbUrl = neonData.connection_uris?.[0]?.connection_uri;
     if (!dbUrl) throw new Error('No connection URI from Neon');
+    const neonProjectId = neonData.project?.id || '';
 
     // 2. Create Render service
-    const sessionSecret = require('crypto').randomBytes(32).toString('hex');
+    const sessionSecret = crypto.randomBytes(32).toString('hex');
+    const tenantAdminToken = crypto.randomBytes(20).toString('hex');
+    const githubRepo = process.env.GITHUB_REPO || 'https://github.com/asapinsley90/dashboard-app';
     const renderRes = await fetch('https://api.render.com/v1/services', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${RENDER_API_KEY}`, 'Content-Type': 'application/json' },
@@ -751,45 +806,46 @@ app.post('/admin/api/provision', requireAdmin, async (req, res) => {
         type: 'web_service',
         name: serviceName,
         ownerId: RENDER_OWNER_ID,
-        repo: 'https://github.com/asapinsley90/dashboard-app',
+        repo: githubRepo,
         branch: 'main',
         autoDeploy: 'yes',
         serviceDetails: {
           runtime: 'node',
+          plan: 'starter',
           buildCommand: 'npm install',
           startCommand: 'node app.js',
-          envSpecificDetails: { buildCommand: 'npm install', startCommand: 'node app.js' },
         },
         envVars: [
           { key: 'DATABASE_URL', value: dbUrl },
           { key: 'SESSION_SECRET', value: sessionSecret },
+          { key: 'ADMIN_TOKEN', value: tenantAdminToken },
+          { key: 'ADMIN_EMAIL', value: ADMIN_EMAIL || '' },
           { key: 'R2_ENDPOINT', value: process.env.R2_ENDPOINT || '' },
           { key: 'R2_ACCESS_KEY_ID', value: process.env.R2_ACCESS_KEY_ID || '' },
           { key: 'R2_SECRET_ACCESS_KEY', value: process.env.R2_SECRET_ACCESS_KEY || '' },
-          { key: 'R2_BUCKET', value: serviceName },
+          { key: 'R2_BUCKET', value: process.env.R2_BUCKET || '' },
+          { key: 'R2_PREFIX', value: r2Prefix },
+          { key: 'SENDGRID_API_KEY', value: SENDGRID_API_KEY || '' },
           { key: 'ANTHROPIC_API_KEY', value: process.env.ANTHROPIC_API_KEY || '' },
         ],
       }),
     });
     if (!renderRes.ok) throw new Error(`Render error: ${await renderRes.text()}`);
     const renderData = await renderRes.json();
+    const renderServiceId = renderData.service?.id || '';
     const serviceUrl = renderData.service?.serviceDetails?.url || `https://${serviceName}.onrender.com`;
 
-    // 3. Send email via SendGrid if configured
+    // 3. Save tenant record
+    await dbLayer.createTenant({ id: tenantId, name, email, serviceName, serviceUrl, renderServiceId, neonProjectId, r2Prefix });
+
+    // 4. Send welcome email
     if (SENDGRID_API_KEY && email) {
-      await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${SENDGRID_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email }] }],
-          from: { email: ADMIN_EMAIL || 'noreply@dashboard.app' },
-          subject: 'Your Dashboard is ready',
-          content: [{ type: 'text/plain', value: `Hi ${name},\n\nYour personal dashboard is ready at:\n\n${serviceUrl}\n\nVisit the link to create your account and get started.\n\nThanks` }],
-        }),
-      });
+      await sendEmail(email, 'Your Dashboard is ready',
+        `<p>Hi ${name},</p><p>Your personal dashboard is ready at:</p><p><a href="${serviceUrl}">${serviceUrl}</a></p><p>Visit the link to create your account and get started.</p>`
+      );
     }
 
-    res.json({ url: serviceUrl, neonProject: neonData.project?.id, renderService: renderData.service?.id });
+    res.json({ url: serviceUrl, tenantId, neonProjectId, renderServiceId });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1049,7 +1105,7 @@ app.delete('/api/areas/:id/permanent', async (req, res) => {
   // Delete R2 files for records in these areas
   for (const r of db.records.filter(rec => toDelete.includes(rec.areaId))) {
     for (const doc of r.documents || []) {
-      if (doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: doc.key })).catch(() => {});
+      if (doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + doc.key })).catch(() => {});
     }
   }
   db.records = db.records.filter(r => !toDelete.includes(r.areaId));
@@ -1119,7 +1175,7 @@ app.delete('/api/records/:id/permanent', async (req, res) => {
   const record = db.records.find(r => r.id === req.params.id);
   if (record?.documents?.length) {
     for (const doc of record.documents) {
-      if (doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: doc.key })).catch(() => {});
+      if (doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + doc.key })).catch(() => {});
     }
   }
   db.records = db.records.filter(r => r.id !== req.params.id);
@@ -1166,9 +1222,9 @@ app.post('/api/reviews', async (req, res) => {
 // List all uploaded files
 app.get('/api/files', async (req, res) => {
   try {
-    const list = await r2.send(new ListObjectsV2Command({ Bucket: R2_BUCKET }));
+    const list = await r2.send(new ListObjectsV2Command({ Bucket: R2_BUCKET, Prefix: R2_PREFIX }));
     const files = (list.Contents || [])
-      .map(obj => ({ name: obj.Key, size: obj.Size, uploadedAt: obj.LastModified }))
+      .map(obj => ({ name: obj.Key.slice(R2_PREFIX.length), size: obj.Size, uploadedAt: obj.LastModified }))
       .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
     res.json(files);
   } catch (err) {
@@ -1183,11 +1239,11 @@ app.post('/api/files', upload.array('files', 20), async (req, res) => {
     for (const f of req.files) {
       let key = f.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
       try {
-        await r2.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: key }));
+        await r2.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + key }));
         key = Date.now() + '_' + key;
       } catch (e) { /* file doesn't exist, use as-is */ }
       await r2.send(new PutObjectCommand({
-        Bucket: R2_BUCKET, Key: key,
+        Bucket: R2_BUCKET, Key: R2_PREFIX + key,
         Body: f.buffer, ContentType: f.mimetype,
       }));
       uploaded.push({ name: key, originalName: f.originalname, size: f.size, uploadedAt: new Date() });
@@ -1246,14 +1302,14 @@ app.put('/api/files/:name', async (req, res) => {
   const newKey = req.body.name?.replace(/[^a-zA-Z0-9._-]/g, '_');
   if (!newKey) return res.status(400).json({ error: 'Invalid name' });
   try {
-    const obj = await r2.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: oldKey }));
+    const obj = await r2.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + oldKey }));
     const chunks = [];
     for await (const chunk of obj.Body) chunks.push(chunk);
     await r2.send(new PutObjectCommand({
-      Bucket: R2_BUCKET, Key: newKey,
+      Bucket: R2_BUCKET, Key: R2_PREFIX + newKey,
       Body: Buffer.concat(chunks), ContentType: obj.ContentType,
     }));
-    await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: oldKey }));
+    await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + oldKey }));
     res.json({ name: newKey });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1263,7 +1319,7 @@ app.put('/api/files/:name', async (req, res) => {
 // Delete file
 app.delete('/api/files/:name', async (req, res) => {
   try {
-    await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: req.params.name }));
+    await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + req.params.name }));
     res.json({ deleted: req.params.name });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1302,7 +1358,7 @@ async function bootstrapAndStart() {
         const expiredRecords = db.records.filter(r => r.deletedAt && r.deletedAt < cutoff);
         for (const r of expiredRecords) {
           for (const doc of r.documents || []) {
-            if (doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: doc.key })).catch(() => {});
+            if (doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + doc.key })).catch(() => {});
           }
         }
         const before = { r: db.records.length, a: db.areas.length };
