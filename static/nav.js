@@ -7,6 +7,8 @@ function normalizeView(view) {
 
 function navigate(view, areaId, recordId, push = true) {
   detachStatementPasteListener();
+  // #37 — offer save-as-template when leaving a populated area (once per area)
+  maybeOfferSaveAsTemplate(view, areaId);
   let safeView = normalizeView(view);
   if (safeView === 'completed' || safeView === 'archived') {
     areaId = safeView;
@@ -255,5 +257,47 @@ function renameArea(e, areaId) {
   }
   input.addEventListener('blur', commit);
   input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { input.value = area.title; input.blur(); } });
+}
+
+function maybeOfferSaveAsTemplate(incomingView, incomingAreaId) {
+  // Only trigger when leaving an area (not navigating within the same area)
+  if (currentView !== 'area' && currentView !== 'record') return;
+  if (!currentAreaId) return;
+  const leavingId = currentAreaId;
+  // Not leaving if going to same area or a record within it
+  if ((incomingView === 'area' || incomingView === 'record') && incomingAreaId === leavingId) return;
+
+  const prefs = currentUser.dashboardPrefs || {};
+  const offered = prefs.templateOfferedAreas || [];
+  if (offered.includes(leavingId)) return;
+
+  const area = DB.areas.find(a => a.id === leavingId);
+  if (!area || area.deletedAt) return;
+
+  const recordCount = DB.records.filter(r => r.areaId === leavingId && !r.deletedAt).length;
+  if (recordCount < 3) return;
+
+  // Don't offer if user already has a personal template for something with same name
+  // (rough dedup — avoids re-offering after manual save)
+  const prefs2 = currentUser.dashboardPrefs || {};
+  const alreadySaved = (prefs2.savedTemplateAreas || []).includes(leavingId);
+  if (alreadySaved) return;
+
+  // Mark as offered so we don't ask again
+  prefs.templateOfferedAreas = [...offered, leavingId];
+  currentUser.dashboardPrefs = prefs;
+  api('PATCH', '/api/me', { dashboardPrefs: prefs }).catch(() => {});
+
+  // Non-blocking toast prompt
+  const t = document.createElement('div');
+  t.id = 'save-tpl-toast';
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--text);z-index:9999;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.35);white-space:nowrap';
+  t.innerHTML = `<span style="color:var(--muted)">Save <b>${escapeHtml(area.title)}</b> as a template?</span>
+    <button style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:3px 12px;font-size:12px;font-weight:600;cursor:pointer" id="save-tpl-yes">Save</button>
+    <button style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 2px;line-height:1" id="save-tpl-dismiss">×</button>`;
+  document.body.appendChild(t);
+  const timer = setTimeout(() => t.remove(), 8000);
+  t.querySelector('#save-tpl-yes').onclick = () => { clearTimeout(timer); t.remove(); promptSaveAsTemplate(area); };
+  t.querySelector('#save-tpl-dismiss').onclick = () => { clearTimeout(timer); t.remove(); };
 }
 

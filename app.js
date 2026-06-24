@@ -908,16 +908,16 @@ app.patch('/api/me', async (req, res) => {
   res.json({ ok: true });
 });
 
-// Area templates (system-defined)
+// Area templates (system-defined) — bump version when template changes to trigger update badge
 const SYSTEM_TEMPLATES = [
-  { id: 'tpl-jobs', name: 'Jobs', description: 'Track applications, interviews, and companies', color: '#5b9bd5', icon: '💼', recordTypes: ['job', 'company', 'contact', 'event'] },
-  { id: 'tpl-health', name: 'Health', description: 'Appointments, goals, habits, and providers', color: '#4caf7d', icon: '🏃', recordTypes: ['event', 'goal', 'task', 'contact', 'note'] },
-  { id: 'tpl-finances', name: 'Finances', description: 'Accounts, budgets, and financial goals', color: '#d4943a', icon: '💰', recordTypes: ['account', 'goal', 'task', 'note'] },
-  { id: 'tpl-home', name: 'Home', description: 'Maintenance, projects, and household tasks', color: '#9b7fd4', icon: '🏠', recordTypes: ['task', 'project', 'event', 'note'] },
-  { id: 'tpl-learning', name: 'Learning', description: 'Courses, books, skills, and certifications', color: '#3da89e', icon: '📚', recordTypes: ['goal', 'task', 'note', 'project'] },
-  { id: 'tpl-travel', name: 'Travel', description: 'Trips, bookings, and itineraries', color: '#c4607a', icon: '✈️', recordTypes: ['event', 'task', 'note', 'project'] },
-  { id: 'tpl-relationships', name: 'Relationships', description: 'Stay in touch, social commitments, and contacts', color: '#d4705a', icon: '👥', recordTypes: ['contact', 'event', 'note', 'task'] },
-  { id: 'tpl-admin', name: 'Admin & Legal', description: 'Documents, deadlines, renewals, and licenses', color: '#78909c', icon: '📋', recordTypes: ['task', 'event', 'note', 'project'] },
+  { id: 'tpl-jobs', version: 1, name: 'Jobs', description: 'Track applications, interviews, and companies', color: '#5b9bd5', icon: '💼', recordTypes: ['job', 'company', 'contact', 'event'] },
+  { id: 'tpl-health', version: 1, name: 'Health', description: 'Appointments, goals, habits, and providers', color: '#4caf7d', icon: '🏃', recordTypes: ['event', 'goal', 'task', 'contact', 'note'] },
+  { id: 'tpl-finances', version: 1, name: 'Finances', description: 'Accounts, budgets, and financial goals', color: '#d4943a', icon: '💰', recordTypes: ['account', 'goal', 'task', 'note'] },
+  { id: 'tpl-home', version: 1, name: 'Home', description: 'Maintenance, projects, and household tasks', color: '#9b7fd4', icon: '🏠', recordTypes: ['task', 'project', 'event', 'note'] },
+  { id: 'tpl-learning', version: 1, name: 'Learning', description: 'Courses, books, skills, and certifications', color: '#3da89e', icon: '📚', recordTypes: ['goal', 'task', 'note', 'project'] },
+  { id: 'tpl-travel', version: 1, name: 'Travel', description: 'Trips, bookings, and itineraries', color: '#c4607a', icon: '✈️', recordTypes: ['event', 'task', 'note', 'project'] },
+  { id: 'tpl-relationships', version: 1, name: 'Relationships', description: 'Stay in touch, social commitments, and contacts', color: '#d4705a', icon: '👥', recordTypes: ['contact', 'event', 'note', 'task'] },
+  { id: 'tpl-admin', version: 1, name: 'Admin & Legal', description: 'Documents, deadlines, renewals, and licenses', color: '#78909c', icon: '📋', recordTypes: ['task', 'event', 'note', 'project'] },
 ];
 
 // Record type schemas

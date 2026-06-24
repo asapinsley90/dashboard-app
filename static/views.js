@@ -1660,13 +1660,21 @@ async function renderTemplatesView() {
   const system = templates.filter(t => t.source === 'system');
   const personal = templates.filter(t => t.source === 'personal');
 
+  const installedTemplates = currentUser.dashboardPrefs?.installedTemplates || {};
+
   function tileHTML(t) {
+    const installedVersion = installedTemplates[t.id];
+    const hasUpdate = installedVersion !== undefined && t.version !== undefined && t.version > installedVersion;
+    const updateBadge = hasUpdate
+      ? `<span style="position:absolute;top:8px;right:8px;background:var(--amber);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;letter-spacing:.03em">Updated</span>`
+      : '';
     const actions = t.source === 'personal' ? `
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn btn-sm" style="font-size:11px;color:var(--red)" onclick="event.stopPropagation();deleteUserTemplate('${t.id}')">Delete</button>
         <button class="btn btn-sm" style="font-size:11px" onclick="event.stopPropagation();submitUserTemplate('${t.id}')">Submit to library</button>
       </div>` : '';
-    return `<div class="template-tile" onclick="installTemplate('${t.id}',this)">
+    return `<div class="template-tile" style="position:relative" onclick="installTemplate('${t.id}',this)">
+      ${updateBadge}
       <div style="font-size:28px;margin-bottom:8px">${t.icon || '📁'}</div>
       <div style="font-weight:600;font-size:14px;margin-bottom:4px">${t.name}</div>
       <div style="font-size:12px;color:var(--muted);flex:1">${t.description || ''}</div>
@@ -1749,6 +1757,13 @@ async function installTemplate(templateId, triggerEl) {
     renderSidebar();
     assistantNotify('area-created', area);
     if (window._templateInstallCb) { window._templateInstallCb(area); window._templateInstallCb = null; }
+    // Record installed version in prefs so we can show update badges later
+    if (tpl.source === 'system' && tpl.version !== undefined) {
+      const prefs = currentUser.dashboardPrefs || {};
+      prefs.installedTemplates = { ...(prefs.installedTemplates || {}), [tpl.id]: tpl.version };
+      currentUser.dashboardPrefs = prefs;
+      api('PATCH', '/api/me', { dashboardPrefs: prefs }).catch(() => {});
+    }
     navigate('area', area.id);
     const t = document.createElement('div');
     t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--text);z-index:9999;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.3)';
