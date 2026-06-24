@@ -129,7 +129,7 @@ function renderTodayStrip() {
   const el = document.getElementById('dash-today');
   if (!labelEl || !el) return;
 
-  labelEl.textContent = 'Today â€” ' + today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  labelEl.textContent = 'Today — ' + today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   const events = DB.records
     .filter(r => r.type === 'event' && r.fields?.date === todayStr)
@@ -150,7 +150,7 @@ function renderTodayStrip() {
       <div class="a-dot" style="background:${area?.color||catColor[cat]||'var(--accent)'}"></div>
       <div class="a-body">
         <div class="a-title">${ev.title}</div>
-        <div class="a-sub">${ev.fields.time ? fmtTime(ev.fields.time) : 'All day'}${ev.fields.location ? ' Â· ' + ev.fields.location : ''}</div>
+        <div class="a-sub">${ev.fields.time ? fmtTime(ev.fields.time) : 'All day'}${ev.fields.location ? ' · ' + ev.fields.location : ''}</div>
       </div>
       <span class="a-tag" data-area-link="${ev.areaId}">${area?.title || cat}</span>
     </div>`;
@@ -163,7 +163,7 @@ function renderThisWeekStrip() {
   if (!labelEl || !el) return;
   const today = new Date(); today.setHours(0,0,0,0);
   const end = new Date(today); end.setDate(end.getDate() + 7);
-  labelEl.textContent = 'This Week â€” ' + today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  labelEl.textContent = 'This Week — ' + today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const items = DB.records
     .filter(r => r.type === 'event' && r.status !== 'archived' && r.status !== 'completed' && r.fields?.date)
     .filter(r => {
@@ -178,7 +178,7 @@ function renderThisWeekStrip() {
       <div class="a-dot" style="background:${area?.color || 'var(--accent)'}"></div>
       <div class="a-body">
         <div class="a-title">${ev.title}</div>
-        <div class="a-sub">${formatDate(ev.fields.date)}${ev.fields.time ? ' Â· ' + fmtTime(ev.fields.time) : ''}${ev.fields.location ? ' Â· ' + ev.fields.location : ''}</div>
+        <div class="a-sub">${formatDate(ev.fields.date)}${ev.fields.time ? ' · ' + fmtTime(ev.fields.time) : ''}${ev.fields.location ? ' · ' + ev.fields.location : ''}</div>
       </div>
       <span class="a-tag" data-area-link="${ev.areaId}">${area?.title || 'Event'}</span>
     </div>`;
@@ -225,7 +225,7 @@ function getAttentionItems() {
     const area = getArea(r.areaId);
     if (attentionFilter !== 'triage' && r.urgency !== attentionFilter) return;
     addItem({
-      title: r.title + (r.fields?.role ? ' â€” ' + r.fields.role : ''),
+      title: r.title + (r.fields?.role ? ' — ' + r.fields.role : ''),
       sub: r.fields?.role || (r.type === 'event' ? 'Event' : 'Record'),
       color: urgencyColor[r.urgency] || 'var(--accent)',
       tag: area?.title || '',
@@ -242,7 +242,7 @@ function getAttentionItems() {
     DB.records.filter(r => (!r.urgency || r.urgency === 'none') && r.status !== 'archived' && r.status !== 'completed').forEach(r => {
       const area = getArea(r.areaId);
       addItem({
-        title: r.title + (r.fields?.role ? ' â€” ' + r.fields.role : ''),
+        title: r.title + (r.fields?.role ? ' — ' + r.fields.role : ''),
         sub: r.fields?.role || (r.type === 'event' ? 'Event' : 'Record'),
         color: 'var(--muted)',
         tag: area?.title || '',
@@ -351,11 +351,11 @@ function renderAreaView(areaId) {
         <div class="dash-section-label" style="margin-bottom:8px">${pluralize(type)}</div>
         <div class="record-list">${recs.map(r => recordCard(r)).join('')}</div>
       </div>`).join('') || '<div class="empty">No active records.</div>') +
-      `<div style="margin-top:8px"><button class="btn btn-sm" onclick="currentFilter=null;renderAreaView('${areaId}')">â† All</button></div>`;
+      `<div style="margin-top:8px"><button class="btn btn-sm" onclick="currentFilter=null;renderAreaView('${areaId}')">← All</button></div>`;
   } else if (currentFilter === 'completed' || currentFilter === 'archived') {
     const filtered = records.filter(r => r.status === currentFilter);
     el.innerHTML = collapsibleGroup(capitalize(currentFilter), filtered, true, currentFilter+'-'+areaId) +
-      `<div style="margin-top:8px"><button class="btn btn-sm" onclick="currentFilter=null;renderAreaView('${areaId}')">â† All</button></div>`;
+      `<div style="margin-top:8px"><button class="btn btn-sm" onclick="currentFilter=null;renderAreaView('${areaId}')">← All</button></div>`;
   } else {
     const activeRecs = records.filter(r => r.status !== 'archived' && r.status !== 'completed');
     const completedRecs = records.filter(r => r.status === 'completed');
@@ -388,7 +388,7 @@ function renderAreaView(areaId) {
       btn.id = 'area-contacts-btn';
       btn.style.cssText = 'margin-top:10px';
       btn.innerHTML = `<button class="btn" style="width:100%;justify-content:center" onclick="currentFilter='contacts';renderAreaView('${areaId}')">
-        ðŸ‘¤ Contacts (${areaContacts.length})
+        👤 Contacts (${areaContacts.length})
       </button>`;
       calPanel.appendChild(btn);
     }
@@ -401,23 +401,23 @@ function renderJobList(records, filter) {
   // Filter-specific view
   if (filter === 'applied') {
     const recs = records.filter(r => r.type==='job' && r.status==='applied');
-    return collapsibleGroup('Applied â€” no response', recs, true, 'applied') +
-      `<div style="margin-top:8px"><button class="btn btn-sm" onclick="currentFilter=null;renderAreaView('area-jobs')">â† All</button></div>`;
+    return collapsibleGroup('Applied — no response', recs, true, 'applied') +
+      `<div style="margin-top:8px"><button class="btn btn-sm" onclick="currentFilter=null;renderAreaView('area-jobs')">← All</button></div>`;
   }
   if (filter === 'archived') {
     const recs = records.filter(r => r.type==='job' && r.status==='rejected');
     return collapsibleGroup('Archived / Rejected', recs, true, 'archived') +
-      `<div style="margin-top:8px"><button class="btn btn-sm" onclick="currentFilter=null;renderAreaView('area-jobs')">â† All</button></div>`;
+      `<div style="margin-top:8px"><button class="btn btn-sm" onclick="currentFilter=null;renderAreaView('area-jobs')">← All</button></div>`;
   }
   if (filter === 'contacts') {
     const recs = records.filter(r => r.type==='contact');
     return `<div class="dash-section-label" style="margin-bottom:10px">Contacts</div>
       <div class="contacts-grid">${recs.map(r=>`<div class="contact-card" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
-        <div class="contact-card-name">ðŸ‘¤ ${r.title}</div>
-        <div class="contact-card-sub">${r.fields.role||''}${r.fields.company?' Â· '+r.fields.company:''}</div>
+        <div class="contact-card-name">👤 ${r.title}</div>
+        <div class="contact-card-sub">${r.fields.role||''}${r.fields.company?' · '+r.fields.company:''}</div>
       </div>`).join('')}</div>
       <div style="margin-top:8px"><button class="btn btn-sm btn-p btn-xs" onclick="promptAddRecord('contact')">+ Add contact</button></div>
-      <div style="margin-top:8px"><button class="btn btn-sm" onclick="currentFilter=null;renderAreaView('area-jobs')">â† All</button></div>`;
+      <div style="margin-top:8px"><button class="btn btn-sm" onclick="currentFilter=null;renderAreaView('area-jobs')">← All</button></div>`;
   }
 
   // Default: active view + collapsed applied/archived
@@ -470,7 +470,7 @@ function jobCard(r) {
     <div class="record-card-icon">ðŸ’¼</div>
     <div class="record-card-body">
       <div class="record-card-title">${r.title}</div>
-      <div class="record-card-sub">${r.fields.role}${r.fields.salary ? ' Â· ' + r.fields.salary : ''}${nextI ? ' Â· Next: ' + formatDate(nextI.date) : ''}</div>
+      <div class="record-card-sub">${r.fields.role}${r.fields.salary ? ' · ' + r.fields.salary : ''}${nextI ? ' · Next: ' + formatDate(nextI.date) : ''}</div>
     </div>
     <div class="record-card-right">
       <span class="badge ${statusBadge[r.status] || 'badge-gray'}">${statusLabel[r.status] || r.status}</span>
@@ -479,13 +479,13 @@ function jobCard(r) {
 }
 
 function recordCard(r) {
-  const icons = { job: 'ðŸ’¼', contact: 'ðŸ‘¤', event: 'ðŸ“…', goal: 'ðŸŽ¯', task: 'âœ“', project: 'ðŸ”¨', note: 'ðŸ“', account: 'ðŸ’³', transaction: 'ðŸ’¸' };
+  const icons = { job: 'ðŸ’¼', contact: '👤', event: 'ðŸ“…', goal: '🎯', task: 'âœ“', project: 'ðŸ”¨', note: '📝', account: 'ðŸ’³', transaction: 'ðŸ’¸' };
   let sub = r.fields.role || r.fields.notes?.slice(0, 80) || r.fields.date || '';
   let right = statusBadge(r);
   let cardIcon = `<div class="record-card-icon">${icons[r.type] || 'â€¢'}</div>`;
   if (r.type === 'account') {
     const parts = [r.fields.institution, r.fields.accountType, r.fields.owner].filter(Boolean);
-    sub = parts.join(' Â· ');
+    sub = parts.join(' · ');
     const bal = r.fields.balance !== undefined && r.fields.balance !== '' ? '$'+Number(r.fields.balance).toLocaleString() : '';
     right = bal ? `<span style="font-size:14px;font-weight:600;color:var(--text)">${bal}</span>` : '';
     const instDef = getInstitutionDefaults(r.fields.institution);

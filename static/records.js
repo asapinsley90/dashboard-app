@@ -6,11 +6,11 @@ function renderRecordView(recordId) {
   const isCompleted = r.status === 'completed';
   const isArchived = r.status === 'archived';
   const urgency = r.urgency || 'none';
-  const urgencyLabels = { none: 'âš‘ Flag', flagged: 'ðŸŸ¡ Flagged', priority: 'ðŸ”µ Priority', urgent: 'ðŸ”´ Urgent' };
+  const urgencyLabels = { none: '⚑ Flag', flagged: '🟡 Flagged', priority: '🔵 Priority', urgent: '🔴 Urgent' };
   const urgencyNext = { none: 'flagged', flagged: 'priority', priority: 'urgent', urgent: 'none' };
   document.getElementById('topbar-actions').innerHTML = `
-    <button class="btn btn-sm" onclick="navigate('area','${r.areaId}')">â† Back</button>
-    <button class="btn btn-sm" onclick="copyRecordContext('${r.id}')" title="Copy context to paste into Claude">ðŸ“‹ Copy for Claude</button>
+    <button class="btn btn-sm" onclick="navigate('area','${r.areaId}')">← Back</button>
+    <button class="btn btn-sm" onclick="copyRecordContext('${r.id}')" title="Copy context to paste into Claude">📋 Copy for Claude</button>
     <button class="btn btn-sm btn-danger" onclick="deleteRecord('${r.id}')">Delete</button>`;
 
   const el = document.getElementById('record-view-content');
@@ -93,7 +93,7 @@ function renderJobRecord(r, area) {
             <div class="interview-round">Round ${i.round}</div>
             <div class="interview-title">${i.interviewer || 'TBD'}</div>
             <div class="interview-meta">
-              ${i.date ? formatDate(i.date) : ''} ${i.time ? 'Â· ' + fmtTime(i.time) : ''} ${i.format ? 'Â· ' + i.format : ''}
+              ${i.date ? formatDate(i.date) : ''} ${i.time ? '· ' + fmtTime(i.time) : ''} ${i.format ? '· ' + i.format : ''}
               ${i.location ? '<br>' + i.location : ''}
             </div>
             ${i.link ? `<a class="interview-link" href="${i.link}" target="_blank">Join meeting â†’</a>` : ''}
@@ -120,7 +120,7 @@ ${renderNotesSection(r)}
         <div class="section-title">Urgency</div>
         <div class="urgency-widget">
           ${['none','new','flagged','priority','urgent'].map(u => {
-            const labels={none:'None',new:'ðŸ”µ New',flagged:'ðŸŸ¡ Flagged',priority:'ðŸŸ£ Priority',urgent:'ðŸ”´ Urgent'};
+            const labels={none:'None',new:'🔵 New',flagged:'🟡 Flagged',priority:'🟣 Priority',urgent:'🔴 Urgent'};
             const cur=r.urgency||'none';
             return '<span class="urgency-pill'+(cur===u?' u-active-'+u:'')+'" onclick="setUrgency(\''+r.id+'\',\''+u+'\')">'+labels[u]+'</span>';
           }).join('')}
@@ -129,9 +129,9 @@ ${renderNotesSection(r)}
       <div class="section-card">
         <div class="section-title">Contacts</div>
         ${contacts.map(ct => `<div class="contact-chip" data-record-link data-area-id="${ct.areaId}" data-record-id="${ct.id}">
-  <span>ðŸ‘¤</span>
+  <span>👤</span>
   <span class="contact-chip-name">${ct.title}</span>
-  ${ct.fields.role ? `<span class="contact-chip-role">Â· ${ct.fields.role}</span>` : ''}
+  ${ct.fields.role ? `<span class="contact-chip-role">· ${ct.fields.role}</span>` : ''}
 </div>`).join('')}
         <div style="margin-top:8px"><button class="btn btn-xs" onclick="linkContact('${r.id}')">+ Link contact</button></div>
       </div>
@@ -147,7 +147,7 @@ ${renderNotesSection(r)}
           <div class="record-card-icon">ðŸ“…</div>
           <div class="record-card-body">
             <div class="record-card-title">${ev.title}</div>
-            <div class="record-card-sub">${formatDate(ev.fields.date)}${ev.fields.time ? ' Â· ' + fmtTime(ev.fields.time) : ''}</div>
+            <div class="record-card-sub">${formatDate(ev.fields.date)}${ev.fields.time ? ' · ' + fmtTime(ev.fields.time) : ''}</div>
           </div>
         </div>`).join('')}
       </div>` : ''}
@@ -161,7 +161,7 @@ ${renderNotesSection(r)}
 
 function renderContactRecord(r, area) {
   return `<div class="record-view-header">
-    <div class="record-view-icon">ðŸ‘¤</div>
+    <div class="record-view-icon">👤</div>
     <div class="record-view-title-wrap">
       <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
       <div class="record-view-meta"><span>${r.fields.role || ''}</span>${linkableCompany(r.fields.company)}</div>
@@ -277,7 +277,7 @@ function renderCompanyRecord(r, area) {
       <div class="section-card">
         <div class="section-title">Contacts (${contacts.length})</div>
         ${contacts.map(ct=>`<div class="contact-chip" data-record-link data-area-id="${ct.areaId}" data-record-id="${ct.id}">
-  <span>ðŸ‘¤</span>
+  <span>👤</span>
   <span class="contact-chip-name">${ct.title}</span>
   ${ct.fields.role ? `<span class="contact-chip-role">&middot; ${ct.fields.role}</span>` : ''}
 </div>`).join('')}
@@ -327,7 +327,7 @@ function renderCompaniesView() {
       <div class="record-card-icon">ðŸ¢</div>
       <div class="record-card-body">
         <div class="record-card-title">${co.title}</div>
-        <div class="record-card-sub">${[co.fields.industry, co.fields.location].filter(Boolean).join(' Â· ')}${contactCount?` Â· ${contactCount} contact${contactCount>1?'s':''}`:''}</div>
+        <div class="record-card-sub">${[co.fields.industry, co.fields.location].filter(Boolean).join(' · ')}${contactCount?` · ${contactCount} contact${contactCount>1?'s':''}`:''}</div>
       </div>
       <div class="record-card-right">
         ${area?`<span class="doc-ref doc-ref-area" data-area-link="${area.id}" style="font-size:11px;padding:3px 10px;border-radius:20px;background:${area.color}18;color:${area.color};border:1px solid ${area.color}44;font-weight:500">${area.title}</span>`:''}
@@ -354,7 +354,7 @@ function getInstitutionDefaults(name) {
 
 function renderAccountRecord(r, area) {
   const bal = r.fields.balance !== undefined && r.fields.balance !== '' ? Number(r.fields.balance) : null;
-  const balFormatted = bal !== null ? '$' + bal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : 'â€”';
+  const balFormatted = bal !== null ? '$' + bal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
   const balDate = r.fields.balanceDate ? `Updated ${formatDate(r.fields.balanceDate)}` : 'Balance not set';
   const ownerOpts = ['Aaron','Ale','Joint'];
   const typeOpts = ['Checking','Savings','Roth IRA','Traditional IRA','Taxable','401k','HYSA','Money Market','Credit Card','Other'];
@@ -382,10 +382,10 @@ function renderAccountRecord(r, area) {
         <td style="text-align:left;padding:5px 0;color:var(--text)">${h.month}</td>
         <td style="padding:5px 6px;color:var(--muted)">${fmt(h.beginBalance)}</td>
         <td style="padding:5px 6px;color:var(--text);font-weight:500">${fmt(h.endBalance)}</td>
-        <td style="padding:5px 6px;color:var(--muted)">${h.contributions > 0 ? fmt(h.contributions) : 'â€”'}</td>
+        <td style="padding:5px 6px;color:var(--muted)">${h.contributions > 0 ? fmt(h.contributions) : '—'}</td>
         <td style="padding:5px 0;color:${h.returnPct>=0?'var(--green)':'var(--red)'};font-weight:500">${fmtPct(h.returnPct)}</td>
       </tr>`).join('')}</tbody>
-    </table>` : '<div style="color:var(--muted);font-size:12px">No history yet â€” import a statement to start tracking.</div>';
+    </table>` : '<div style="color:var(--muted);font-size:12px">No history yet — import a statement to start tracking.</div>';
 
   const chartHistory = (r.fields.history || []).slice().sort((a,b) => a.month.localeCompare(b.month));
   const chartId = `acct-charts-${r.id}`;
@@ -402,7 +402,7 @@ function renderAccountRecord(r, area) {
         ${r.fields.institution ? `<span>${r.fields.institution}</span>` : ''}
         ${r.fields.accountType ? `<span>${r.fields.accountType}</span>` : ''}
         ${r.fields.owner ? `<span>${r.fields.owner}</span>` : ''}
-        ${r.fields.last4 ? `<span>Â·Â·Â·Â·${r.fields.last4}</span>` : ''}
+        ${r.fields.last4 ? `<span>····${r.fields.last4}</span>` : ''}
       </div>
     </div>
     <div class="record-view-actions">
@@ -427,13 +427,13 @@ function renderAccountRecord(r, area) {
         ${editableField(r, 'institution', 'Institution')}
         <div class="field-row"><div class="field-label">Type</div><div class="field-value">
           <select class="field-edit" onchange="saveFieldText('${r.id}','accountType',this.value)">
-            <option value="">â€”</option>
+            <option value="">—</option>
             ${typeOpts.map(t => `<option value="${t}" ${r.fields.accountType===t?'selected':''}>${t}</option>`).join('')}
           </select>
         </div></div>
         <div class="field-row"><div class="field-label">Owner</div><div class="field-value">
           <select class="field-edit" onchange="saveFieldText('${r.id}','owner',this.value)">
-            <option value="">â€”</option>
+            <option value="">—</option>
             ${ownerOpts.map(o => `<option value="${o}" ${r.fields.owner===o?'selected':''}>${o}</option>`).join('')}
           </select>
         </div></div>
@@ -559,7 +559,7 @@ async function confirmStatementImport(recordId, btn) {
   const fmt = n => '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
   const fmtPct = n => (n>=0?'+':'') + Number(n).toFixed(2)+'%';
   const monthName = ['January','February','March','April','May','June','July','August','September','October','November','December'][monthIdx];
-  const timelineText = `${monthName} ${year} statement imported â€” End: ${fmt(data.endBalance)} | Start: ${fmt(data.beginBalance)}${data.contributions > 0 ? ` | Contributions: ${fmt(data.contributions)}` : ''} | Return: ${fmtPct(data.returnPct)}`;
+  const timelineText = `${monthName} ${year} statement imported — End: ${fmt(data.endBalance)} | Start: ${fmt(data.beginBalance)}${data.contributions > 0 ? ` | Contributions: ${fmt(data.contributions)}` : ''} | Return: ${fmtPct(data.returnPct)}`;
 
   await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
   await api('POST', `/api/records/${recordId}/timeline`, { text: timelineText });
@@ -568,7 +568,7 @@ async function confirmStatementImport(recordId, btn) {
   renderRecordView(recordId);
 }
 
-// Paste handler â€” attached when an account record view is rendered
+// Paste handler — attached when an account record view is rendered
 function attachStatementPasteListener(recordId) {
   detachStatementPasteListener(); // always clean up before attaching
   const handler = (e) => {
@@ -851,7 +851,7 @@ function editableField(r, key, label, type = 'text') {
   return `<div class="field-row">
     <div class="field-label">${label}</div>
     <div class="field-value">
-      <input class="field-edit" type="${type}" value="${val}" placeholder="â€”" ${stepAttr}
+      <input class="field-edit" type="${type}" value="${val}" placeholder="—" ${stepAttr}
         onblur="saveFieldText('${r.id}','${key}',this.value)">
     </div>
   </div>`;
@@ -964,7 +964,7 @@ async function addInterview(recordId) {
       if (interview.date) {
         const ev = await api('POST', '/api/records', {
           type: 'event', areaId: r.areaId, urgency:'new',
-          title: `${r.title} â€” Interview Rd ${interview.round}`,
+          title: `${r.title} — Interview Rd ${interview.round}`,
           status: 'upcoming', priority: 1,
           fields: { date: interview.date, time: interview.time, location: interview.location, link: interview.link, category: 'interview', notes: interview.notes },
           links: [recordId]
@@ -974,7 +974,7 @@ async function addInterview(recordId) {
         await api('PUT', `/api/records/${recordId}`, { links: r.links });
         DB.records.push(ev);
       }
-      await api('POST', `/api/records/${recordId}/timeline`, { text: `Interview Rd ${interview.round} added â€” ${formatDate(interview.date)}` });
+      await api('POST', `/api/records/${recordId}/timeline`, { text: `Interview Rd ${interview.round} added — ${formatDate(interview.date)}` });
       const updated = await api('GET', `/api/records/${recordId}`);
       DB.records = DB.records.map(rec => rec.id === recordId ? updated : rec);
       closeModal();
@@ -1005,7 +1005,7 @@ async function linkContact(recordId) {
         <div class="record-card-icon">&#x1F464;</div>
         <div class="record-card-body">
           <div class="record-card-title">${ct.title}</div>
-          <div class="record-card-sub">${[ct.fields.role, ct.fields.company].filter(Boolean).join(' Â· ')}</div>
+          <div class="record-card-sub">${[ct.fields.role, ct.fields.company].filter(Boolean).join(' · ')}</div>
         </div>
         ${area ? `<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:${area.color}18;color:${area.color};border:1px solid ${area.color}44">${area.title}</span>` : ''}
       </div>`;
@@ -1048,7 +1048,7 @@ async function linkContactToCompany(companyId) {
         <div class="record-card-icon">&#x1F464;</div>
         <div class="record-card-body">
           <div class="record-card-title">${ct.title}</div>
-          <div class="record-card-sub">${[ct.fields.role, ct.fields.company].filter(Boolean).join(' Â· ')}</div>
+          <div class="record-card-sub">${[ct.fields.role, ct.fields.company].filter(Boolean).join(' · ')}</div>
         </div>
         ${area ? `<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:${area.color}18;color:${area.color};border:1px solid ${area.color}44">${area.title}</span>` : ''}
       </div>`;
@@ -1128,11 +1128,14 @@ function promptAddRecord(forceType, targetAreaId = null) {
         ${areaOptions.map(a => `<option value="${a.id}" ${a.id === defaultArea ? 'selected' : ''}>${a.title}</option>`).join('')}
       </select>
     </div>`,
-    [{ label: 'Create', primary: true, onclick: async () => {
+    [{ label: 'Create', primary: true, onclick: async (e) => {
+      const btn = e?.target || document.querySelector('#modal-actions .btn-p');
+      if (btn?.disabled) return;
       const title = document.getElementById('nr-title').value.trim();
       const t = document.getElementById('nr-type').value;
       const aid = document.getElementById('nr-area').value;
       if (!title) return;
+      if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
       if (t === 'company') { closeModal(); openAddCompanyModal(aid); return; }
       // Build default fields from schema if available, else use legacy defaults
       const schema = TYPE_SCHEMAS.find(s => s.id === t);
@@ -1168,7 +1171,7 @@ async function promptAddArea(parentId = null) {
       const title = document.getElementById('na-title').value.trim();
       const color = document.getElementById('na-color').value;
       if (!title) return;
-      const area = await api('POST', '/api/areas', { title, color, icon: 'ðŸ“', order: DB.areas.length, parentId });
+      const area = await api('POST', '/api/areas', { title, color, icon: '📁', order: DB.areas.length, parentId });
       DB.areas.push(area);
       closeModal();
       renderSidebar();

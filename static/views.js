@@ -104,9 +104,9 @@ function renderContactsView() {
       </div>
       <div class="contacts-grid mode-${mode}">
         ${group.items.sort(cmp).map(r => `<div class="contact-card" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
-          <div class="contact-card-name">ðŸ‘¤ ${formatContactDisplayName(r.title)}</div>
-          <div class="contact-card-sub">${[r.fields.role, r.fields.company].filter(Boolean).join(' Â· ') || 'â€”'}</div>
-          ${r.fields.email ? `<div class="contact-card-sub" style="margin-top:3px;color:var(--dim)">${r.fields.email}</div>` : '<div class="contact-card-sub" style="margin-top:3px;color:var(--dim)">â€”</div>'}
+          <div class="contact-card-name">👤 ${formatContactDisplayName(r.title)}</div>
+          <div class="contact-card-sub">${[r.fields.role, r.fields.company].filter(Boolean).join(' · ') || '—'}</div>
+          ${r.fields.email ? `<div class="contact-card-sub" style="margin-top:3px;color:var(--dim)">${r.fields.email}</div>` : '<div class="contact-card-sub" style="margin-top:3px;color:var(--dim)">—</div>'}
           <div class="contact-card-link">Links: ${[...getContactLinkedTypes(r)].join(', ') || 'none'}</div>
         </div>`).join('')}
       </div>
@@ -458,7 +458,7 @@ function noteColorNext(current) {
   const i = NOTE_COLORS.indexOf(current||'color-amber');
   return NOTE_COLORS[(i+1) % NOTE_COLORS.length];
 }
-function noteColorLabel(c) { return c==='color-red'?'ðŸ”´':c==='color-green'?'ðŸŸ¢':'ðŸŸ¡'; }
+function noteColorLabel(c) { return c==='color-red'?'🔴':c==='color-green'?'ðŸŸ¢':'🟡'; }
 
 function buildNoteHTML(n, i, recordId) {
   const color = n.color || 'color-amber';
@@ -483,7 +483,7 @@ function renderNotesSection(r) {
     <div class="section-title">Notes</div>
     <div class="notes-list" id="notes-list-${r.id}">${notesHTML}</div>
     <div class="notes-input-wrap">
-      <textarea id="notes-input-${r.id}" placeholder="Add a note â€” Enter to save, Shift+Enter for new line..." rows="1"
+      <textarea id="notes-input-${r.id}" placeholder="Add a note — Enter to save, Shift+Enter for new line..." rows="1"
         onkeydown="notesKeydown(event,'${r.id}')"
         oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
     </div>
@@ -579,7 +579,7 @@ async function triggerScrape(recordId) {
         showScrapeFallback(recordId, 'Could not extract enough info from the page.');
       }
     } else {
-      showScrapeFallback(recordId, data.hint || 'Could not access the posting â€” it may require a login.');
+      showScrapeFallback(recordId, data.hint || 'Could not access the posting — it may require a login.');
     }
   } catch(e) {
     showScrapeFallback(recordId, 'Error fetching posting.');
@@ -594,7 +594,7 @@ function showScrapeConfirm(recordId, data) {
     ['Salary', data.salary], ['Description', data.description ? data.description.slice(0,200)+'...' : null]
   ].filter(([,v]) => v);
   panel.innerHTML = `<div class="scrape-panel">
-    <div class="scrape-panel-title">Found â€” apply these fields?</div>
+    <div class="scrape-panel-title">Found — apply these fields?</div>
     ${fields.map(([l,v]) => `<div class="scrape-field"><div class="scrape-field-label">${l}</div><div class="scrape-field-value">${v}</div></div>`).join('')}
     <div class="scrape-actions">
       <button class="btn btn-p btn-sm" onclick="applyScrapeData('${recordId}',${JSON.stringify(JSON.stringify(data))})">Apply</button>
@@ -726,7 +726,7 @@ function copyRecordContext(recordId) {
     if (r.interviews && r.interviews.length) {
       br(); add('### Interviews');
       r.interviews.forEach(function(i) {
-        add('Round ' + i.round + ': ' + (i.interviewer||'') + ' â€” ' + formatDate(i.date) + (i.time ? ' at ' + fmtTime(i.time) : '') + (i.format ? ' (' + i.format + ')' : ''));
+        add('Round ' + i.round + ': ' + (i.interviewer||'') + ' — ' + formatDate(i.date) + (i.time ? ' at ' + fmtTime(i.time) : '') + (i.format ? ' (' + i.format + ')' : ''));
         if (i.location) add('  Location: ' + i.location);
         if (i.link) add('  Link: ' + i.link);
         if (i.notes) add('  Notes: ' + i.notes);
@@ -735,7 +735,7 @@ function copyRecordContext(recordId) {
     const contacts = (r.contacts||[]).map(function(id){ return DB.records.find(function(c){ return c.id===id; }); }).filter(Boolean);
     if (contacts.length) {
       br(); add('### Contacts');
-      contacts.forEach(function(ct) { add(ct.title + ' â€” ' + (ct.fields.role||'') + (ct.fields.email ? ' | ' + ct.fields.email : '')); });
+      contacts.forEach(function(ct) { add(ct.title + ' — ' + (ct.fields.role||'') + (ct.fields.email ? ' | ' + ct.fields.email : '')); });
     }
     if (r.documents && r.documents.length) {
       br(); add('### Documents');
@@ -771,7 +771,7 @@ function copyRecordContext(recordId) {
 
   br();
   add('---');
-  add('(From dashboard â€” ' + new Date().toLocaleDateString('en-US', {weekday:'long',month:'long',day:'numeric',year:'numeric'}) + ')');
+  add('(From dashboard — ' + new Date().toLocaleDateString('en-US', {weekday:'long',month:'long',day:'numeric',year:'numeric'}) + ')');
 
   const text = lines.join('\n');
   const btn = document.querySelector('[onclick*="copyRecordContext"]');
@@ -880,7 +880,7 @@ function fmtTime(t) {
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : ''; }
 function pluralize(type) { return {company:'Companies',activity:'Activities',category:'Categories'}[type] || capitalize(type)+'s'; }
 function typeIcon(type) {
-  return { job:'ðŸ’¼', contact:'ðŸ‘¤', event:'ðŸ“…', goal:'ðŸŽ¯', task:'âœ“', project:'ðŸ”¨', note:'ðŸ“', account:'ðŸ’³', transaction:'ðŸ’¸' }[type] || 'â€¢';
+  return { job:'ðŸ’¼', contact:'👤', event:'ðŸ“…', goal:'🎯', task:'âœ“', project:'ðŸ”¨', note:'📝', account:'ðŸ’³', transaction:'ðŸ’¸' }[type] || 'â€¢';
 }
 
 function openJobModal(areaId) {
@@ -893,11 +893,11 @@ function openJobModal(areaId) {
   const cancel = document.createElement('button');
   cancel.className = 'btn'; cancel.textContent = 'Cancel'; cancel.onclick = closeModal;
   const skip = document.createElement('button');
-  skip.className = 'btn'; skip.style.color = 'var(--muted)'; skip.textContent = 'Skip â†’ manual';
-  skip.onclick = () => showJobFallbackModal(areaId, '', '');
-  const fetch = document.createElement('button');
-  fetch.className = 'btn btn-p'; fetch.style.cssText = 'font-size:13px;padding:8px 20px'; fetch.textContent = 'Fetch posting â†’';
-  fetch.onclick = () => startJobScrape(areaId);
+  skip.className = ‘btn’; skip.style.color = ‘var(--muted)’; skip.textContent = ‘Skip → manual’;
+  skip.onclick = () => showJobFallbackModal(areaId, ‘’, ‘’);
+  const fetch = document.createElement(‘button’);
+  fetch.className = ‘btn btn-p’; fetch.style.cssText = ‘font-size:13px;padding:8px 20px’; fetch.textContent = ‘Fetch posting →’;
+  fetch.onclick = function() { this.disabled = true; this.textContent = ‘Fetching…’; startJobScrape(areaId); };
   acts.appendChild(cancel); acts.appendChild(skip); acts.appendChild(fetch);
   setTimeout(() => {
     const inp = document.getElementById('job-url-input');
@@ -954,17 +954,17 @@ async function startJobScrape(areaId) {
 function showJobScrapeConfirmModal(areaId,data,url){
   const fields=[{label:'Company',value:data.company,color:'#5b9bd5'},{label:'Role',value:data.role,color:'#9b7fd4'},{label:'Location',value:data.location,color:'#4caf7d'},{label:'Salary',value:data.salary,color:'#d4943a'}].filter(f=>f.value);
   const body=document.getElementById('modal-body');
-  body.innerHTML='<div style="margin-bottom:16px"><div style="font-size:13px;color:var(--muted);margin-bottom:14px">Found â€” confirm to create:</div>'+fields.map(f=>'<div style="display:flex;align-items:baseline;gap:10px;padding:8px 0;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:600;color:'+f.color+';width:70px;text-transform:uppercase;letter-spacing:.05em">'+f.label+'</div><div style="font-size:15px;font-weight:500;color:var(--text)">'+f.value+'</div></div>').join('')+(data.description?'<div style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:6px;font-size:12px;color:var(--muted);max-height:80px;overflow:hidden">'+data.description.slice(0,300)+'...</div>':'')+'</div>';
+  body.innerHTML='<div style="margin-bottom:16px"><div style="font-size:13px;color:var(--muted);margin-bottom:14px">Found — confirm to create:</div>'+fields.map(f=>'<div style="display:flex;align-items:baseline;gap:10px;padding:8px 0;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:600;color:'+f.color+';width:70px;text-transform:uppercase;letter-spacing:.05em">'+f.label+'</div><div style="font-size:15px;font-weight:500;color:var(--text)">'+f.value+'</div></div>').join('')+(data.description?'<div style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:6px;font-size:12px;color:var(--muted);max-height:80px;overflow:hidden">'+data.description.slice(0,300)+'...</div>':'')+'</div>';
   const acts=document.getElementById('modal-actions');acts.innerHTML='';
   const cancel=document.createElement('button');cancel.className='btn';cancel.textContent='Cancel';cancel.onclick=closeModal;
-  const apply=document.createElement('button');apply.className='btn btn-p';apply.style.cssText='font-size:13px;padding:8px 20px';apply.textContent='Create record â†’';
-  apply.onclick=()=>createJobRecord(areaId,JSON.stringify(data),url);
+  const apply=document.createElement(‘button’);apply.className=’btn btn-p’;apply.style.cssText=’font-size:13px;padding:8px 20px’;apply.textContent=’Create record →’;
+  apply.onclick=function(){this.disabled=true;this.textContent=’Creating…’;createJobRecord(areaId,JSON.stringify(data),url);};
   acts.appendChild(cancel);acts.appendChild(apply);
 }
 
 function showJobFallbackModal(areaId,url,reason){
   const body=document.getElementById('modal-body');body.innerHTML='';
-  if(reason){const w=document.createElement('div');w.style.cssText='color:var(--amber);font-size:13px;margin-bottom:14px;padding:10px;background:rgba(212,148,58,.1);border-radius:6px;border:1px solid rgba(212,148,58,.2)';w.textContent='âš ï¸ '+reason;body.appendChild(w);}
+  if(reason){const w=document.createElement('div');w.style.cssText='color:var(--amber);font-size:13px;margin-bottom:14px;padding:10px;background:rgba(212,148,58,.1);border-radius:6px;border:1px solid rgba(212,148,58,.2)';w.textContent='⚠️ '+reason;body.appendChild(w);}
   const lbl=document.createElement('div');lbl.style.cssText='font-size:13px;color:var(--muted);margin-bottom:12px';lbl.textContent='Paste the job description or drop a screenshot:';body.appendChild(lbl);
   const ta=document.createElement('textarea');ta.className='modal-input';ta.id='job-paste-text';ta.placeholder='Paste job description here...';ta.style.cssText='min-height:120px;font-size:13px;margin-bottom:10px';body.appendChild(ta);
   const dz=document.createElement('div');dz.style.cssText='border:2px dashed var(--border2);border-radius:8px;padding:16px;text-align:center;cursor:pointer;color:var(--muted);font-size:13px;margin-bottom:10px';
@@ -976,7 +976,7 @@ function showJobFallbackModal(areaId,url,reason){
   const acts=document.getElementById('modal-actions');acts.innerHTML='';
   const cancel=document.createElement('button');cancel.className='btn';cancel.textContent='Cancel';cancel.onclick=closeModal;
   const parse=document.createElement('button');parse.className='btn';parse.style.color='var(--accent)';parse.textContent='Parse text';parse.onclick=()=>parseJobModalText(areaId,url);
-  const create=document.createElement('button');create.className='btn btn-p';create.style.cssText='font-size:13px;padding:8px 20px';create.textContent='Create record â†’';create.onclick=()=>createJobFromFallback(areaId,url);
+  const create=document.createElement(‘button’);create.className=’btn btn-p’;create.style.cssText=’font-size:13px;padding:8px 20px’;create.textContent=’Create record →’;create.onclick=function(){createJobFromFallback(areaId,url,this);};
   acts.appendChild(cancel);acts.appendChild(parse);acts.appendChild(create);
 }
 
@@ -1005,7 +1005,8 @@ async function processJobModalImage(file,areaId,url){
   };reader.readAsDataURL(file);
 }
 
-function createJobFromFallback(areaId,url){
+function createJobFromFallback(areaId,url,btn){
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
   const company=document.getElementById('job-fb-company')?.value?.trim()||'';
   const role=document.getElementById('job-fb-role')?.value?.trim()||'';
   const location=document.getElementById('job-fb-location')?.value?.trim()||'';
@@ -1125,7 +1126,7 @@ function showRecordCtxMenu(e,recordId){
   e.preventDefault();e.stopPropagation();closeCtxMenu();
   const r=DB.records.find(r=>r.id===recordId);if(!r)return;
   const urgency=r.urgency||'none';
-  const urgencyOpts=[{val:'none',label:'None'},{val:'new',label:'ðŸ”µ New'},{val:'flagged',label:'ðŸŸ¡ Flagged'},{val:'priority',label:'ðŸŸ£ Priority'},{val:'urgent',label:'ðŸ”´ Urgent'}];
+  const urgencyOpts=[{val:'none',label:'None'},{val:'new',label:'🔵 New'},{val:'flagged',label:'🟡 Flagged'},{val:'priority',label:'🟣 Priority'},{val:'urgent',label:'🔴 Urgent'}];
   const statusOpts=r.type==='job'?['applied','interviewing','awaiting','offer','rejected','withdrawn','completed','archived']:['active','completed','archived'];
   const menu=document.createElement('div');menu.className='ctx-menu';
   menu.style.cssText='left:'+Math.min(e.clientX,window.innerWidth-200)+'px;top:'+Math.min(e.clientY,window.innerHeight-320)+'px';
@@ -1133,13 +1134,20 @@ function showRecordCtxMenu(e,recordId){
   const addD=()=>{const d=document.createElement('div');d.className='ctx-divider';menu.appendChild(d);};
   const addI=(label,fn,cls)=>{const i=document.createElement('div');i.className='ctx-item'+(cls?' '+cls:'');i.textContent=label;i.onclick=()=>{fn();closeCtxMenu();};menu.appendChild(i);};
   addH('Urgency');
-  urgencyOpts.forEach(u=>addI((urgency===u.val?'âœ“ ':'')+u.label,()=>setUrgency(recordId,u.val),urgency===u.val?'checked':''));
+  urgencyOpts.forEach(u=>addI((urgency===u.val?'✔ ':'')+u.label,()=>setUrgency(recordId,u.val),urgency===u.val?'checked':''));
   addD();addH('Status');
-  statusOpts.forEach(s=>addI((r.status===s?'âœ“ ':'')+s.charAt(0).toUpperCase()+s.slice(1),()=>setRecordStatus(recordId,s),r.status===s?'checked':s==='archived'?'dim':''));
+  statusOpts.forEach(s=>addI((r.status===s?'✔ ':'')+s.charAt(0).toUpperCase()+s.slice(1),()=>setRecordStatus(recordId,s),r.status===s?'checked':s==='archived'?'dim':''));
   addD();
-  addI('â†’ Open record',()=>navigate('record',r.areaId,recordId));
+  addI(‘→ Open record’,()=>navigate(‘record’,r.areaId,recordId));
   addD();
-  addI('Move to areaâ€¦', () => {
+  addI(‘Delete record’, async () => {
+    if (!confirm(`Delete "${r.title}"? This cannot be undone.`)) return;
+    await api('DELETE', `/api/records/${recordId}`);
+    DB.records = DB.records.filter(x => x.id !== recordId);
+    if (currentRecordId === recordId) navigate('area', r.areaId);
+    else renderSidebar();
+  }, 'danger');
+  addI('Move to area…', () => {
     const leafAreas = DB.areas.filter(a => !DB.areas.some(b => b.parentId === a.id));
     const opts = leafAreas.map(a => {
       const parent = a.parentId ? DB.areas.find(p => p.id === a.parentId) : null;

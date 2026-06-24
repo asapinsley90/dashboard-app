@@ -203,12 +203,12 @@ function areaSubtitle(area, records) {
   if (area.id === 'area-jobs') {
     const active = records.filter(r => ['interviewing','awaiting'].includes(r.status)).length;
     const applied = records.filter(r => r.status === 'applied').length;
-    return `${active} active Â· ${applied} applied`;
+    return `${active} active · ${applied} applied`;
   }
-  if (area.id === 'area-health') return 'Get back to the gym Â· Lose weight, get stronger';
-  if (area.id === 'area-home') return 'Maintenance Â· Chores Â· House buying';
+  if (area.id === 'area-health') return 'Get back to the gym · Lose weight, get stronger';
+  if (area.id === 'area-home') return 'Maintenance · Chores · House buying';
   if (area.id === 'area-projects') return `${records.length} projects`;
-  if (area.id === 'area-finances') return 'Budget Â· Investments Â· Tracking';
+  if (area.id === 'area-finances') return 'Budget · Investments · Tracking';
   return `${records.length} records`;
 }
 
