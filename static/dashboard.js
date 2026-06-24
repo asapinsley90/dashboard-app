@@ -62,6 +62,13 @@ function buildDashSections() {
 
   col.innerHTML = '';
 
+  // If everything is hidden, reset to defaults
+  const visibleCount = order.filter(id => DASH_WIDGETS.find(w => w.id === id) && !hidden.has(id)).length;
+  if (visibleCount === 0 && hidden.size > 0) {
+    saveDashPrefs({ order: DASH_WIDGETS.map(w => w.id), hidden: [] });
+    hidden.clear();
+  }
+
   order.forEach(id => {
     const widget = DASH_WIDGETS.find(w => w.id === id);
     if (!widget || hidden.has(id)) return;
