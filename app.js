@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const archiver = require('archiver');
 const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const { FetchHttpHandler } = require('@smithy/fetch-http-handler');
@@ -14,8 +15,8 @@ const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
 const BACKUP_TOKEN = process.env.BACKUP_TOKEN || '';
 const BACKUP_TOKEN_SEED = process.env.BACKUP_TOKEN_SEED || '';
-const SESSION_PASSWORD = process.env.SESSION_PASSWORD || '';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-me';
+const BCRYPT_ROUNDS = 12;
 
 function signToken(val) {
   return crypto.createHmac('sha256', SESSION_SECRET).update(val).digest('hex');
@@ -32,34 +33,43 @@ function parseCookies(req) {
   return list;
 }
 
-function isAuthenticated(req) {
-  if (!SESSION_PASSWORD) return true; // no password set → open
+function getSessionUserId(req) {
   const cookies = parseCookies(req);
   const token = cookies['dash_session'];
-  if (!token) return false;
-  const [val, sig] = token.split('.');
-  return val === 'authenticated' && sig === signToken('authenticated');
+  if (!token) return null;
+  const [userId, sig] = token.split('.');
+  if (!userId || sig !== signToken(userId)) return null;
+  return userId;
+}
+
+function setSessionCookie(res, userId) {
+  const token = `${userId}.${signToken(userId)}`;
+  res.setHeader('Set-Cookie', `dash_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Max-Age=2147483647; Path=/`);
 }
 
 function requireAuth(req, res, next) {
-  if (isAuthenticated(req)) return next();
+  if (getSessionUserId(req)) return next();
   if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
   res.redirect('/login');
 }
 
-const LOGIN_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dashboard</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#0f0f0f;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui,sans-serif}
-.box{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:40px;width:320px;text-align:center}
-h2{color:#fff;font-size:18px;margin-bottom:24px;font-weight:600}
-input{width:100%;background:#111;border:1px solid #333;border-radius:8px;padding:10px 14px;color:#fff;font-size:14px;margin-bottom:14px;outline:none}
-input:focus{border-color:#3b82f6}
-button{width:100%;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer}
-button:hover{background:#2563eb}.err{color:#f87171;font-size:13px;margin-top:10px}</style></head>
-<body><div class="box"><h2>Dashboard</h2>
+const PAGE_STYLE = `*{box-sizing:border-box;margin:0;padding:0}body{background:#0f0f0f;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui,sans-serif}.box{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:40px;width:360px}h2{color:#fff;font-size:18px;margin-bottom:6px;font-weight:600}p{color:#666;font-size:13px;margin-bottom:24px}.field{margin-bottom:14px}.label{color:#888;font-size:12px;margin-bottom:4px}input{width:100%;background:#111;border:1px solid #333;border-radius:8px;padding:10px 14px;color:#fff;font-size:14px;outline:none}input:focus{border-color:#3b82f6}button{width:100%;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer;margin-top:6px}button:hover{background:#2563eb}.err{color:#f87171;font-size:13px;margin-top:12px}`;
+
+const SETUP_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dashboard — Setup</title><style>${PAGE_STYLE}</style></head>
+<body><div class="box"><h2>Welcome</h2><p>Create your account to get started.</p>
+<form method="POST" action="/setup">
+<div class="field"><div class="label">Your name</div><input type="text" name="name" placeholder="First name" autofocus autocomplete="name"></div>
+<div class="field"><div class="label">Password</div><input type="password" name="password" placeholder="Choose a password" autocomplete="new-password"></div>
+<div class="field"><div class="label">Confirm password</div><input type="password" name="confirm" placeholder="Confirm password" autocomplete="new-password"></div>
+<button type="submit">Create account</button>
+</form><div class="err">{{ERROR}}</div></div></body></html>`;
+
+const LOGIN_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dashboard</title><style>${PAGE_STYLE}</style></head>
+<body><div class="box"><h2>Dashboard</h2><p style="margin-bottom:24px"></p>
 <form method="POST" action="/login">
-<input type="password" name="password" placeholder="Password" autofocus autocomplete="current-password">
+<div class="field"><div class="label">Password</div><input type="password" name="password" placeholder="Password" autofocus autocomplete="current-password"></div>
 <button type="submit">Sign in</button>
-</form><div class="err" id="e">{{ERROR}}</div></div></body></html>`;
+</form><div class="err">{{ERROR}}</div></div></body></html>`;
 
 // R2 storage
 const R2_BUCKET = process.env.R2_BUCKET || 'dashboard-uploads';
@@ -78,19 +88,51 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Auth routes (unprotected)
-app.get('/login', (req, res) => {
-  if (isAuthenticated(req)) return res.redirect('/');
+// First-run + auth routes (unprotected)
+async function firstRunCheck(req, res, next) {
+  if (req.path === '/setup' || req.path.startsWith('/static/')) return next();
+  const hasUser = await dbLayer.hasAnyUser().catch(() => false);
+  if (!hasUser) return res.redirect('/setup');
+  next();
+}
+
+app.use(firstRunCheck);
+
+app.get('/setup', async (req, res) => {
+  const hasUser = await dbLayer.hasAnyUser().catch(() => false);
+  if (hasUser) return res.redirect('/');
+  res.send(SETUP_HTML.replace('{{ERROR}}', ''));
+});
+
+app.post('/setup', async (req, res) => {
+  const hasUser = await dbLayer.hasAnyUser().catch(() => false);
+  if (hasUser) return res.redirect('/');
+  const { name, password, confirm } = req.body;
+  if (!name || !name.trim()) return res.send(SETUP_HTML.replace('{{ERROR}}', 'Name is required'));
+  if (!password || password.length < 6) return res.send(SETUP_HTML.replace('{{ERROR}}', 'Password must be at least 6 characters'));
+  if (password !== confirm) return res.send(SETUP_HTML.replace('{{ERROR}}', 'Passwords do not match'));
+  const id = crypto.randomBytes(8).toString('hex');
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  await dbLayer.createUser({ id, name: name.trim(), passwordHash });
+  setSessionCookie(res, id);
+  res.redirect('/');
+});
+
+app.get('/login', async (req, res) => {
+  if (getSessionUserId(req)) return res.redirect('/');
   res.send(LOGIN_HTML.replace('{{ERROR}}', ''));
 });
 
-app.post('/login', (req, res) => {
-  if (!SESSION_PASSWORD || req.body.password === SESSION_PASSWORD) {
-    const token = 'authenticated.' + signToken('authenticated');
-    res.setHeader('Set-Cookie', `dash_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Max-Age=2147483647; Path=/`);
-    return res.redirect('/');
+app.post('/login', async (req, res) => {
+  const { password } = req.body;
+  const hasUser = await dbLayer.hasAnyUser().catch(() => false);
+  if (!hasUser) return res.redirect('/setup');
+  const row = await dbLayer.getUserByInstance();
+  if (!row || !await bcrypt.compare(password, row.password_hash)) {
+    return res.send(LOGIN_HTML.replace('{{ERROR}}', 'Incorrect password'));
   }
-  res.send(LOGIN_HTML.replace('{{ERROR}}', 'Incorrect password'));
+  setSessionCookie(res, row.id);
+  res.redirect('/');
 });
 
 app.get('/logout', (req, res) => {
@@ -429,18 +471,14 @@ function initDB() {
 
 app.get('/healthz', async (req, res) => {
   try {
-    const status = await getHealthStatus();
-    res.json(status);
+    await getHealthStatus();
+    res.json({ status: 'ok' });
   } catch (err) {
-    res.status(503).json({
-      status: 'degraded',
-      timestamp: new Date().toISOString(),
-      error: err.message,
-    });
+    res.status(503).json({ status: 'degraded' });
   }
 });
 
-app.get('/api/health', async (req, res) => {
+app.get('/api/health', requireAuth, async (req, res) => {
   try {
     const status = await getHealthStatus();
     res.json(status);
@@ -505,6 +543,13 @@ app.get('/api/backup/export', requireBackupToken, async (req, res) => {
 
 // DB snapshot
 app.get('/api/db', async (req, res) => res.json(await dbLayer.readDB()));
+
+app.get('/api/me', async (req, res) => {
+  const userId = getSessionUserId(req);
+  const user = await dbLayer.getUserById(userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json({ id: user.id, name: user.name });
+});
 
 // Areas
 app.get('/api/areas', async (req, res) => {
