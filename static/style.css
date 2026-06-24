@@ -1,4 +1,6 @@
 ﻿*{box-sizing:border-box;margin:0;padding:0}
+/* Suppress blinking cursor everywhere except real inputs */
+*:not(input):not(textarea):not([contenteditable="true"]){caret-color:transparent}
 :root{
   --bg:#0d0d0d;--bg2:#161616;--bg3:#1f1f1f;--bg4:#272727;
   --border:#252525;--border2:#333;

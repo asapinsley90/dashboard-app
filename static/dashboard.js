@@ -636,7 +636,7 @@ function recordCard(r) {
   const icons = { job: '💼', contact: '👤', event: '📅', goal: '🎯', task: '✔', project: '📨', note: '📝', account: '💳', transaction: '💸' };
   let sub = r.fields.role || r.fields.notes?.slice(0, 80) || r.fields.date || '';
   let right = statusBadge(r);
-  let cardIcon = `<div class="record-card-icon">${icons[r.type] || 'â€¢'}</div>`;
+  let cardIcon = `<div class="record-card-icon">${icons[r.type] || '·'}</div>`;
   if (r.type === 'account') {
     const parts = [r.fields.institution, r.fields.accountType, r.fields.owner].filter(Boolean);
     sub = parts.join(' · ');

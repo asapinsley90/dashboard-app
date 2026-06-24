@@ -38,6 +38,9 @@ async function boot() {
   renderSidebar();
   initSidebarCollapse();
   const hash = location.hash.replace('#', '') || 'dashboard';
+  // Set initial history state so browser back/forward works from first page
+  const [initView, initArea, initRecord] = hash.split('/');
+  history.replaceState({ view: initView || 'dashboard', areaId: initArea || null, recordId: initRecord || null }, '', '#' + hash);
   navigateFromHash(hash);
   assistantInit(me.onboardingStep);
 }
@@ -64,11 +67,13 @@ function bindGlobalDelegation() {
     if (areaLinkEl?.dataset.areaLink) {
       e.stopPropagation();
       const clickedId = areaLinkEl.dataset.areaLink;
-      if (currentView === 'area' && currentAreaId === clickedId) {
-        // Second click — toggle subitems
+      // On area main page with no filter → collapse subitems
+      // Anywhere else in that area (record view, filtered sub-view) → go to area main page
+      if (currentView === 'area' && currentAreaId === clickedId && !currentFilter) {
         const subs = document.getElementById('subitems-' + clickedId);
         if (subs) subs.classList.toggle('visible');
       } else {
+        currentFilter = null;
         navigate('area', clickedId);
       }
       return;
