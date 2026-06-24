@@ -1438,8 +1438,16 @@ function assistantTip(key, message) {
   const ap = getAssistantPrefs();
   if (!ap.tipsEnabled) return;
   if (ap.dismissedTips.includes(key)) return;
-  // Remove any existing tip bubble
+
   document.getElementById('tip-bubble')?.remove();
+  document.getElementById('tip-overlay')?.remove();
+
+  // Dim overlay — clicking it dismisses the tip
+  const overlay = document.createElement('div');
+  overlay.id = 'tip-overlay';
+  overlay.onclick = () => dismissAssistantTip(key, false);
+  document.body.appendChild(overlay);
+
   const el = document.createElement('div');
   el.id = 'tip-bubble';
   el.innerHTML = `
@@ -1457,6 +1465,7 @@ function assistantTip(key, message) {
 
 async function dismissAssistantTip(key, dismissAll) {
   document.getElementById('tip-bubble')?.remove();
+  document.getElementById('tip-overlay')?.remove();
   const prefs = getDashPrefs();
   prefs.assistantPrefs = prefs.assistantPrefs || { tipsEnabled: true, dismissedTips: [] };
   if (dismissAll) {
