@@ -1263,12 +1263,24 @@ async function unarchiveRecord(recordId) {
 }
 
 async function deleteRecord(recordId) {
-  if (!confirm('Delete this record? This cannot be undone.')) return;
+  const r = DB.records.find(rec => rec.id === recordId);
+  if (!r) return;
+  const label = r.title || r.fields?.company || 'Record';
+  const areaId = r.areaId;
   await api('DELETE', `/api/records/${recordId}`);
-  DB.records = DB.records.filter(r => r.id !== recordId);
+  r.deletedAt = new Date().toISOString();
   renderSidebar();
   if (currentAreaId) navigate('area', currentAreaId);
   else navigate('dashboard');
+  // Tip: Ctrl+Z available
+  assistantTip('delete-undo', 'Deleted. Press Ctrl+Z to restore within 24 hours, or find it in History → Recently Deleted.');
+  // Push to undo stack
+  pushUndo(label, async () => {
+    await api('POST', `/api/records/${recordId}/restore`);
+    r.deletedAt = null;
+    renderSidebar();
+    navigate('area', areaId);
+  });
 }
 
 function promptAddEvent(targetAreaId = null) {

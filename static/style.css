@@ -447,3 +447,20 @@ textarea.modal-input{resize:vertical;min-height:70px}
 /* Event pill button */
 .event-pill-btn{border-radius:20px;padding:5px 14px;font-size:12px;font-weight:600;background:var(--accent);color:#fff;border:none;cursor:pointer;box-shadow:0 0 0 0 rgba(91,155,213,.4);transition:box-shadow .15s,opacity .15s}
 .event-pill-btn:hover{opacity:.9;box-shadow:0 0 0 3px rgba(91,155,213,.25)}
+
+/* Undo modal */
+#undo-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:9999}
+#undo-modal{background:var(--bg2);border:1px solid var(--accent);border-radius:12px;padding:24px 28px;min-width:280px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+#undo-modal-label{color:var(--text);font-size:15px;margin-bottom:18px}
+#undo-modal-label strong{color:var(--accent)}
+#undo-modal-btns{display:flex;gap:10px;justify-content:center}
+#undo-yes{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:600;cursor:pointer}
+#undo-no{background:var(--bg3);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:8px 20px;font-size:13px;cursor:pointer}
+
+/* Recently Deleted list */
+.history-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);cursor:default}
+.history-item:hover{background:var(--bg3)}
+.deleted-item{cursor:context-menu}
+.history-item-main{display:flex;align-items:center;gap:10px}
+.history-item-title{color:var(--text);font-size:13px}
+.history-item-type{color:var(--dim);font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 5px}

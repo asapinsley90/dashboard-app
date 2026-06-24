@@ -414,15 +414,83 @@ function renderHistoryView() {
   }
 }
 
-function renderRecentlyDeleted() {
+async function renderRecentlyDeleted() {
   const el = document.getElementById('history-list');
   if (!el) return;
-  // Soft-delete system not yet implemented — placeholder
-  el.innerHTML = `<div style="color:var(--muted);padding:32px 0;text-align:center">
-    <div style="font-size:32px;margin-bottom:12px">🗑</div>
-    <div style="font-size:15px;font-weight:500;margin-bottom:6px">Recently Deleted</div>
-    <div style="font-size:13px">Deleted records, areas, and documents will appear here for 24 hours.<br>Full undo system coming soon.</div>
-  </div>`;
+  el.innerHTML = `<div style="color:var(--dim);padding:24px 0;text-align:center;font-size:13px">Loading...</div>`;
+  let deleted;
+  try { deleted = await api('GET', '/api/deleted'); }
+  catch { el.innerHTML = `<div style="color:var(--red);padding:24px;text-align:center;font-size:13px">Failed to load</div>`; return; }
+
+  const { records = [], areas = [] } = deleted;
+  if (!records.length && !areas.length) {
+    el.innerHTML = `<div style="color:var(--muted);padding:40px 0;text-align:center">
+      <div style="font-size:28px;margin-bottom:10px">🗑</div>
+      <div style="font-size:13px">Nothing deleted recently.<br>Deleted items are kept here for 24 hours.</div>
+    </div>`;
+    return;
+  }
+
+  const now = Date.now();
+  function timeLeft(deletedAt) {
+    const ms = 24 * 60 * 60 * 1000 - (now - new Date(deletedAt).getTime());
+    if (ms <= 0) return 'expiring soon';
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    return h > 0 ? `${h}h ${m}m left` : `${m}m left`;
+  }
+
+  const rows = [
+    ...areas.map(a => ({ kind: 'area', id: a.id, label: a.title, sub: 'Area', deletedAt: a.deletedAt })),
+    ...records.map(r => ({ kind: 'record', id: r.id, label: r.title || r.fields?.company || 'Untitled', sub: r.type || 'record', deletedAt: r.deletedAt })),
+  ].sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
+
+  el.innerHTML = rows.map(row => `
+    <div class="history-item deleted-item" data-deleted-kind="${row.kind}" data-deleted-id="${row.id}" title="Right-click for options">
+      <div class="history-item-main">
+        <span class="history-item-title">${escapeHtml(row.label)}</span>
+        <span class="history-item-type">${row.sub}</span>
+      </div>
+      <div class="history-item-meta" style="color:var(--dim);font-size:11px">${timeLeft(row.deletedAt)}</div>
+    </div>`).join('');
+
+  // Right-click context menu on deleted items
+  el.querySelectorAll('.deleted-item').forEach(item => {
+    item.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      closeCtxMenu();
+      const { deletedKind, deletedId } = item.dataset;
+      const label = item.querySelector('.history-item-title')?.textContent || '';
+      const menu = document.createElement('div');
+      menu.className = 'ctx-menu'; menu.id = 'ctx-menu';
+      menu.style.cssText = `position:fixed;top:${e.clientY}px;left:${e.clientX}px`;
+      menu.innerHTML = `
+        <div class="ctx-item" id="ctx-restore">Restore</div>
+        <div class="ctx-item ctx-danger" id="ctx-perm-delete">Delete permanently</div>`;
+      document.body.appendChild(menu); _ctxMenu = menu;
+      menu.querySelector('#ctx-restore').onclick = async () => {
+        closeCtxMenu();
+        await api('POST', `/api/${deletedKind === 'area' ? 'areas' : 'records'}/${deletedId}/restore`);
+        if (deletedKind === 'area') {
+          const restored = DB.areas.find(a => a.id === deletedId);
+          if (restored) restored.deletedAt = null;
+        } else {
+          const restored = DB.records.find(r => r.id === deletedId);
+          if (restored) restored.deletedAt = null;
+        }
+        renderSidebar();
+        renderRecentlyDeleted();
+      };
+      menu.querySelector('#ctx-perm-delete').onclick = async () => {
+        closeCtxMenu();
+        if (!confirm(`Permanently delete "${label}"? This cannot be undone.`)) return;
+        await api('DELETE', `/api/${deletedKind === 'area' ? 'areas' : 'records'}/${deletedId}/permanent`);
+        if (deletedKind === 'area') DB.areas = DB.areas.filter(a => a.id !== deletedId);
+        else DB.records = DB.records.filter(r => r.id !== deletedId);
+        renderRecentlyDeleted();
+      };
+    });
+  });
 }
 
 function renderCompletedView() { historyTab = 'completed'; renderHistoryView(); }
@@ -1132,20 +1200,27 @@ function showAreaCtxMenu(e, areaId) {
     const children = DB.areas.filter(a => a.parentId === areaId);
     const records = DB.records.filter(r => r.areaId === areaId);
     const msg = children.length
-      ? `Delete "${area.title}" and its ${children.length} sub-area(s)? This cannot be undone.`
+      ? `Delete "${area.title}" and its ${children.length} sub-area(s)?`
       : records.length
-      ? `Delete "${area.title}" and its ${records.length} record(s)? This cannot be undone.`
-      : `Delete "${area.title}"? This cannot be undone.`;
+      ? `Delete "${area.title}" and its ${records.length} record(s)?`
+      : `Delete "${area.title}"?`;
     if (!confirm(msg)) return;
-    // Delete children first
-    for (const child of children) {
-      await api('DELETE', `/api/areas/${child.id}`);
-      DB.areas = DB.areas.filter(a => a.id !== child.id);
-    }
+    const label = area.title;
     await api('DELETE', `/api/areas/${areaId}`);
-    DB.areas = DB.areas.filter(a => a.id !== areaId);
+    const now = new Date().toISOString();
+    const childIds = children.map(c => c.id);
+    DB.areas = DB.areas.map(a => (a.id === areaId || childIds.includes(a.id)) ? { ...a, deletedAt: now } : a);
+    DB.records = DB.records.map(r => childIds.includes(r.areaId) || r.areaId === areaId ? { ...r, deletedAt: now } : r);
     if (currentAreaId === areaId || children.some(c => c.id === currentAreaId)) navigate('dashboard');
     else renderSidebar();
+    assistantTip('delete-undo', 'Deleted. Press Ctrl+Z to restore within 24 hours, or find it in History → Recently Deleted.');
+    pushUndo(label, async () => {
+      await api('POST', `/api/areas/${areaId}/restore`);
+      DB.areas = DB.areas.map(a => (a.id === areaId || childIds.includes(a.id)) ? { ...a, deletedAt: null } : a);
+      DB.records = DB.records.map(r => r.deletedWithArea === areaId ? { ...r, deletedAt: null } : r);
+      renderSidebar();
+      navigate('area', areaId);
+    });
   }, 'danger');
   document.body.appendChild(menu); _ctxMenu = menu;
 }

@@ -110,6 +110,57 @@ function bindGlobalDelegation() {
   });
 }
 
+// ── UNDO STACK ────────────────────────────────────────────────────────────────
+const _undoStack = []; // { type, label, restore: async fn }
+const _redoStack = [];
+const UNDO_MAX = 50;
+
+function pushUndo(label, restoreFn) {
+  _undoStack.push({ label, restore: restoreFn });
+  if (_undoStack.length > UNDO_MAX) _undoStack.shift();
+  _redoStack.length = 0;
+}
+
+function showUndoModal(label, onYes, onNo) {
+  const existing = document.getElementById('undo-modal-overlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'undo-modal-overlay';
+  overlay.innerHTML = `
+    <div id="undo-modal">
+      <div id="undo-modal-label">Restore <strong>${label}</strong>?</div>
+      <div id="undo-modal-btns">
+        <button id="undo-yes">Restore</button>
+        <button id="undo-no">Dismiss</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#undo-yes').onclick = () => { overlay.remove(); onYes(); };
+  overlay.querySelector('#undo-no').onclick  = () => { overlay.remove(); onNo?.(); };
+  overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.remove(); onNo?.(); } });
+}
+
+document.addEventListener('keydown', async e => {
+  const tag = document.activeElement?.tagName;
+  if (['INPUT','TEXTAREA','SELECT'].includes(tag)) return;
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
+    e.preventDefault();
+    const action = _undoStack.pop();
+    if (!action) return;
+    showUndoModal(action.label, async () => {
+      await action.restore();
+      _redoStack.push(action);
+    }, () => {});
+  }
+  if ((e.ctrlKey || e.metaKey) && (e.shiftKey && e.key === 'z' || e.key === 'y')) {
+    e.preventDefault();
+    const action = _redoStack.pop();
+    if (!action) return;
+    // Redo = delete again (re-soft-delete)
+    if (action.redelete) await action.redelete();
+  }
+});
+
 // ── API ───────────────────────────────────────────────────────────────────────
 async function api(method, url, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };

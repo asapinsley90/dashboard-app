@@ -870,7 +870,11 @@ app.get('/api/backup/export', requireBackupToken, async (req, res) => {
 });
 
 // DB snapshot
-app.get('/api/db', async (req, res) => res.json(await dbLayer.readDB()));
+app.get('/api/db', async (req, res) => {
+  const db = await dbLayer.readDB();
+  // Strip soft-deleted items from the main DB snapshot
+  res.json({ ...db, areas: db.areas.filter(a => !a.deletedAt), records: db.records.filter(r => !r.deletedAt) });
+});
 
 app.get('/api/me', async (req, res) => {
   const userId = getSessionUserId(req);
@@ -1000,7 +1004,7 @@ You can help the user navigate the app, understand features, and answer question
 // Areas
 app.get('/api/areas', async (req, res) => {
   const db = await dbLayer.readDB();
-  res.json(db.areas.sort((a,b) => a.order - b.order));
+  res.json(db.areas.filter(a => !a.deletedAt).sort((a,b) => a.order - b.order));
 });
 
 app.post('/api/areas', async (req, res) => {
@@ -1020,14 +1024,43 @@ app.put('/api/areas/:id', async (req, res) => {
 
 app.delete('/api/areas/:id', async (req, res) => {
   const db = await dbLayer.readDB();
-  db.areas = db.areas.filter(a => a.id !== req.params.id);
+  const now = new Date().toISOString();
+  // Soft-delete area and all its children + their records
+  const toDelete = [req.params.id, ...db.areas.filter(a => a.parentId === req.params.id).map(a => a.id)];
+  db.areas = db.areas.map(a => toDelete.includes(a.id) ? { ...a, deletedAt: now } : a);
+  db.records = db.records.map(r => toDelete.includes(r.areaId) && !r.deletedAt ? { ...r, deletedAt: now, deletedWithArea: req.params.id } : r);
+  res.json(await dbLayer.writeDB(db));
+});
+
+app.post('/api/areas/:id/restore', async (req, res) => {
+  const db = await dbLayer.readDB();
+  const area = db.areas.find(a => a.id === req.params.id);
+  if (!area) return res.status(404).json({ error: 'Not found' });
+  const toRestore = [req.params.id, ...db.areas.filter(a => a.parentId === req.params.id).map(a => a.id)];
+  db.areas = db.areas.map(a => toRestore.includes(a.id) ? { ...a, deletedAt: null } : a);
+  // Restore records that were deleted with this area
+  db.records = db.records.map(r => r.deletedWithArea === req.params.id ? { ...r, deletedAt: null, deletedWithArea: null } : r);
+  res.json(await dbLayer.writeDB(db));
+});
+
+app.delete('/api/areas/:id/permanent', async (req, res) => {
+  const db = await dbLayer.readDB();
+  const toDelete = [req.params.id, ...db.areas.filter(a => a.parentId === req.params.id).map(a => a.id)];
+  // Delete R2 files for records in these areas
+  for (const r of db.records.filter(rec => toDelete.includes(rec.areaId))) {
+    for (const doc of r.documents || []) {
+      if (doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: doc.key })).catch(() => {});
+    }
+  }
+  db.records = db.records.filter(r => !toDelete.includes(r.areaId));
+  db.areas = db.areas.filter(a => !toDelete.includes(a.id));
   res.json(await dbLayer.writeDB(db));
 });
 
 // Records
 app.get('/api/records', async (req, res) => {
   const db = await dbLayer.readDB();
-  let records = db.records;
+  let records = db.records.filter(r => !r.deletedAt);
   if (req.query.areaId) records = records.filter(r => r.areaId === req.query.areaId);
   if (req.query.type)   records = records.filter(r => r.type === req.query.type);
   res.json(records);
@@ -1066,17 +1099,40 @@ app.put('/api/records/:id', async (req, res) => {
 
 app.delete('/api/records/:id', async (req, res) => {
   const db = await dbLayer.readDB();
+  const i = db.records.findIndex(r => r.id === req.params.id);
+  if (i === -1) return res.status(404).json({ error: 'Not found' });
+  // Soft-delete — files kept in R2 for 24hrs
+  db.records[i] = { ...db.records[i], deletedAt: new Date().toISOString() };
+  res.json(await dbLayer.writeDB(db));
+});
+
+app.post('/api/records/:id/restore', async (req, res) => {
+  const db = await dbLayer.readDB();
+  const i = db.records.findIndex(r => r.id === req.params.id);
+  if (i === -1) return res.status(404).json({ error: 'Not found' });
+  db.records[i] = { ...db.records[i], deletedAt: null, deletedWithArea: null };
+  res.json((await dbLayer.writeDB(db)).records[i]);
+});
+
+app.delete('/api/records/:id/permanent', async (req, res) => {
+  const db = await dbLayer.readDB();
   const record = db.records.find(r => r.id === req.params.id);
-  // Delete any uploaded files from R2
   if (record?.documents?.length) {
     for (const doc of record.documents) {
-      if (doc.key) {
-        await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: doc.key })).catch(() => {});
-      }
+      if (doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: doc.key })).catch(() => {});
     }
   }
   db.records = db.records.filter(r => r.id !== req.params.id);
   res.json(await dbLayer.writeDB(db));
+});
+
+// All soft-deleted items
+app.get('/api/deleted', async (req, res) => {
+  const db = await dbLayer.readDB();
+  res.json({
+    records: db.records.filter(r => r.deletedAt).sort((a, b) => b.deletedAt.localeCompare(a.deletedAt)),
+    areas: db.areas.filter(a => a.deletedAt).sort((a, b) => b.deletedAt.localeCompare(a.deletedAt)),
+  });
 });
 
 // Timeline entry
@@ -1237,6 +1293,29 @@ async function bootstrapAndStart() {
       console.log(`  DB: ${dbLayer.DB_PATH}`);
       console.log(`  Uploads: r2://${R2_BUCKET}\n`);
     });
+
+    // Purge soft-deleted items older than 24 hours (runs every hour)
+    async function purgeDeleted() {
+      try {
+        const db = await dbLayer.readDB();
+        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const expiredRecords = db.records.filter(r => r.deletedAt && r.deletedAt < cutoff);
+        for (const r of expiredRecords) {
+          for (const doc of r.documents || []) {
+            if (doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: doc.key })).catch(() => {});
+          }
+        }
+        const before = { r: db.records.length, a: db.areas.length };
+        db.records = db.records.filter(r => !r.deletedAt || r.deletedAt >= cutoff);
+        db.areas = db.areas.filter(a => !a.deletedAt || a.deletedAt >= cutoff);
+        if (db.records.length !== before.r || db.areas.length !== before.a) {
+          await dbLayer.writeDB(db);
+          console.log(`[purge] Removed ${before.r - db.records.length} records, ${before.a - db.areas.length} areas`);
+        }
+      } catch (e) { console.error('[purge] error:', e.message); }
+    }
+    purgeDeleted(); // run once on startup
+    setInterval(purgeDeleted, 60 * 60 * 1000); // then every hour
   } catch (err) {
     console.error('Failed to initialize database:', err);
     process.exit(1);
