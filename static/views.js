@@ -278,6 +278,17 @@ async function renderDocumentsView(){
     </div>`;
   }).join('');
 }
+function deleteToast(label, onUndo) {
+  document.getElementById('delete-toast')?.remove();
+  const t = document.createElement('div');
+  t.id = 'delete-toast';
+  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:10px 16px;font-size:13px;color:var(--text);z-index:9999;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.3)';
+  t.innerHTML = `<span style="color:var(--muted)">Deleted <b>${escapeHtml(label)}</b></span><button style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer">Undo</button>`;
+  document.body.appendChild(t);
+  const timer = setTimeout(() => t.remove(), 5000);
+  t.querySelector('button').onclick = () => { clearTimeout(timer); t.remove(); onUndo(); };
+}
+
 async function uploadFiles(files){
   const toast=document.createElement('div');
   toast.style.cssText='position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--text);z-index:9999;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.3)';
@@ -1198,28 +1209,32 @@ function showAreaCtxMenu(e, areaId) {
   addD();
   addI('Delete area', async () => {
     const children = DB.areas.filter(a => a.parentId === areaId && !a.deletedAt);
-    const records = DB.records.filter(r => r.areaId === areaId && !r.deletedAt);
-    const msg = children.length
-      ? `Delete "${area.title}" and its ${children.length} sub-area(s)?`
-      : records.length
-      ? `Delete "${area.title}" and its ${records.length} record(s)?`
-      : `Delete "${area.title}"?`;
-    if (!confirm(msg)) return;
     const label = area.title;
-    await api('DELETE', `/api/areas/${areaId}`);
     const now = new Date().toISOString();
     const childIds = children.map(c => c.id);
+
+    // Optimistic: remove from view immediately
     DB.areas = DB.areas.map(a => (a.id === areaId || childIds.includes(a.id)) ? { ...a, deletedAt: now } : a);
-    DB.records = DB.records.map(r => childIds.includes(r.areaId) || r.areaId === areaId ? { ...r, deletedAt: now } : r);
+    DB.records = DB.records.map(r => (childIds.includes(r.areaId) || r.areaId === areaId) ? { ...r, deletedAt: now } : r);
     if (currentAreaId === areaId || children.some(c => c.id === currentAreaId)) navigate('dashboard');
     else renderSidebar();
-    assistantTip('delete-undo', 'Deleted. Press Ctrl+Z to restore within 24 hours, or find it in History → Recently Deleted.');
-    pushUndo(label, async () => {
-      await api('POST', `/api/areas/${areaId}/restore`);
+
+    const restoreFn = async () => {
       DB.areas = DB.areas.map(a => (a.id === areaId || childIds.includes(a.id)) ? { ...a, deletedAt: null } : a);
       DB.records = DB.records.map(r => r.deletedWithArea === areaId ? { ...r, deletedAt: null } : r);
+      await api('POST', `/api/areas/${areaId}/restore`);
       renderSidebar();
       navigate('area', areaId);
+    };
+
+    deleteToast(label, restoreFn);
+    pushUndo(label, restoreFn);
+    assistantTip('delete-undo', 'Deleted. Press Ctrl+Z to restore within 24 hours, or find it in History → Recently Deleted.');
+
+    api('DELETE', `/api/areas/${areaId}`).catch(() => {
+      DB.areas = DB.areas.map(a => (a.id === areaId || childIds.includes(a.id)) ? { ...a, deletedAt: null } : a);
+      DB.records = DB.records.map(r => (childIds.includes(r.areaId) || r.areaId === areaId) ? { ...r, deletedAt: null } : r);
+      renderSidebar();
     });
   }, 'danger');
   document.body.appendChild(menu); _ctxMenu = menu;

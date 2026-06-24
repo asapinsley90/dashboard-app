@@ -1267,19 +1267,37 @@ async function deleteRecord(recordId) {
   if (!r) return;
   const label = r.title || r.fields?.company || 'Record';
   const areaId = r.areaId;
-  await api('DELETE', `/api/records/${recordId}`);
+
+  // Optimistic: remove from view immediately
   r.deletedAt = new Date().toISOString();
   renderSidebar();
   if (currentAreaId) navigate('area', currentAreaId);
   else navigate('dashboard');
-  // Tip: Ctrl+Z available
-  assistantTip('delete-undo', 'Deleted. Press Ctrl+Z to restore within 24 hours, or find it in History → Recently Deleted.');
-  // Push to undo stack
-  pushUndo(label, async () => {
-    await api('POST', `/api/records/${recordId}/restore`);
+
+  // Toast with Ctrl+Z hint
+  deleteToast(label, async () => {
+    // Undo clicked directly from toast
     r.deletedAt = null;
+    await api('POST', `/api/records/${recordId}/restore`);
     renderSidebar();
     navigate('area', areaId);
+  });
+
+  // Push to undo stack (Ctrl+Z)
+  pushUndo(label, async () => {
+    r.deletedAt = null;
+    await api('POST', `/api/records/${recordId}/restore`);
+    renderSidebar();
+    navigate('area', areaId);
+  });
+
+  assistantTip('delete-undo', 'Deleted. Press Ctrl+Z to restore within 24 hours, or find it in History → Recently Deleted.');
+
+  // Fire API in background
+  api('DELETE', `/api/records/${recordId}`).catch(() => {
+    // Rollback on failure
+    r.deletedAt = null;
+    renderSidebar();
   });
 }
 
