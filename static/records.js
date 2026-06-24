@@ -1284,6 +1284,7 @@ function promptAddEvent(targetAreaId = null) {
       renderSidebar();
       if (currentView === 'dashboard') renderDashboard();
       else if (currentView === 'calendar') renderCalFull();
+      else if (currentView === 'area') renderAreaView(currentAreaId);
       else renderCalFull();
     }},
     { label: 'Cancel', onclick: closeModal }]);

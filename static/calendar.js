@@ -24,7 +24,7 @@ function renderAreaCalWidget(containerId, areaId) {
   if (_areaLbl) {
     const _t = new Date(); const _s = state;
     if (_s.mode==='day'){const _d=new Date(_t);_d.setDate(_t.getDate()+_s.offset);_areaLbl.textContent=_d.toLocaleDateString('en-US',{weekday:'long'});}
-    else if (_s.mode==='week'){const _dow=_t.getDay();const _mon=new Date(_t);_mon.setDate(_t.getDate()-(_dow===0?6:_dow-1)+_s.offset*7);const _sun=new Date(_mon);_sun.setDate(_mon.getDate()+6);_areaLbl.textContent=_mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' â€“ '+_sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+    else if (_s.mode==='week'){const _dow=_t.getDay();const _mon=new Date(_t);_mon.setDate(_t.getDate()-(_dow===0?6:_dow-1)+_s.offset*7);const _sun=new Date(_mon);_sun.setDate(_mon.getDate()+6);_areaLbl.textContent=_mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+_sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
     else{const _d=new Date(_t.getFullYear(),_t.getMonth()+_s.offset,1);_areaLbl.textContent=_d.toLocaleDateString('en-US',{month:'long',year:'numeric'});}
   }
 
@@ -69,7 +69,7 @@ function calLabel() {
   if (calMode === 'week') {
     const dow = t.getDay(); const mon = new Date(t); mon.setDate(t.getDate()-(dow===0?6:dow-1)+calOffset*7);
     const sun = new Date(mon); sun.setDate(mon.getDate()+6);
-    return mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' â€“ '+sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    return mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   }
   const d = new Date(t.getFullYear(), t.getMonth()+calOffset, 1);
   return d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
@@ -250,7 +250,7 @@ function buildCalBody(mini) {
         const ds = d.toISOString().split('T')[0];
         const hEvs = events.filter(e=>e.fields.date===ds&&e.fields.time&&Math.floor((eventStartMins(e) ?? -1)/60)===h);
         g += `<div class="cal-week-cell" onclick="if(event.target.closest('[data-record-link]')) return; openQAdd('${ds}','${String(h).padStart(2,'0')}:00')">
-          ${hEvs.map(e=>`<div class="cal-week-event ${evClass(e)}" style="${eventRenderStyle(e,h,40)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.fields.time?.slice(0,5)||''}${e.fields.endTime ? 'â€“' + e.fields.endTime.slice(0,5) : ''} ${e.title}</div>`).join('')}
+          ${hEvs.map(e=>`<div class="cal-week-event ${evClass(e)}" style="${eventRenderStyle(e,h,40)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.fields.time?.slice(0,5)||''}${e.fields.endTime ? '–' + e.fields.endTime.slice(0,5) : ''} ${e.title}</div>`).join('')}
         </div>`;
       }
     });
@@ -268,7 +268,7 @@ function buildCalBody(mini) {
       g += `<div class="cal-day-row">
         <div class="cal-day-label">${label}</div>
         <div class="cal-day-slot" onclick="if(event.target.closest('[data-record-link]')) return; openQAdd('${ds}','${String(h).padStart(2,'0')}:00')">
-          ${hEvs.map(e=>`<div class="cal-day-event ${evClass(e)}" style="${eventRenderStyle(e,h,44)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.fields.time?.slice(0,5)||''}${e.fields.endTime ? 'â€“' + e.fields.endTime.slice(0,5) : ''} ${e.title}</div>`).join('')}
+          ${hEvs.map(e=>`<div class="cal-day-event ${evClass(e)}" style="${eventRenderStyle(e,h,44)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.fields.time?.slice(0,5)||''}${e.fields.endTime ? '–' + e.fields.endTime.slice(0,5) : ''} ${e.title}</div>`).join('')}
         </div>
       </div>`;
     });
@@ -303,14 +303,14 @@ function renderCalFull() {
   const today = new Date();
   // Day panel
   const dayLabel = document.getElementById('cal-day-label');
-  if (dayLabel) dayLabel.textContent = 'Today â€” ' + today.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  if (dayLabel) dayLabel.textContent = 'Today — ' + today.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
   renderTriCalPanel('cal-day-panel', 'day');
   // Week panel
   const weekLabel = document.getElementById('cal-week-label');
   if (weekLabel) {
     const dow = today.getDay(); const mon = new Date(today); mon.setDate(today.getDate()-(dow===0?6:dow-1));
     const sun = new Date(mon); sun.setDate(mon.getDate()+6);
-    weekLabel.textContent = 'This week â€” ' + mon.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' â€“ ' + sun.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    weekLabel.textContent = 'This week — ' + mon.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' – ' + sun.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   }
   renderTriCalPanel('cal-week-panel', 'week');
   // Month panel
@@ -334,7 +334,7 @@ function renderTriCalPanel(containerId, mode) {
   function panelLabel() {
     const t = new Date();
     if (mode==='day'){const d=new Date(t);d.setDate(t.getDate()+state.offset);return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});}
-    if (mode==='week'){const dow=t.getDay();const mon=new Date(t);mon.setDate(t.getDate()-(dow===0?6:dow-1)+state.offset*7);const sun=new Date(mon);sun.setDate(mon.getDate()+6);return mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' â€“ '+sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+    if (mode==='week'){const dow=t.getDay();const mon=new Date(t);mon.setDate(t.getDate()-(dow===0?6:dow-1)+state.offset*7);const sun=new Date(mon);sun.setDate(mon.getDate()+6);return mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
     const d=new Date(t.getFullYear(),t.getMonth()+state.offset,1);return d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
   }
 
@@ -349,7 +349,7 @@ function renderTriCalPanel(containerId, mode) {
         const hEvs=events.filter(e=>e.fields.date===ds&&e.fields.time&&Math.floor((eventStartMins(e) ?? -1)/60)===h);
         g+=`<div class="cal-day-row"><div class="cal-day-label">${label}</div>
           <div class="cal-day-slot" onclick="if(event.target.closest('[data-record-link]')) return; openQAdd('${ds}','${String(h).padStart(2,'0')}:00')">
-            ${hEvs.map(e=>`<div class="cal-day-event ${evClass(e)}" style="${eventRenderStyle(e,h,44)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.fields.time?.slice(0,5)||''}${e.fields.endTime ? 'â€“' + e.fields.endTime.slice(0,5) : ''} ${e.title}</div>`).join('')}
+            ${hEvs.map(e=>`<div class="cal-day-event ${evClass(e)}" style="${eventRenderStyle(e,h,44)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.fields.time?.slice(0,5)||''}${e.fields.endTime ? '–' + e.fields.endTime.slice(0,5) : ''} ${e.title}</div>`).join('')}
           </div></div>`;
       });
       return g+'</div>';
@@ -363,7 +363,7 @@ function renderTriCalPanel(containerId, mode) {
       Array.from({length:18},(_,i)=>i+6).forEach(h=>{
         const label=h<12?`${h}a`:h===12?'12p':`${h-12}p`;
         g+=`<div class="cal-week-hour-label">${label}</div>`;
-        for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);const ds=d.toISOString().split('T')[0];const hEvs=events.filter(e=>e.fields.date===ds&&e.fields.time&&Math.floor((eventStartMins(e) ?? -1)/60)===h);g+=`<div class="cal-week-cell" onclick="if(event.target.closest('[data-record-link]')) return; openQAdd('${ds}','${String(h).padStart(2,'0')}:00')">${hEvs.map(e=>`<div class="cal-week-event ${evClass(e)}" style="${eventRenderStyle(e,h,40)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.fields.time?.slice(0,5)||''}${e.fields.endTime ? 'â€“' + e.fields.endTime.slice(0,5) : ''} ${e.title}</div>`).join('')}</div>`;}
+        for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);const ds=d.toISOString().split('T')[0];const hEvs=events.filter(e=>e.fields.date===ds&&e.fields.time&&Math.floor((eventStartMins(e) ?? -1)/60)===h);g+=`<div class="cal-week-cell" onclick="if(event.target.closest('[data-record-link]')) return; openQAdd('${ds}','${String(h).padStart(2,'0')}:00')">${hEvs.map(e=>`<div class="cal-week-event ${evClass(e)}" style="${eventRenderStyle(e,h,40)}" data-record-link data-area-id="${e.areaId}" data-record-id="${e.id}">${e.fields.time?.slice(0,5)||''}${e.fields.endTime ? '–' + e.fields.endTime.slice(0,5) : ''} ${e.title}</div>`).join('')}</div>`;}
       });
       return g+'</div></div>';
     }
@@ -410,8 +410,8 @@ function triCalNav(dir, cid, mode) {
   const labelEl=document.getElementById(labelId);
   if(labelEl){
     const today=new Date();
-    if(mode==='day'){const d=new Date(today);d.setDate(today.getDate()+s.offset);labelEl.textContent='Today â€” '+d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});}
-    else if(mode==='week'){const dow=today.getDay();const mon=new Date(today);mon.setDate(today.getDate()-(dow===0?6:dow-1)+s.offset*7);const sun=new Date(mon);sun.setDate(mon.getDate()+6);labelEl.textContent=mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' â€“ '+sun.toLocaleDateString('en-US',{month:'short',day:'numeric'});}
+    if(mode==='day'){const d=new Date(today);d.setDate(today.getDate()+s.offset);labelEl.textContent='Today — '+d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});}
+    else if(mode==='week'){const dow=today.getDay();const mon=new Date(today);mon.setDate(today.getDate()-(dow===0?6:dow-1)+s.offset*7);const sun=new Date(mon);sun.setDate(mon.getDate()+6);labelEl.textContent=mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+sun.toLocaleDateString('en-US',{month:'short',day:'numeric'});}
     else{const d=new Date(today.getFullYear(),today.getMonth()+s.offset,1);labelEl.textContent=d.toLocaleDateString('en-US',{month:'long',year:'numeric'});}
   }
 }
@@ -435,7 +435,7 @@ function calNav(dir, cid, mini) {
   if (_lbl) {
     const _t=new Date();
     if(calMode==='day'){const _d=new Date(_t);_d.setDate(_t.getDate()+calOffset);_lbl.textContent=_d.toLocaleDateString('en-US',{weekday:'long'});}
-    else if(calMode==='week'){const _dow=_t.getDay();const _mon=new Date(_t);_mon.setDate(_t.getDate()-(_dow===0?6:_dow-1)+calOffset*7);const _sun=new Date(_mon);_sun.setDate(_mon.getDate()+6);_lbl.textContent=_mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' â€“ '+_sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+    else if(calMode==='week'){const _dow=_t.getDay();const _mon=new Date(_t);_mon.setDate(_t.getDate()-(_dow===0?6:_dow-1)+calOffset*7);const _sun=new Date(_mon);_sun.setDate(_mon.getDate()+6);_lbl.textContent=_mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+_sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
     else{const _d=new Date(_t.getFullYear(),_t.getMonth()+calOffset,1);_lbl.textContent=_d.toLocaleDateString('en-US',{month:'long',year:'numeric'});}
   }
 }
@@ -443,7 +443,7 @@ function setCalMode(mode, cid, mini) {
   const prev = calMode;
   calMode=mode; calOffset=0; renderCalWidget(cid,mini);
   const _lbl = document.getElementById('dash-cal-label');
-  if (_lbl) { const _t=new Date(); if(calMode==='day'){const _d=new Date(_t);_d.setDate(_t.getDate()+calOffset);_lbl.textContent=_d.toLocaleDateString('en-US',{weekday:'long'});}else if(calMode==='week'){const _dow=_t.getDay();const _mon=new Date(_t);_mon.setDate(_t.getDate()-(_dow===0?6:_dow-1)+calOffset*7);const _sun=new Date(_mon);_sun.setDate(_mon.getDate()+6);_lbl.textContent=_mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' â€“ '+_sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}else{const _d=new Date(_t.getFullYear(),_t.getMonth()+calOffset,1);_lbl.textContent=_d.toLocaleDateString('en-US',{month:'long',year:'numeric'});} }
+  if (_lbl) { const _t=new Date(); if(calMode==='day'){const _d=new Date(_t);_d.setDate(_t.getDate()+calOffset);_lbl.textContent=_d.toLocaleDateString('en-US',{weekday:'long'});}else if(calMode==='week'){const _dow=_t.getDay();const _mon=new Date(_t);_mon.setDate(_t.getDate()-(_dow===0?6:_dow-1)+calOffset*7);const _sun=new Date(_mon);_sun.setDate(_mon.getDate()+6);_lbl.textContent=_mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+_sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}else{const _d=new Date(_t.getFullYear(),_t.getMonth()+calOffset,1);_lbl.textContent=_d.toLocaleDateString('en-US',{month:'long',year:'numeric'});} }
   if (prev !== mode) history.pushState({view:currentView,areaId:currentAreaId,recordId:currentRecordId,calMode:mode,calCid:cid,calMini:mini},'','#'+currentView+(currentAreaId?'/'+currentAreaId:''));
 }
 
@@ -458,7 +458,7 @@ function openDayView(ds, cid, mini) {
 function openQAdd(date, hour) {
   qAddDate=date; qAddHour=hour;
   const d = new Date(date+'T12:00:00');
-  const label = d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+(hour?' Â· '+fmtTime(hour):'');
+  const label = d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+(hour?' · '+fmtTime(hour):'');
   let box = document.getElementById('qadd-box');
   if (!box) {
     const ov = document.createElement('div'); ov.className='qadd-overlay'; ov.id='qadd-overlay';
@@ -505,7 +505,7 @@ function openQAdd(date, hour) {
     const labelEl = document.getElementById('qadd-label');
     if (labelEl) {
       const d = new Date(qAddDate + 'T12:00:00');
-      labelEl.textContent = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) + (t ? ' Â· ' + fmtTime(t) : '');
+      labelEl.textContent = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) + (t ? ' · ' + fmtTime(t) : '');
     }
     if (!t) {
       document.getElementById('qadd-endtime-h').value = '12';
@@ -542,7 +542,7 @@ function openQAddDateEdit() {
       qAddDate = inp.value;
       const d = new Date(inp.value + 'T12:00:00');
       const t = document.getElementById('qadd-time')?.value;
-      label.textContent = d.toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric'}) + (t ? ' Â· ' + fmtTime(t) : '');
+      label.textContent = d.toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric'}) + (t ? ' · ' + fmtTime(t) : '');
       label.style.cursor = 'pointer';
       label.onclick = openQAddDateEdit;
     }

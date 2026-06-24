@@ -85,6 +85,12 @@ function bindGlobalDelegation() {
       return;
     }
 
+    const collapseEl = e.target.closest('[data-widget-collapse]');
+    if (collapseEl && !e.target.closest('button')) {
+      toggleDashWidget(collapseEl.dataset.widgetCollapse);
+      return;
+    }
+
     const actionEl = e.target.closest('[data-action]');
     if (actionEl) {
       const action = actionEl.dataset.action;

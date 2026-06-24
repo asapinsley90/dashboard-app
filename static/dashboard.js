@@ -50,6 +50,18 @@ async function showDashWidget(id) {
 }
 
 let _dashDragSrc = null;
+const _dashCollapsed = JSON.parse(localStorage.getItem('dashCollapsed') || '{}');
+
+function toggleDashWidget(id) {
+  _dashCollapsed[id] = !_dashCollapsed[id];
+  localStorage.setItem('dashCollapsed', JSON.stringify(_dashCollapsed));
+  const wrap = document.querySelector(`[data-widget-id="${id}"]`);
+  if (!wrap) return;
+  const body = wrap.querySelector('.dash-section-body');
+  const chevron = wrap.querySelector('.dash-collapse-chevron');
+  if (body) body.style.display = _dashCollapsed[id] ? 'none' : '';
+  if (chevron) chevron.textContent = _dashCollapsed[id] ? '▸' : '▾';
+}
 
 function buildDashSections() {
   const col = document.getElementById('dash-sections-col');
@@ -83,14 +95,16 @@ function buildDashSections() {
       : (id === 'today' || id === 'week')
       ? `<button class="event-pill-btn" style="font-size:11px;padding:3px 10px;margin-right:4px" onclick="event.stopPropagation();promptAddEvent()">+ Add event</button>`
       : '';
+    const isCollapsed = !!_dashCollapsed[id];
     wrap.innerHTML = `
-      <div class="dash-section-drag-header" title="Drag to reorder">
+      <div class="dash-section-drag-header dash-collapsible" data-widget-collapse="${id}" title="Click to collapse · Drag to reorder">
         <span class="drag-grip">&#8942;</span>
         <span class="dash-section-label" style="margin:0;flex:1">${widget.label}</span>
+        <span class="dash-collapse-chevron" style="color:var(--dim);font-size:10px;margin-right:4px">${isCollapsed ? '▸' : '▾'}</span>
         ${actionBtn}
-        <button class="dash-section-hide-btn" onclick="hideDashWidget('${id}')" title="Hide section">&#x2715;</button>
+        <button class="dash-section-hide-btn" onclick="event.stopPropagation();hideDashWidget('${id}')" title="Hide section">&#x2715;</button>
       </div>
-      <div class="dash-section-body">${dashSectionHTML(id)}</div>`;
+      <div class="dash-section-body" style="${isCollapsed ? 'display:none' : ''}">${dashSectionHTML(id)}</div>`;
 
     // Drag events
     wrap.addEventListener('dragstart', e => {
@@ -207,11 +221,11 @@ function renderAttentionFilters() {
     const cls = URGENCY_CSS[key] || '';
     pills.push(`<button class="attention-filter ${cls}${active ? ' active' : ''}" onclick="setAttentionFilter('${key}')">${labels[key]} <span class="af-count">${cnt}</span></button>`);
   });
-  // None pill
+  // None pill — only show if it's currently active (so user can switch away), never in default view
   const noneCnt = counts['none'] || 0;
-  if (noneCnt) {
-    const nActive = attentionFilter === 'none';
-    pills.push(`<button class="attention-filter af-none${nActive ? ' active' : ''}" onclick="setAttentionFilter('none')">${labels['none']} <span class="af-count">${noneCnt}</span></button>`);
+  if (attentionFilter === 'none' && noneCnt) {
+    const nActive = true;
+    pills.push(`<button class="attention-filter af-none active" onclick="setAttentionFilter('triage')">${labels['none']} <span class="af-count">${noneCnt}</span></button>`);
   }
   // Edit labels button
   pills.push(`<button class="attention-filter af-edit" onclick="openUrgencyLabelEditor()" title="Rename labels">✏</button>`);
@@ -575,7 +589,7 @@ function collapsibleGroup(label, recs, defaultOpen, key) {
   const isOpen = defaultOpen || (window._grpOpen||{})[key];
   return `<div style="margin-bottom:12px">
     <div class="group-header" onclick="toggleGroup('${id}','${key}')">
-      <span class="group-toggle ${isOpen?'open':''}">â–¶</span>
+      <span class="group-toggle ${isOpen?'open':''}">▶</span>
       <span class="group-label">${label}</span>
       <span class="group-count">${recs.length}</span>
     </div>
