@@ -79,8 +79,9 @@
     </div>
     <div id="sidebar-assistant-btn" onclick="assistantOpen()" style="padding:14px 12px 10px;cursor:pointer">
       <div style="display:flex;align-items:center;gap:6px;color:var(--accent);font-size:13px;font-weight:600;letter-spacing:.01em">
-        <span style="font-size:15px">✦</span>
-        <span>? Ask me anything ?</span>
+        <span style="font-size:14px">✦</span>
+        <span id="assistant-static-label">Ask me anything</span>
+        <span style="font-size:14px;margin-left:auto">✦</span>
       </div>
     </div>
   </div>
@@ -270,8 +271,9 @@
         <div class="history-tabs" id="history-tabs" style="margin-bottom:12px">
           <button class="history-tab active" id="history-tab-completed" onclick="setHistoryTab('completed')">Completed</button>
           <button class="history-tab" id="history-tab-archived" onclick="setHistoryTab('archived')">Archived</button>
+          <button class="history-tab" id="history-tab-deleted" onclick="setHistoryTab('deleted')">Recently deleted</button>
         </div>
-        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <div id="history-filters-wrap" style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
           <input class="modal-input" id="history-search" placeholder="Search..." style="flex:1;min-width:200px;padding:6px 10px" oninput="renderHistoryView()">
           <select class="modal-select" id="history-area-filter" style="width:160px;padding:6px 10px" onchange="renderHistoryView()">
             <option value="">All areas</option>

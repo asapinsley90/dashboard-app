@@ -78,10 +78,16 @@ function buildDashSections() {
     wrap.dataset.widgetId = id;
     wrap.draggable = true;
 
+    const actionBtn = id === 'areas'
+      ? `<button class="event-pill-btn" style="font-size:11px;padding:3px 10px;margin-right:4px" onclick="event.stopPropagation();promptAddArea()">+ Add area</button>`
+      : (id === 'today' || id === 'week')
+      ? `<button class="event-pill-btn" style="font-size:11px;padding:3px 10px;margin-right:4px" onclick="event.stopPropagation();promptAddEvent()">+ Add event</button>`
+      : '';
     wrap.innerHTML = `
       <div class="dash-section-drag-header" title="Drag to reorder">
         <span class="drag-grip">&#8942;</span>
         <span class="dash-section-label" style="margin:0;flex:1">${widget.label}</span>
+        ${actionBtn}
         <button class="dash-section-hide-btn" onclick="hideDashWidget('${id}')" title="Hide section">&#x2715;</button>
       </div>
       <div class="dash-section-body">${dashSectionHTML(id)}</div>`;
@@ -535,7 +541,7 @@ function jobCard(r) {
   const statusLabel = { interviewing: 'Interviewing', awaiting: 'Awaiting', applied: 'Applied', rejected: 'Rejected' };
   const nextI = (r.interviews || []).filter(i => i.date >= new Date().toISOString().split('T')[0]).sort((a,b) => a.date.localeCompare(b.date))[0];
   return `<div class="record-card" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
-    <div class="record-card-icon">ðŸ'¼</div>
+    <div class="record-card-icon">💼</div>
     <div class="record-card-body">
       <div class="record-card-title">${r.title}</div>
       <div class="record-card-sub">${r.fields.role}${r.fields.salary ? ' · ' + r.fields.salary : ''}${nextI ? ' · Next: ' + formatDate(nextI.date) : ''}</div>
@@ -558,7 +564,7 @@ function recordCard(r) {
     right = bal ? `<span style="font-size:14px;font-weight:600;color:var(--text)">${bal}</span>` : '';
     const instDef = getInstitutionDefaults(r.fields.institution);
     const domain = r.fields.institutionDomain || instDef?.domain;
-    if (domain) cardIcon = `<div class="record-card-icon" style="padding:0;display:flex;align-items:center;justify-content:center"><img src="https://www.google.com/s2/favicons?domain=${domain}&sz=64" style="width:22px;height:22px;object-fit:contain" onerror="this.outerHTML='ðŸ'³'"></div>`;
+    if (domain) cardIcon = `<div class="record-card-icon" style="padding:0;display:flex;align-items:center;justify-content:center"><img src="https://www.google.com/s2/favicons?domain=${domain}&sz=64" style="width:22px;height:22px;object-fit:contain" onerror="this.outerHTML='💳'"></div>`;
   }
   return `<div class="record-card" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
     ${cardIcon}

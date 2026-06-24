@@ -51,7 +51,7 @@ function navigate(view, areaId, recordId, push = true) {
   else if (safeView === 'contacts') renderContactsView();
   else if (safeView === 'companies') renderCompaniesView();
   else if (safeView === 'documents') renderDocumentsView();
-  else if (safeView === 'history') { historyTab = areaId === 'archived' ? 'archived' : 'completed'; renderHistoryView(); }
+  else if (safeView === 'history') { historyTab = ['archived','deleted'].includes(areaId) ? areaId : 'completed'; renderHistoryView(); }
   else if (safeView === 'weekly') renderWeekly();
   else if (safeView === 'templates') renderTemplatesView();
 

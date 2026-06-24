@@ -116,7 +116,7 @@ function renderContactsView() {
 // â"€â"€ DOCUMENTS â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 let allFiles = [];
 async function loadFiles(){allFiles=await api('GET','/api/files');return allFiles;}
-function fileIcon(n){const e=n.split('.').pop().toLowerCase();if(e==='pdf')return'ðŸ"•';if(['doc','docx'].includes(e))return'ðŸ"˜';if(['xls','xlsx'].includes(e))return'ðŸ"—';if(['jpg','jpeg','png','gif','webp'].includes(e))return'ðŸ–¼';if(['zip','rar','7z'].includes(e))return'ðŸ"¦';return'ðŸ"„';}
+function fileIcon(n){const e=n.split('.').pop().toLowerCase();if(e==='pdf')return'📕';if(['doc','docx'].includes(e))return'ðŸ"˜';if(['xls','xlsx'].includes(e))return'📗';if(['jpg','jpeg','png','gif','webp'].includes(e))return'🖼';if(['zip','rar','7z'].includes(e))return'📦';return'📄';}
 function fmtSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';return(b/1048576).toFixed(1)+' MB';}
 
 function normalizeRecordDocs(r) {
@@ -289,11 +289,11 @@ async function uploadFiles(files){
     const res=await fetch('/api/files',{method:'POST',body:fd});
     const uploaded=await res.json();
     if(!res.ok)throw new Error(uploaded.error||'Upload failed');
-    toast.innerHTML=`<span style="color:var(--green)">âœ"</span><span>Uploaded ${files.length===1?`<b>${names}</b>`:`${files.length} files`}</span>`;
+    toast.innerHTML=`<span style="color:var(--green)">✓</span><span>Uploaded ${files.length===1?`<b>${names}</b>`:`${files.length} files`}</span>`;
     setTimeout(()=>toast.remove(),4500);
     await loadFiles();if(currentView==='documents')renderDocumentsView();return uploaded;
   }catch(err){
-    toast.innerHTML=`<span style="color:var(--red)">âœ—</span><span>Upload failed: ${err.message}</span>`;
+    toast.innerHTML=`<span style="color:var(--red)">✗</span><span>Upload failed: ${err.message}</span>`;
     setTimeout(()=>toast.remove(),4000);
     return [];
   }
@@ -394,19 +394,35 @@ function renderStatusView(status, listId, searchId, areaFilterId) {
 }
 
 function setHistoryTab(tab) {
-  historyTab = tab === 'archived' ? 'archived' : 'completed';
+  historyTab = ['archived', 'deleted'].includes(tab) ? tab : 'completed';
   renderHistoryView();
   const hash = `history/${historyTab}`;
   history.pushState({ view: 'history', areaId: historyTab, recordId: null }, '', '#' + hash);
 }
 
 function renderHistoryView() {
-  const tab = historyTab === 'archived' ? 'archived' : 'completed';
-  const tabCompleted = document.getElementById('history-tab-completed');
-  const tabArchived = document.getElementById('history-tab-archived');
-  if (tabCompleted) tabCompleted.classList.toggle('active', tab === 'completed');
-  if (tabArchived) tabArchived.classList.toggle('active', tab === 'archived');
-  renderStatusView(tab, 'history-list', 'history-search', 'history-area-filter');
+  const tab = historyTab;
+  document.getElementById('history-tab-completed')?.classList.toggle('active', tab === 'completed');
+  document.getElementById('history-tab-archived')?.classList.toggle('active', tab === 'archived');
+  document.getElementById('history-tab-deleted')?.classList.toggle('active', tab === 'deleted');
+  const filtersWrap = document.getElementById('history-filters-wrap');
+  if (filtersWrap) filtersWrap.style.display = tab === 'deleted' ? 'none' : '';
+  if (tab === 'deleted') {
+    renderRecentlyDeleted();
+  } else {
+    renderStatusView(tab, 'history-list', 'history-search', 'history-area-filter');
+  }
+}
+
+function renderRecentlyDeleted() {
+  const el = document.getElementById('history-list');
+  if (!el) return;
+  // Soft-delete system not yet implemented — placeholder
+  el.innerHTML = `<div style="color:var(--muted);padding:32px 0;text-align:center">
+    <div style="font-size:32px;margin-bottom:12px">🗑</div>
+    <div style="font-size:15px;font-weight:500;margin-bottom:6px">Recently Deleted</div>
+    <div style="font-size:13px">Deleted records, areas, and documents will appear here for 24 hours.<br>Full undo system coming soon.</div>
+  </div>`;
 }
 
 function renderCompletedView() { historyTab = 'completed'; renderHistoryView(); }
@@ -470,7 +486,7 @@ function noteColorNext(current) {
   const i = NOTE_COLORS.indexOf(current||'color-amber');
   return NOTE_COLORS[(i+1) % NOTE_COLORS.length];
 }
-function noteColorLabel(c) { return c==='color-red'?'🔴':c==='color-green'?'ðŸŸ¢':'🟡'; }
+function noteColorLabel(c) { return c==='color-red'?'🔴':c==='color-green'?'🟢':'🟡'; }
 
 function buildNoteHTML(n, i, recordId) {
   const color = n.color || 'color-amber';
@@ -788,7 +804,7 @@ function copyRecordContext(recordId) {
   const text = lines.join('\n');
   const btn = document.querySelector('[onclick*="copyRecordContext"]');
   const showCopied = function() {
-    if (btn) { const o = btn.innerHTML; btn.innerHTML = 'âœ" Copied!'; setTimeout(function(){ btn.innerHTML = o; }, 2000); }
+    if (btn) { const o = btn.innerHTML; btn.innerHTML = '✓ Copied!'; setTimeout(function(){ btn.innerHTML = o; }, 2000); }
   };
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(showCopied).catch(function() {
@@ -1280,16 +1296,11 @@ function assistantInit(onboardingStep) {
 }
 
 function renderAssistantBubble() {
-  let el = document.getElementById('assistant-bubble');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'assistant-bubble';
-    document.getElementById('sidebar-scroll').appendChild(el);
+  // Use the static #sidebar-assistant-btn in index.html — update its label if there's context
+  const label = document.getElementById('assistant-static-label');
+  if (label && assistant.areaContext) {
+    label.textContent = 'Ask about ' + assistant.areaContext;
   }
-  el.innerHTML = `<div id="assistant-bubble-btn" onclick="assistantToggle()" title="Ask me anything">
-    <span style="font-size:14px">✦</span>
-    <span id="assistant-bubble-label" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ask me anything</span>
-  </div>`;
 }
 
 function assistantToggle() {
