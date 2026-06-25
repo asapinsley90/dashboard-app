@@ -21,12 +21,27 @@ const RENDER_API_KEY = process.env.RENDER_API_KEY || '';
 const RENDER_OWNER_ID = process.env.RENDER_OWNER_ID || '';
 const NEON_API_KEY = process.env.NEON_API_KEY || '';
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || '';
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
 const BCRYPT_ROUNDS = 12;
 const APP_URL = process.env.APP_URL || 'https://dashboard-app-jxlb.onrender.com';
 
 async function sendEmail(to, subject, html) {
-  if (!SENDGRID_API_KEY) { console.log(`[email] ${subject} → ${to}`); return; }
+  const apiKey = RESEND_API_KEY || SENDGRID_API_KEY;
+  if (!apiKey) { console.log(`[email] ${subject} → ${to}`); return; }
+  if (RESEND_API_KEY) {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: 'Dashboard <onboarding@resend.dev>', to, subject, html }),
+    });
+    if (!r.ok) {
+      const body = await r.text().catch(() => '');
+      console.error('[email] Resend error:', r.status, body);
+      throw new Error(`Resend ${r.status}: ${body}`);
+    }
+    return;
+  }
   const fromEmail = process.env.SENDGRID_FROM_EMAIL || ADMIN_EMAIL || 'noreply@dashboard.app';
   const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
     method: 'POST',
