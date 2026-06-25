@@ -130,11 +130,14 @@ function _renderTourStep(step, index) {
     document.body.appendChild(halo);
 
     // If this step requires clicking the target, wire it up
-    if (step.requireClick && step.advance === 'manual') {
+    if (step.requireClick) {
       const handler = () => {
         target.removeEventListener('click', handler);
         tour._clickHandler = null;
-        setTimeout(() => showTourStep(tour.step + 1), 300);
+        // Always clear overlay so modals/interactions aren't blocked
+        clearTourOverlay();
+        if (step.advance === 'manual') setTimeout(() => showTourStep(tour.step + 1), 300);
+        // For event-driven advances (area-created, record-created), tourNotify handles the next step
       };
       target.addEventListener('click', handler);
       tour._clickHandler = { el: target, fn: handler };
