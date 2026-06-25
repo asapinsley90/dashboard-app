@@ -607,6 +607,7 @@ function detachStatementPasteListener() {
 
 function renderAccountCharts(containerId, history) {
   const el = document.getElementById(containerId);
+  console.log('[charts]', containerId, 'el:', !!el, 'history:', history?.length, 'width:', el?.offsetWidth);
   if (!el || history.length < 2) { if (el) el.innerHTML = ''; return; }
 
   if (!el.offsetWidth) {
