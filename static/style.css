@@ -101,6 +101,10 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .record-sidebar{}
 .section-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px}
 .section-title{font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px}
+.section-toggle{cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px;margin-bottom:0}
+.section-toggle:hover{color:var(--text)}
+.section-chevron{font-size:10px;opacity:.7}
+.collapsible-section .section-body{margin-top:12px}
 .field-row{display:flex;gap:8px;margin-bottom:10px;align-items:flex-start}
 .field-label{font-size:11px;color:var(--dim);width:100px;flex-shrink:0;padding-top:3px}
 .field-value{flex:1;font-size:13px;color:var(--text)}

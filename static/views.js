@@ -1,4 +1,14 @@
-﻿// â"€â"€ CONTACTS VIEW â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+﻿function toggleSection(titleEl) {
+  const card = titleEl.closest('.collapsible-section');
+  const body = card?.querySelector('.section-body');
+  const chevron = titleEl.querySelector('.section-chevron');
+  if (!body) return;
+  const collapsed = body.style.display === 'none';
+  body.style.display = collapsed ? '' : 'none';
+  if (chevron) chevron.textContent = collapsed ? '▾' : '▸';
+}
+
+// â"€â"€ CONTACTS VIEW â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function splitContactName(name) {
   const parts = (name || '').trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return { first: '', last: '' };
@@ -694,13 +704,15 @@ function buildNoteHTML(n, i, recordId) {
 function renderNotesSection(r) {
   const notes = r.notes || [];
   const notesHTML = notes.map((n, i) => buildNoteHTML(n, i, r.id)).join('');
-  return `<div class="section-card">
-    <div class="section-title">Notes</div>
+  return `<div class="section-card collapsible-section">
+    <div class="section-title section-toggle" onclick="toggleSection(this)"><span class="section-chevron">▾</span> Notes</div>
+    <div class="section-body">
     <div class="notes-list" id="notes-list-${r.id}">${notesHTML}</div>
     <div class="notes-input-wrap">
       <textarea id="notes-input-${r.id}" placeholder="Add a note — Enter to save, Shift+Enter for new line..." rows="1"
         onkeydown="notesKeydown(event,'${r.id}')"
         oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+    </div>
     </div>
   </div>`;
 }

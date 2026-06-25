@@ -420,12 +420,13 @@ function renderAccountRecord(r, area) {
   <div id="${chartId}" style="padding:0 0 4px 0"></div>
   <div class="record-sections">
     <div class="record-main">
-      <div class="section-card">
-        <div class="section-title">Monthly history</div>
-        ${historyHTML}
+      <div class="section-card collapsible-section">
+        <div class="section-title section-toggle" onclick="toggleSection(this)"><span class="section-chevron">▾</span> Monthly history</div>
+        <div class="section-body">${historyHTML}</div>
       </div>
-      <div class="section-card">
-        <div class="section-title">Account details</div>
+      <div class="section-card collapsible-section">
+        <div class="section-title section-toggle" onclick="toggleSection(this)"><span class="section-chevron">▾</span> Account details</div>
+        <div class="section-body">
         ${editableField(r, 'institution', 'Institution')}
         <div class="field-row"><div class="field-label">Type</div><div class="field-value">
           <select class="field-edit" onchange="saveFieldText('${r.id}','accountType',this.value)">
@@ -442,6 +443,7 @@ function renderAccountRecord(r, area) {
         ${editableField(r, 'last4', 'Last 4 digits')}
         ${editableField(r, 'institutionUrl', 'Login URL')}
         ${editableField(r, 'institutionDomain', 'Logo domain')}
+        </div>
       </div>
       ${renderNotesSection(r)}
     </div>
@@ -617,8 +619,8 @@ function renderAccountCharts(containerId, history) {
 
   // â"€â"€ Balance line chart â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   function lineChart(values, title, fmtY) {
-    const H = 140, PL = 72, PR = 16, PT = 28, PB = 28;
-    const cW = W/3 - 16, cH = H;
+    const H = 160, PL = 72, PR = 16, PT = 28, PB = 28;
+    const cW = W, cH = H;
     const min = Math.min(...values), max = Math.max(...values);
     const range = max - min || 1;
     const xStep = (cW - PL - PR) / (values.length - 1);
@@ -697,10 +699,8 @@ function renderAccountCharts(containerId, history) {
   const returns = history.map(h => h.returnPct ?? 0);
   const fmtK = n => n >= 1000 ? '$'+(n/1000).toFixed(0)+'k' : '$'+n.toFixed(0);
 
-  el.innerHTML = `<div style="display:flex;gap:8px;padding:0 0 16px 0;overflow:hidden">
-    ${lineChart(balances, 'Balance', fmtK)}
-    ${returnChart(returns, 'Monthly return %')}
-    ${contribChart(history, 'Contributions vs gain')}
+  el.innerHTML = `<div style="padding:0 0 16px 0;overflow:hidden">
+    ${lineChart(balances, 'Balance over time', fmtK)}
   </div>`;
 }
 
