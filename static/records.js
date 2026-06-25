@@ -390,10 +390,10 @@ function renderAccountRecord(r, area) {
 
   const chartHistory = (r.fields.history || []).slice().sort((a,b) => a.month.localeCompare(b.month));
   const chartId = `acct-charts-${r.id}`;
-  setTimeout(() => {
+  requestAnimationFrame(() => {
     attachStatementPasteListener(r.id);
     renderAccountCharts(chartId, chartHistory);
-  }, 0);
+  });
 
   return `<div class="record-view-header">
     ${logoHTML}
@@ -606,7 +606,11 @@ function renderAccountCharts(containerId, history) {
   const el = document.getElementById(containerId);
   if (!el || history.length < 2) { if (el) el.innerHTML = ''; return; }
 
-  const W = el.offsetWidth || 700;
+  if (!el.offsetWidth) {
+    setTimeout(() => renderAccountCharts(containerId, history), 50);
+    return;
+  }
+  const W = el.offsetWidth;
   const labels = history.map(h => h.month.slice(0, 7));
   const shortLabels = labels.map(l => { const [y,m] = l.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1] + ' ' + y.slice(2); });
 
