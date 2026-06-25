@@ -1383,7 +1383,8 @@ app.delete('/api/areas/:id/permanent', async (req, res) => {
   // Delete R2 files for records in these areas
   for (const r of db.records.filter(rec => toDelete.includes(rec.areaId))) {
     for (const doc of r.documents || []) {
-      if (doc.name || doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + (doc.name || doc.key) })).catch(() => {});
+      const docKey = typeof doc === 'string' ? doc : (doc.name || doc.key);
+      if (docKey) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + docKey })).catch(() => {});
     }
   }
   db.records = db.records.filter(r => !toDelete.includes(r.areaId));
@@ -1453,7 +1454,8 @@ app.delete('/api/records/:id/permanent', async (req, res) => {
   const record = db.records.find(r => r.id === req.params.id);
   if (record?.documents?.length) {
     for (const doc of record.documents) {
-      if (doc.name || doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + (doc.name || doc.key) })).catch(() => {});
+      const docKey = typeof doc === 'string' ? doc : (doc.name || doc.key);
+      if (docKey) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + docKey })).catch(() => {});
     }
   }
   db.records = db.records.filter(r => r.id !== req.params.id);
@@ -1520,9 +1522,12 @@ app.post('/api/files', upload.array('files', 20), async (req, res) => {
         await r2.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + key }));
         key = Date.now() + '_' + key;
       } catch (e) { /* file doesn't exist, use as-is */ }
+      const activeTypes = /^(text\/html|text\/xml|image\/svg|application\/xml|application\/xhtml)/i;
+      const safeContentType = activeTypes.test(f.mimetype) ? 'application/octet-stream' : f.mimetype;
       await r2.send(new PutObjectCommand({
         Bucket: R2_BUCKET, Key: R2_PREFIX + key,
-        Body: f.buffer, ContentType: f.mimetype,
+        Body: f.buffer, ContentType: safeContentType,
+        ContentDisposition: `attachment; filename="${f.originalname}"`,
       }));
       uploaded.push({ name: key, originalName: f.originalname, size: f.size, uploadedAt: new Date() });
     }
@@ -1640,7 +1645,8 @@ async function bootstrapAndStart() {
         const expiredRecords = db.records.filter(r => r.deletedAt && r.deletedAt < cutoff);
         for (const r of expiredRecords) {
           for (const doc of r.documents || []) {
-            if (doc.name || doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + (doc.name || doc.key) })).catch(() => {});
+            const docKey = typeof doc === 'string' ? doc : (doc.name || doc.key);
+      if (docKey) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + docKey })).catch(() => {});
           }
         }
         const before = { r: db.records.length, a: db.areas.length };
