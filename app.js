@@ -245,9 +245,7 @@ app.post('/login', async (req, res) => {
   if (!row || !await bcrypt.compare(password, row.password_hash)) {
     return res.send(LOGIN_HTML.replace('{{ERROR}}', 'Incorrect username or password'));
   }
-  if (row.email && !row.email_verified) {
-    return res.send(LOGIN_HTML.replace('{{ERROR}}', 'Please verify your email first. Check your inbox or <a href="/resend-verification?email=' + encodeURIComponent(row.email) + '" style="color:#3b82f6">resend the link</a>.'));
-  }
+  // Email verification disabled until verified sender domain is configured
   setSessionCookie(res, row.id);
   res.redirect('/');
 });
