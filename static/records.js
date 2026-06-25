@@ -530,20 +530,26 @@ function renderAccountRecord(r, area) {
           const currentYear = new Date().getFullYear();
           const years = Object.keys(IRA_LIMITS).map(Number).filter(y => y <= currentYear).sort((a,b) => b-a);
           const annualContribs = r.fields.annualContribs || {};
-          // Overflow: annual contribs for past years first, then monthly history for current year
+          // Seed buckets with annualContribs for past years, then overflow monthly history on top
           const taxYearTotals2 = {};
           let ty = Math.min(...Object.keys(IRA_LIMITS).map(Number));
-          // Past years from annualContribs field
-          const pastYears = years.filter(y => y < currentYear).sort((a,b)=>a-b);
-          for (const yr of pastYears) {
-            const amt = Number(annualContribs[yr]) || 0;
+          // Seed past years
+          for (const yr of years.filter(y => y < currentYear).sort((a,b)=>a-b)) {
+            const amt = Number(annualContribs[yr])||0;
             taxYearTotals2[yr] = Math.min(amt, IRA_LIMITS[yr]||7000);
+            if (taxYearTotals2[yr] >= (IRA_LIMITS[yr]||7000)) ty = yr+1;
+            else ty = yr;
           }
-          // Current year from monthly history overflow
-          const sortedH = (r.fields.history||[]).slice().sort((a,b)=>a.month.localeCompare(b.month)).filter(h=>h.month.startsWith(String(currentYear)));
-          let curTotal = 0;
-          for (const entry of sortedH) curTotal += Number(entry.contributions)||0;
-          taxYearTotals2[currentYear] = curTotal;
+          // Overflow monthly history contributions through buckets
+          for (const entry of (r.fields.history||[]).slice().sort((a,b)=>a.month.localeCompare(b.month))) {
+            let rem = Number(entry.contributions)||0;
+            while (rem > 0 && ty <= currentYear) {
+              const lim = IRA_LIMITS[ty]||7000, sf = taxYearTotals2[ty]||0, sp = lim-sf;
+              if (sp<=0){ty++;continue;}
+              const al = Math.min(rem,sp); taxYearTotals2[ty]=(sf+al); rem-=al;
+              if (taxYearTotals2[ty]>=lim) ty++;
+            }
+          }
           return years.map((yr,i) => {
             const lim = IRA_LIMITS[yr]||7000, contrib = taxYearTotals2[yr]||0;
             const pct = Math.min(100, contrib/lim*100), done = contrib>=lim;
@@ -1034,13 +1040,20 @@ function editAnnualContrib(recordId, year, el) {
   const commit = async () => {
     if (done) return; done = true;
     const num = parseFloat(input.value.replace(/[$,\s]/g,''));
+    const newSpan = document.createElement('span');
+    newSpan.className = 'ira-annual-val';
+    newSpan.style.cssText = 'cursor:pointer;text-decoration:underline dotted';
+    newSpan.title = 'Click to edit';
+    newSpan.setAttribute('onclick', `editAnnualContrib('${recordId}',${year},this)`);
+    if (isNaN(num)) { newSpan.textContent = `$${current.toLocaleString()}`; input.replaceWith(newSpan); return; }
     r.fields.annualContribs = r.fields.annualContribs||{};
-    if (!isNaN(num)) r.fields.annualContribs[year] = num;
-    await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
-    renderRecordView(recordId);
+    r.fields.annualContribs[year] = num;
+    newSpan.textContent = `$${num.toLocaleString()}`;
+    input.replaceWith(newSpan);
+    api('PUT', `/api/records/${recordId}`, { fields: r.fields });
   };
   input.addEventListener('blur', commit);
-  input.addEventListener('keydown', e => { if (e.key==='Enter') input.blur(); if (e.key==='Escape'){done=true;renderRecordView(recordId);} });
+  input.addEventListener('keydown', e => { if (e.key==='Enter') input.blur(); if (e.key==='Escape'){done=true;input.replaceWith(el);} });
 }
 
 function activateHistCell(span, recordId, month, field) {
