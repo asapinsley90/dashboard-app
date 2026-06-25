@@ -646,14 +646,14 @@ function recordCard(r) {
     const domain = r.fields.institutionDomain || instDef?.domain;
     if (domain) cardIcon = `<div class="record-card-icon" style="padding:0;display:flex;align-items:center;justify-content:center"><img src="https://www.google.com/s2/favicons?domain=${domain}&sz=64" style="width:22px;height:22px;object-fit:contain" onerror="this.outerHTML='💳'"></div>`;
   }
-  return `<div class="record-card" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}" data-ctx-record-id="${r.id}">
+  return `<div class="record-card" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
     ${cardIcon}
     <div class="record-card-body">
       <div class="record-card-title">${r.title}</div>
       ${sub ? `<div class="record-card-sub">${sub}</div>` : ''}
     </div>
     <div class="record-card-right">${right}</div>
-    <div class="record-card-actions"><button class="record-card-action-btn" onclick="event.stopPropagation();showRecordCtxMenu(event,'${r.id}')">···</button></div>
+    <div class="record-card-actions"><button class="record-card-action-btn" data-ctx-record-id="${r.id}" onclick="event.stopPropagation();showRecordCtxMenu(event,'${r.id}')">···</button></div>
   </div>`;
 }
 

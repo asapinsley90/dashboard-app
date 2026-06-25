@@ -51,7 +51,7 @@ function bindGlobalDelegation() {
 
   document.addEventListener('click', e => {
     const ctxEl = e.target.closest('[data-ctx-record-id]');
-    if (ctxEl?.dataset.ctxRecordId) {
+    if (ctxEl?.dataset.ctxRecordId && ctxEl.tagName === 'BUTTON') {
       showRecordCtxMenu(e, ctxEl.dataset.ctxRecordId);
       return;
     }
