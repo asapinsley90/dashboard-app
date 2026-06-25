@@ -410,6 +410,7 @@ app.get('/api/waitlist/:id/approve', async (req, res) => {
           { key: 'R2_PREFIX', value: r2Prefix },
           { key: 'SENDGRID_API_KEY', value: SENDGRID_API_KEY || '' },
           { key: 'ANTHROPIC_API_KEY', value: process.env.ANTHROPIC_API_KEY || '' },
+          { key: 'SKIP_SEED', value: 'true' },
         ],
       }),
     });
@@ -1066,6 +1067,7 @@ app.post('/admin/api/provision', requireAdmin, async (req, res) => {
           { key: 'R2_PREFIX', value: r2Prefix },
           { key: 'SENDGRID_API_KEY', value: SENDGRID_API_KEY || '' },
           { key: 'ANTHROPIC_API_KEY', value: process.env.ANTHROPIC_API_KEY || '' },
+          { key: 'SKIP_SEED', value: 'true' },
         ],
       }),
     });
@@ -1578,11 +1580,13 @@ async function bootstrapAndStart() {
   try {
     await dbLayer.initDB();
 
-    const db = await dbLayer.readDB();
-    if ((db.areas || []).length === 0 && (db.records || []).length === 0) {
-      const seed = initDB();
-      await dbLayer.writeDB(seed);
-      console.log('  Seeded default starter data into SQLite.');
+    if (!process.env.SKIP_SEED) {
+      const db = await dbLayer.readDB();
+      if ((db.areas || []).length === 0 && (db.records || []).length === 0) {
+        const seed = initDB();
+        await dbLayer.writeDB(seed);
+        console.log('  Seeded default starter data.');
+      }
     }
 
     app.listen(PORT, HOST, () => {
