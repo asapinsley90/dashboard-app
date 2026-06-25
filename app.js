@@ -20,6 +20,7 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 const RENDER_API_KEY = process.env.RENDER_API_KEY || '';
 const RENDER_OWNER_ID = process.env.RENDER_OWNER_ID || '';
 const NEON_API_KEY = process.env.NEON_API_KEY || '';
+const NEON_ORG_ID = process.env.NEON_ORG_ID || '';
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || '';
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
@@ -377,7 +378,7 @@ app.get('/api/waitlist/:id/approve', async (req, res) => {
     const neonRes = await fetch('https://console.neon.tech/api/v2/projects', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${NEON_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ project: { name: serviceName } }),
+      body: JSON.stringify({ project: { name: serviceName, ...(NEON_ORG_ID ? { org_id: NEON_ORG_ID } : {}) } }),
     });
     if (!neonRes.ok) throw new Error(`Neon: ${await neonRes.text()}`);
     const neonData = await neonRes.json();
@@ -995,7 +996,7 @@ app.post('/admin/api/provision', requireAdmin, async (req, res) => {
     const neonRes = await fetch('https://console.neon.tech/api/v2/projects', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${NEON_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ project: { name: serviceName } }),
+      body: JSON.stringify({ project: { name: serviceName, ...(NEON_ORG_ID ? { org_id: NEON_ORG_ID } : {}) } }),
     });
     if (!neonRes.ok) throw new Error(`Neon error: ${await neonRes.text()}`);
     const neonData = await neonRes.json();
