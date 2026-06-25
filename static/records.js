@@ -17,7 +17,11 @@ function renderRecordView(recordId) {
   const el = document.getElementById('record-view-content');
   // Bespoke renderers for types with custom UI; schema-driven for everything else
   if (r.type === 'job') el.innerHTML = renderJobRecord(r, area);
-  else if (r.type === 'account') el.innerHTML = renderAccountRecord(r, area);
+  else if (r.type === 'account') {
+    el.innerHTML = renderAccountRecord(r, area);
+    const chartHistory = (r.fields.history || []).slice().sort((a,b) => a.month.localeCompare(b.month));
+    requestAnimationFrame(() => renderAccountCharts(`acct-charts-${r.id}`, chartHistory));
+  }
   else if (r.type === 'company') el.innerHTML = renderCompanyRecord(r, area);
   else if (TYPE_SCHEMAS.find(s => s.id === r.type)) el.innerHTML = renderSchemaRecord(r, area);
   else el.innerHTML = renderGenericRecord(r, area);
@@ -389,11 +393,7 @@ function renderAccountRecord(r, area) {
     </table>` : '<div style="color:var(--muted);font-size:12px">No history yet — import a statement to start tracking.</div>';
 
   const chartHistory = (r.fields.history || []).slice().sort((a,b) => a.month.localeCompare(b.month));
-  const chartId = `acct-charts-${r.id}`;
-  requestAnimationFrame(() => {
-    attachStatementPasteListener(r.id);
-    renderAccountCharts(chartId, chartHistory);
-  });
+  requestAnimationFrame(() => attachStatementPasteListener(r.id));
 
   return `<div class="record-view-header">
     ${logoHTML}
