@@ -27,17 +27,22 @@ const APP_URL = process.env.APP_URL || 'https://dashboard-app-jxlb.onrender.com'
 
 async function sendEmail(to, subject, html) {
   if (!SENDGRID_API_KEY) { console.log(`[email] ${subject} → ${to}`); return; }
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL || ADMIN_EMAIL || 'noreply@dashboard.app';
   const r = await fetch('https://api.sendgrid.com/v3/mail/send', {
     method: 'POST',
     headers: { Authorization: `Bearer ${SENDGRID_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       personalizations: [{ to: [{ email: to }] }],
-      from: { email: ADMIN_EMAIL || 'noreply@dashboard.app', name: 'Dashboard' },
+      from: { email: fromEmail, name: 'Dashboard' },
       subject,
       content: [{ type: 'text/html', value: html }],
     }),
   });
-  if (!r.ok) console.error('[email] SendGrid error:', r.status, await r.text().catch(() => ''));
+  if (!r.ok) {
+    const body = await r.text().catch(() => '');
+    console.error('[email] SendGrid error:', r.status, body);
+    throw new Error(`SendGrid ${r.status}: ${body}`);
+  }
 }
 
 function signToken(val) {
@@ -326,13 +331,17 @@ app.post('/api/waitlist', async (req, res) => {
   try {
     await dbLayer.createWaitlistEntry({ id, name, email });
     const approveUrl = `${APP_URL}/api/waitlist/${id}/approve?token=${ADMIN_TOKEN}`;
-    await sendEmail(
-      ADMIN_EMAIL,
-      `New waitlist request: ${name}`,
-      `<p><b>${name}</b> (${email}) has requested access to the dashboard.</p>
-       <p style="margin-top:16px"><a href="${approveUrl}" style="background:#3b82f6;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Approve & provision</a></p>
-       <p style="margin-top:12px;font-size:12px;color:#888">Or copy this link: ${approveUrl}</p>`
-    );
+    try {
+      await sendEmail(
+        ADMIN_EMAIL,
+        `New waitlist request: ${name}`,
+        `<p><b>${name}</b> (${email}) has requested access to the dashboard.</p>
+         <p style="margin-top:16px"><a href="${approveUrl}" style="background:#3b82f6;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Approve & provision</a></p>
+         <p style="margin-top:12px;font-size:12px;color:#888">Or copy this link: ${approveUrl}</p>`
+      );
+    } catch (emailErr) {
+      console.error('[waitlist] email failed:', emailErr.message);
+    }
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -828,9 +837,19 @@ async function loadWaitlist() {
 
 async function approveWaitlist(id) {
   const btn = event.target; btn.disabled=true; btn.textContent='Provisioning...';
-  const res = await fetch(\`/api/waitlist/\${id}/approve?token=\${TOKEN}\`);
-  const text = await res.text();
-  loadWaitlist(); loadTenants();
+  try {
+    const res = await fetch(\`/api/waitlist/\${id}/approve?token=\${TOKEN}\`);
+    const text = await res.text();
+    if (!res.ok) {
+      alert('Provisioning failed:\\n\\n' + text.replace(/<[^>]+>/g,''));
+      btn.disabled=false; btn.textContent='Approve';
+      return;
+    }
+    loadWaitlist(); loadTenants();
+  } catch(e) {
+    alert('Error: ' + e.message);
+    btn.disabled=false; btn.textContent='Approve';
+  }
 }
 
 async function denyWaitlist(id) {
