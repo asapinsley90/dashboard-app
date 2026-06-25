@@ -1050,6 +1050,10 @@ function editAnnualContrib(recordId, year, el) {
     r.fields.annualContribs[year] = num;
     newSpan.textContent = `$${num.toLocaleString()}`;
     input.replaceWith(newSpan);
+    pushUndo(`Edit ${year} IRA contribution`, async () => {
+      const r2 = getRecord(recordId);
+      if (r2) { r2.fields.annualContribs = r2.fields.annualContribs||{}; r2.fields.annualContribs[year] = current; await api('PUT', `/api/records/${recordId}`, { fields: r2.fields }); renderRecordView(recordId); }
+    });
     api('PUT', `/api/records/${recordId}`, { fields: r.fields });
   };
   input.addEventListener('blur', commit);
@@ -1083,6 +1087,7 @@ function activateHistCell(span, recordId, month, field) {
       input.replaceWith(newSpan);
       return;
     }
+    const oldEntry = { ...entry };
     entry[field] = num;
     const begin = Number(entry.beginBalance) || 0;
     const end = Number(entry.endBalance) || 0;
@@ -1100,6 +1105,11 @@ function activateHistCell(span, recordId, month, field) {
       const retCell = row.querySelector('.hist-cell-return');
       if (retCell) retCell.textContent = fmtPct(entry.returnPct);
     }
+    pushUndo(`Edit ${month} ${field}`, async () => {
+      const r2 = getRecord(recordId);
+      const e2 = r2 && (r2.fields.history || []).find(h => h.month === month);
+      if (e2) { Object.assign(e2, oldEntry); await api('PUT', `/api/records/${recordId}`, { fields: r2.fields }); renderRecordView(recordId); }
+    });
     api('PUT', `/api/records/${recordId}`, { fields: r.fields });
   };
   input.addEventListener('blur', commit);
@@ -1112,16 +1122,30 @@ function activateHistCell(span, recordId, month, field) {
 async function deleteHistoryRow(recordId, month) {
   const r = getRecord(recordId);
   if (!r) return;
+  const deleted = (r.fields.history || []).find(h => h.month === month);
   r.fields.history = (r.fields.history || []).filter(h => h.month !== month);
   await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+  if (deleted) pushUndo(`Delete ${month} history`, async () => {
+    const r2 = getRecord(recordId);
+    r2.fields.history = r2.fields.history || [];
+    r2.fields.history.push(deleted);
+    r2.fields.history.sort((a,b) => a.month.localeCompare(b.month));
+    await api('PUT', `/api/records/${recordId}`, { fields: r2.fields });
+    renderRecordView(recordId);
+  });
   renderRecordView(recordId);
 }
 
 async function saveField(recordId, key, value) {
   const r = getRecord(recordId);
   if (!r || r[key] === value) return;
+  const oldValue = r[key];
   r[key] = value;
   await api('PUT', `/api/records/${recordId}`, { [key]: value });
+  pushUndo(`Edit ${key}`, async () => {
+    const r2 = getRecord(recordId);
+    if (r2) { r2[key] = oldValue; await api('PUT', `/api/records/${recordId}`, { [key]: oldValue }); renderRecordView(recordId); }
+  });
 }
 
 async function saveFieldText(recordId, key, value) {
@@ -1129,26 +1153,23 @@ async function saveFieldText(recordId, key, value) {
   if (!r) return;
   r.fields = r.fields || {};
   let nextValue = value;
-  if (key === 'time' || key === 'endTime') {
-    nextValue = roundToQuarterHour(value);
-  }
+  if (key === 'time' || key === 'endTime') nextValue = roundToQuarterHour(value);
   if (r.type === 'event' && key === 'time' && nextValue && r.fields.endTime) {
-    const s = parseTimeToMinutes(nextValue);
-    const e = parseTimeToMinutes(r.fields.endTime);
-    if (s !== null && e !== null && e <= s) {
-      r.fields.endTime = defaultEndTimeFromStart(nextValue, 60);
-    }
+    const s = parseTimeToMinutes(nextValue), e = parseTimeToMinutes(r.fields.endTime);
+    if (s !== null && e !== null && e <= s) r.fields.endTime = defaultEndTimeFromStart(nextValue, 60);
   }
   if (r.type === 'event' && key === 'endTime' && nextValue && r.fields.time) {
-    const s = parseTimeToMinutes(r.fields.time);
-    const e = parseTimeToMinutes(nextValue);
-    if (s !== null && e !== null && e <= s) {
-      nextValue = defaultEndTimeFromStart(r.fields.time, 60);
-    }
+    const s = parseTimeToMinutes(r.fields.time), e = parseTimeToMinutes(nextValue);
+    if (s !== null && e !== null && e <= s) nextValue = defaultEndTimeFromStart(r.fields.time, 60);
   }
   if (r.fields[key] === nextValue) return;
+  const oldValue = r.fields[key];
   r.fields[key] = nextValue;
   await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+  pushUndo(`Edit ${key}`, async () => {
+    const r2 = getRecord(recordId);
+    if (r2) { r2.fields[key] = oldValue; await api('PUT', `/api/records/${recordId}`, { fields: r2.fields }); renderRecordView(recordId); }
+  });
 }
 
 async function addTimelineEntry(recordId) {
