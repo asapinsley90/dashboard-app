@@ -442,7 +442,7 @@ function renderAccountRecord(r, area) {
         if (taxYearTotals[taxYear] >= limit) taxYear++;
       }
     }
-    const years = Object.keys(IRA_LIMITS).map(Number).sort((a,b) => b-a);
+    const years = Object.keys(IRA_LIMITS).map(Number).filter(y => y <= currentYear).sort((a,b) => b-a);
     return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px">
       <div style="font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px">IRA Contributions</div>
       ${years.map((yr, i) => {
@@ -493,7 +493,6 @@ function renderAccountRecord(r, area) {
       </div>
     </div>
   </div>
-  ${iraProgressHTML}
   <div id="${chartId}" style="padding:0 0 4px 0"></div>
   <div class="record-sections">
     <div class="record-main">
@@ -525,6 +524,38 @@ function renderAccountRecord(r, area) {
       ${renderNotesSection(r)}
     </div>
     <div class="record-sidebar">
+      ${isIRA ? `<div class="section-card" style="margin-bottom:12px">
+        <div class="section-title" style="margin-bottom:10px">IRA Contributions</div>
+        ${(()=>{
+          const currentYear = new Date().getFullYear();
+          const years = Object.keys(IRA_LIMITS).map(Number).filter(y => y <= currentYear).sort((a,b) => b-a);
+          const taxYearTotals2 = {};
+          let ty = Math.min(...Object.keys(IRA_LIMITS).map(Number));
+          for (const entry of (r.fields.history||[]).slice().sort((a,b)=>a.month.localeCompare(b.month))) {
+            let rem = Number(entry.contributions)||0;
+            while (rem > 0 && ty <= currentYear) {
+              const lim = IRA_LIMITS[ty]||7000, sf = taxYearTotals2[ty]||0, sp = lim-sf;
+              if (sp<=0){ty++;continue;}
+              const al = Math.min(rem,sp); taxYearTotals2[ty]=(sf+al); rem-=al;
+              if (taxYearTotals2[ty]>=lim) ty++;
+            }
+          }
+          return years.map((yr,i) => {
+            const lim = IRA_LIMITS[yr]||7000, contrib = taxYearTotals2[yr]||0;
+            const pct = Math.min(100, contrib/lim*100), done = contrib>=lim;
+            const color = done?'var(--green)':pct>=75?'#f0b429':'var(--accent)';
+            return `<div style="margin-bottom:${i<years.length-1?10:0}px">
+              <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+                <span style="color:var(--text);font-weight:500">${yr}</span>
+                <span style="color:${done?'var(--green)':yr===currentYear?'var(--text)':'var(--muted)'}">${done?'✓ Maxed':yr===currentYear?`$${(lim-contrib).toLocaleString()} left`:`$${contrib.toFixed(0)} / $${lim.toLocaleString()}`}</span>
+              </div>
+              <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
+                <div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div>
+              </div>
+            </div>`;
+          }).join('');
+        })()}
+      </div>` : ''}
       <div class="section-card">
         <div class="section-title">Activity</div>
         ${renderTimeline(r)}
