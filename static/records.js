@@ -422,33 +422,49 @@ function renderAccountRecord(r, area) {
   requestAnimationFrame(() => attachStatementPasteListener(r.id));
 
   const isIRA = ['Roth IRA','Traditional IRA'].includes(r.fields.accountType);
-  const IRA_LIMITS = { 2025: 7000, 2026: 7500, 2027: 7500 };
-  const taxYearContribs = r.fields.taxYearContribs || {};
+  const IRA_LIMITS = r.fields.iraLimits || { 2025: 7000, 2026: 7000, 2027: 7500 };
   const iraProgressHTML = isIRA ? (() => {
     const currentYear = new Date().getFullYear();
-    const years = [...new Set([...Object.keys(IRA_LIMITS).map(Number), currentYear])].sort((a,b) => b-a).slice(0,3);
+    // Auto-calculate tax year attribution: contributions fill each year's bucket chronologically
+    const taxYearTotals = {};
+    let taxYear = Math.min(...Object.keys(IRA_LIMITS).map(Number));
+    const sorted = (r.fields.history || []).slice().sort((a,b) => a.month.localeCompare(b.month));
+    for (const entry of sorted) {
+      let remaining = Number(entry.contributions) || 0;
+      while (remaining > 0 && taxYear <= currentYear + 1) {
+        const limit = IRA_LIMITS[taxYear] || 7000;
+        const soFar = taxYearTotals[taxYear] || 0;
+        const space = limit - soFar;
+        if (space <= 0) { taxYear++; continue; }
+        const allocate = Math.min(remaining, space);
+        taxYearTotals[taxYear] = soFar + allocate;
+        remaining -= allocate;
+        if (taxYearTotals[taxYear] >= limit) taxYear++;
+      }
+    }
+    const years = Object.keys(IRA_LIMITS).map(Number).sort((a,b) => b-a);
     return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px">
       <div style="font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px">IRA Contributions</div>
-      ${years.map(yr => {
+      ${years.map((yr, i) => {
         const limit = IRA_LIMITS[yr] || 7000;
-        const contrib = Number(taxYearContribs[yr]) || 0;
+        const contrib = taxYearTotals[yr] || 0;
         const pct = Math.min(100, contrib / limit * 100);
         const remaining = Math.max(0, limit - contrib);
-        const done = pct >= 100;
+        const done = contrib >= limit;
         const color = done ? 'var(--green)' : pct >= 75 ? '#f0b429' : 'var(--accent)';
-        const isCurrentYear = yr === currentYear;
-        return `<div style="margin-bottom:${yr === years[years.length-1] ? 0 : 14}px">
+        const isCurrent = yr === currentYear;
+        return `<div style="margin-bottom:${i < years.length-1 ? 14 : 0}px">
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
             <span style="font-size:12px;color:var(--text);font-weight:500">${yr}</span>
-            <span style="font-size:12px;color:${done?'var(--green)':isCurrentYear?'var(--text)':'var(--muted)'}">
-              ${done ? '✓ Maxed out' : isCurrentYear ? `$${remaining.toLocaleString()} remaining` : contrib > 0 ? `$${contrib.toLocaleString()} / $${limit.toLocaleString()}` : '—'}
+            <span style="font-size:12px;color:${done?'var(--green)':isCurrent?'var(--text)':'var(--muted)'}">
+              ${done ? '✓ Maxed out' : isCurrent ? `$${remaining.toLocaleString()} remaining` : contrib > 0 ? `$${contrib.toFixed(0)} / $${limit.toLocaleString()}` : '—'}
             </span>
           </div>
           <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
             <div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div>
           </div>
           <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--muted)">
-            <span class="ira-contrib-val" onclick="editTaxYearContrib('${r.id}',${yr},this)" style="cursor:pointer" title="Click to edit">$${contrib.toLocaleString()} contributed</span>
+            <span>$${contrib.toFixed(0)} contributed</span>
             <span>$${limit.toLocaleString()} limit</span>
           </div>
         </div>`;
@@ -964,28 +980,6 @@ async function moveRecordArea(recordId, newAreaId) {
   renderSidebar();
 }
 
-function editTaxYearContrib(recordId, year, el) {
-  const r = getRecord(recordId);
-  if (!r) return;
-  const current = Number((r.fields.taxYearContribs || {})[year]) || 0;
-  const input = document.createElement('input');
-  input.value = current || '';
-  input.placeholder = '0';
-  input.style.cssText = 'width:100px;background:var(--bg3);border:1px solid var(--accent);border-radius:4px;padding:2px 5px;color:var(--text);font-size:11px;outline:none';
-  el.replaceWith(input);
-  input.focus(); input.select();
-  let done = false;
-  const commit = async () => {
-    if (done) return; done = true;
-    const num = parseFloat(input.value.replace(/[$,\s]/g,''));
-    r.fields.taxYearContribs = r.fields.taxYearContribs || {};
-    if (!isNaN(num)) r.fields.taxYearContribs[year] = num;
-    await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
-    renderRecordView(recordId);
-  };
-  input.addEventListener('blur', commit);
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { done = true; renderRecordView(recordId); } });
-}
 
 function activateHistCell(span, recordId, month, field) {
   const fmt = n => '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
