@@ -303,7 +303,7 @@ async function uploadFiles(files){
   const toast=document.createElement('div');
   toast.style.cssText='position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--text);z-index:9999;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.3)';
   const names=[...files].map(f=>f.name).join(', ');
-  toast.innerHTML=`<span style="display:inline-block;width:14px;height:14px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite"></span><span>Uploading ${files.length===1?`<b>${names}</b>`:`${files.length} files`}â€¦</span>`;
+  toast.innerHTML=`<span style="display:inline-block;width:14px;height:14px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite"></span><span>Uploading ${files.length===1?`<b>${names}</b>`:`${files.length} files`}…</span>`;
   document.body.appendChild(toast);
   try{
     const fd=new FormData();for(const f of files)fd.append('files',f);
@@ -679,8 +679,8 @@ function buildNoteHTML(n, i, recordId) {
   const color = n.color || 'color-amber';
   return `<div class="sticky-note ${color}" id="note-${recordId}-${i}">
     <div class="sticky-note-controls">
-      <button class="sticky-note-btn" onclick="moveNote('${recordId}',${i},-1)" title="Move up">â–²</button>
-      <button class="sticky-note-btn" onclick="moveNote('${recordId}',${i},1)" title="Move down">â–¼</button>
+      <button class="sticky-note-btn" onclick="moveNote('${recordId}',${i},-1)" title="Move up">▲</button>
+      <button class="sticky-note-btn" onclick="moveNote('${recordId}',${i},1)" title="Move down">▼</button>
       <button class="sticky-note-btn" onclick="cycleNoteColor('${recordId}',${i})" title="Change color">${noteColorLabel(color)}</button>
     </div>
     <div class="sticky-note-body">
@@ -1373,7 +1373,7 @@ function showRecordCtxMenu(e,recordId){
     const leafAreas = DB.areas.filter(a => !DB.areas.some(b => b.parentId === a.id));
     const opts = leafAreas.map(a => {
       const parent = a.parentId ? DB.areas.find(p => p.id === a.parentId) : null;
-      const label = parent ? `${parent.title} â€º ${a.title}` : a.title;
+      const label = parent ? `${parent.title} › ${a.title}` : a.title;
       return `<option value="${a.id}" ${a.id === r.areaId ? 'selected' : ''}>${label}</option>`;
     }).join('');
     const modal = document.createElement('div');

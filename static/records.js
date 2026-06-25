@@ -410,7 +410,7 @@ function renderAccountRecord(r, area) {
       <div style="text-align:right">
         <div style="font-size:28px;font-weight:700;color:var(--text);cursor:pointer;line-height:1.2" onclick="editAccountBalance('${r.id}')" title="Click to update balance">${balFormatted}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px">${balDate}</div>
-        <button class="btn-s" style="margin-top:8px;font-size:11px" onclick="parseStatementUpload('${r.id}')">â¬† Import statement</button>
+        <button class="btn-s" style="margin-top:8px;font-size:11px" onclick="parseStatementUpload('${r.id}')">⬆ Import statement</button>
         <div style="font-size:10px;color:var(--muted);margin-top:4px">or paste a screenshot</div>
         <input type="file" id="stmt-input-${r.id}" accept="image/*,application/pdf" style="display:none" onchange="handleStatementFile('${r.id}',this)">
       </div>
@@ -482,7 +482,7 @@ async function handleStatementFile(recordId, file) {
 
   const toast = document.createElement('div');
   toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--text);z-index:9999;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.3)';
-  toast.innerHTML = `<span style="display:inline-block;width:14px;height:14px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite"></span><span>Reading statementâ€¦</span>`;
+  toast.innerHTML = `<span style="display:inline-block;width:14px;height:14px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite"></span><span>Reading statement…</span>`;
   document.body.appendChild(toast);
 
   try {
