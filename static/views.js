@@ -1394,9 +1394,11 @@ function showRecordCtxMenu(e,recordId){
 async function confirmMoveRecord(recordId, btn) {
   const modal = btn.closest('[style*=fixed]');
   const newAreaId = document.getElementById('move-area-select').value;
-  modal.remove();
-  if (!newAreaId) return;
+  if (!newAreaId) { modal.remove(); return; }
+  btn.disabled = true;
+  btn.textContent = 'Moving…';
   await api('PUT', `/api/records/${recordId}`, { areaId: newAreaId });
+  modal.remove();
   const r = DB.records.find(r => r.id === recordId);
   if (r) r.areaId = newAreaId;
   if (currentView === 'record') navigate('record', newAreaId, recordId);
