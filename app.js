@@ -9,6 +9,7 @@ const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListO
 const { FetchHttpHandler } = require('@smithy/fetch-http-handler');
 const dbLayer = require('./lib/db-layer');
 const Anthropic = require('@anthropic-ai/sdk');
+const registerScrapeRoutes = require('./scrape_routes');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -474,7 +475,13 @@ app.use(express.static(__dirname, { index: false }));
 app.get('/uploads/:name', async (req, res) => {
   try {
     const obj = await r2.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + req.params.name }));
-    if (obj.ContentType) res.setHeader('Content-Type', obj.ContentType);
+    const ct = obj.ContentType || 'application/octet-stream';
+    // Block active content types from executing inline — force download
+    const activeTypes = /^(text\/html|text\/xml|image\/svg|application\/xml|application\/xhtml)/i;
+    const safeType = activeTypes.test(ct) ? 'application/octet-stream' : ct;
+    res.setHeader('Content-Type', safeType);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Disposition', `attachment; filename="${req.params.name}"`);
     if (obj.ContentLength) res.setHeader('Content-Length', obj.ContentLength);
     obj.Body.pipe(res);
   } catch (err) {
@@ -1376,7 +1383,7 @@ app.delete('/api/areas/:id/permanent', async (req, res) => {
   // Delete R2 files for records in these areas
   for (const r of db.records.filter(rec => toDelete.includes(rec.areaId))) {
     for (const doc of r.documents || []) {
-      if (doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + doc.key })).catch(() => {});
+      if (doc.name || doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + (doc.name || doc.key) })).catch(() => {});
     }
   }
   db.records = db.records.filter(r => !toDelete.includes(r.areaId));
@@ -1446,7 +1453,7 @@ app.delete('/api/records/:id/permanent', async (req, res) => {
   const record = db.records.find(r => r.id === req.params.id);
   if (record?.documents?.length) {
     for (const doc of record.documents) {
-      if (doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + doc.key })).catch(() => {});
+      if (doc.name || doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + (doc.name || doc.key) })).catch(() => {});
     }
   }
   db.records = db.records.filter(r => r.id !== req.params.id);
@@ -1616,6 +1623,8 @@ async function bootstrapAndStart() {
       }
     }
 
+    registerScrapeRoutes(app);
+
     app.listen(PORT, HOST, () => {
       console.log(`\n✓ Dashboard running at http://localhost:${PORT}`);
       console.log(`  Host: ${HOST}`);
@@ -1631,7 +1640,7 @@ async function bootstrapAndStart() {
         const expiredRecords = db.records.filter(r => r.deletedAt && r.deletedAt < cutoff);
         for (const r of expiredRecords) {
           for (const doc of r.documents || []) {
-            if (doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + doc.key })).catch(() => {});
+            if (doc.name || doc.key) await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + (doc.name || doc.key) })).catch(() => {});
           }
         }
         const before = { r: db.records.length, a: db.areas.length };
