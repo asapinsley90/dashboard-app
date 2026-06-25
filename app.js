@@ -854,6 +854,7 @@ async function loadWaitlist() {
       <td style="color:#555">\${w.createdAt?.slice(0,10)||'—'}</td>
       <td>
         \${w.status==='pending'?\`<button onclick="approveWaitlist('\${w.id}')">Approve</button><button class="danger" onclick="denyWaitlist('\${w.id}')">Deny</button>\`:''}
+        <button class="danger" onclick="deleteWaitlist('\${w.id}')" style="opacity:.6">✕</button>
       </td>
     </tr>\`).join('') + '</tbody></table></div>';
 }
@@ -880,6 +881,18 @@ async function denyWaitlist(id) {
   loadWaitlist();
 }
 
+async function deleteWaitlist(id) {
+  if (!confirm('Delete this waitlist request?')) return;
+  await fetch(\`/admin/api/waitlist/\${id}\`, { method:'DELETE', headers:H });
+  loadWaitlist();
+}
+
+async function deleteTenant(id) {
+  if (!confirm('Delete this tenant record? This does not stop the Render service.')) return;
+  await fetch(\`/admin/api/tenants/\${id}\`, { method:'DELETE', headers:H });
+  loadTenants();
+}
+
 async function loadTenants() {
   const res = await fetch('/admin/api/tenants', { headers: H });
   const list = await res.json();
@@ -895,6 +908,7 @@ async function loadTenants() {
       <td>
         \${t.status==='active'?\`<button class="secondary" onclick="setTenantStatus('\${t.id}','suspended')">Suspend</button>\`:''}
         \${t.status==='suspended'?\`<button onclick="setTenantStatus('\${t.id}','active')">Reactivate</button>\`:''}
+        <button class="danger" onclick="deleteTenant('\${t.id}')" style="opacity:.6">✕</button>
       </td>
     </tr>\`).join('') + '</tbody></table></div>';
 }
@@ -985,6 +999,16 @@ app.get('/admin/api/tenants', requireAdmin, async (req, res) => {
 
 app.patch('/admin/api/tenants/:id', requireAdmin, async (req, res) => {
   try { await dbLayer.updateTenantStatus(req.params.id, req.body.status); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/admin/api/waitlist/:id', requireAdmin, async (req, res) => {
+  try { await dbLayer.deleteWaitlistEntry(req.params.id); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/admin/api/tenants/:id', requireAdmin, async (req, res) => {
+  try { await dbLayer.deleteTenant(req.params.id); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
