@@ -1588,9 +1588,13 @@ app.put('/api/files/:name', async (req, res) => {
     const obj = await r2.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + oldKey }));
     const chunks = [];
     for await (const chunk of obj.Body) chunks.push(chunk);
+    const activeTypes = /^(text\/html|text\/xml|image\/svg|application\/xml|application\/xhtml)/i;
+    const safeContentType = activeTypes.test(obj.ContentType) ? 'application/octet-stream' : (obj.ContentType || 'application/octet-stream');
     await r2.send(new PutObjectCommand({
       Bucket: R2_BUCKET, Key: R2_PREFIX + newKey,
-      Body: Buffer.concat(chunks), ContentType: obj.ContentType,
+      Body: Buffer.concat(chunks),
+      ContentType: safeContentType,
+      ContentDisposition: obj.ContentDisposition || `attachment; filename="${newKey}"`,
     }));
     await r2.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: R2_PREFIX + oldKey }));
     res.json({ name: newKey });
