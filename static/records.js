@@ -422,7 +422,7 @@ function renderAccountRecord(r, area) {
   requestAnimationFrame(() => attachStatementPasteListener(r.id));
 
   const isIRA = ['Roth IRA','Traditional IRA'].includes(r.fields.accountType);
-  const IRA_LIMITS = r.fields.iraLimits || { 2025: 7000, 2026: 7000, 2027: 7500 };
+  const IRA_LIMITS = r.fields.iraLimits || { 2025: 7000, 2026: 7500, 2027: 7500 };
   const iraProgressHTML = isIRA ? (() => {
     const currentYear = new Date().getFullYear();
     // Auto-calculate tax year attribution: contributions fill each year's bucket chronologically
