@@ -375,6 +375,11 @@ function renderAccountRecord(r, area) {
   const fmt = n => '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
   const fmtPct = n => (n>=0?'+':'')+Number(n).toFixed(2)+'%';
   const history = (r.fields.history || []).slice().sort((a,b) => b.month.localeCompare(a.month));
+  const editCell = (rid, month, field, val, display) =>
+    `<span contenteditable="true" style="outline:none;cursor:text;border-radius:3px;padding:1px 3px" title="Click to edit"
+      onblur="saveHistoryCell('${rid}','${month}','${field}',this.textContent)"
+      onfocus="this.style.background='var(--bg3)'" onblur2="this.style.background=''"
+    >${display}</span>`;
   const historyHTML = history.length ? `
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead><tr style="color:var(--muted);text-align:right">
@@ -383,18 +388,46 @@ function renderAccountRecord(r, area) {
         <th style="padding:4px 6px;font-weight:500">End</th>
         <th style="padding:4px 6px;font-weight:500">Contrib</th>
         <th style="padding:4px 0;font-weight:500">Return</th>
+        <th style="padding:4px 0;font-weight:500"></th>
       </tr></thead>
       <tbody>${history.map(h => `<tr style="border-top:1px solid var(--border1);text-align:right">
         <td style="text-align:left;padding:5px 0;color:var(--text)">${h.month}</td>
-        <td style="padding:5px 6px;color:var(--muted)">${fmt(h.beginBalance)}</td>
-        <td style="padding:5px 6px;color:var(--text);font-weight:500">${fmt(h.endBalance)}</td>
-        <td style="padding:5px 6px;color:var(--muted)">${h.contributions > 0 ? fmt(h.contributions) : '—'}</td>
-        <td style="padding:5px 0;color:${h.returnPct>=0?'var(--green)':'var(--red)'};font-weight:500">${fmtPct(h.returnPct)}</td>
+        <td style="padding:5px 6px;color:var(--muted)">${editCell(r.id, h.month, 'beginBalance', h.beginBalance, fmt(h.beginBalance))}</td>
+        <td style="padding:5px 6px;color:var(--text);font-weight:500">${editCell(r.id, h.month, 'endBalance', h.endBalance, fmt(h.endBalance))}</td>
+        <td style="padding:5px 6px;color:var(--muted)">${editCell(r.id, h.month, 'contributions', h.contributions, h.contributions > 0 ? fmt(h.contributions) : '—')}</td>
+        <td style="padding:5px 0;color:${h.returnPct>=0?'var(--green)':'var(--red)'};font-weight:500">${editCell(r.id, h.month, 'returnPct', h.returnPct, fmtPct(h.returnPct))}</td>
+        <td style="padding:5px 0 5px 8px"><button onclick="deleteHistoryRow('${r.id}','${h.month}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0" title="Delete row">✕</button></td>
       </tr>`).join('')}</tbody>
     </table>` : '<div style="color:var(--muted);font-size:12px">No history yet — import a statement to start tracking.</div>';
 
   const chartId = `acct-charts-${r.id}`;
   requestAnimationFrame(() => attachStatementPasteListener(r.id));
+
+  const isIRA = ['Roth IRA','Traditional IRA'].includes(r.fields.accountType);
+  const IRA_LIMITS = { 2025: 7000, 2026: 7500 };
+  const iraProgressHTML = isIRA ? (() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const limit = IRA_LIMITS[year] || 7000;
+    const allHistory = r.fields.history || [];
+    const yearContribs = allHistory.filter(h => h.month.startsWith(String(year))).reduce((s,h) => s + (Number(h.contributions)||0), 0);
+    const pct = Math.min(100, Math.round(yearContribs / limit * 100));
+    const remaining = Math.max(0, limit - yearContribs);
+    const color = pct >= 100 ? 'var(--green)' : pct >= 75 ? 'var(--yellow,#f0b429)' : 'var(--accent)';
+    return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">${year} IRA Contributions</span>
+        <span style="font-size:12px;color:var(--text)">${pct >= 100 ? '✓ Maxed out' : `$${remaining.toLocaleString()} remaining`}</span>
+      </div>
+      <div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;transition:width .3s"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--muted)">
+        <span>$${yearContribs.toLocaleString()} contributed</span>
+        <span>$${limit.toLocaleString()} limit</span>
+      </div>
+    </div>`;
+  })() : '';
 
   return `<div class="record-view-header">
     ${logoHTML}
@@ -417,6 +450,7 @@ function renderAccountRecord(r, area) {
       </div>
     </div>
   </div>
+  ${iraProgressHTML}
   <div id="${chartId}" style="padding:0 0 4px 0"></div>
   <div class="record-sections">
     <div class="record-main">
@@ -896,6 +930,27 @@ async function moveRecordArea(recordId, newAreaId) {
   r.areaId = newAreaId;
   await api('PUT', `/api/records/${recordId}`, { areaId: newAreaId });
   renderSidebar();
+}
+
+async function saveHistoryCell(recordId, month, field, rawText) {
+  const r = getRecord(recordId);
+  if (!r) return;
+  const entry = (r.fields.history || []).find(h => h.month === month);
+  if (!entry) return;
+  const cleaned = rawText.replace(/[$,%+\s]/g, '');
+  const num = parseFloat(cleaned);
+  if (isNaN(num)) return;
+  entry[field] = num;
+  await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+  renderRecordView(recordId);
+}
+
+async function deleteHistoryRow(recordId, month) {
+  const r = getRecord(recordId);
+  if (!r) return;
+  r.fields.history = (r.fields.history || []).filter(h => h.month !== month);
+  await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+  renderRecordView(recordId);
 }
 
 async function saveField(recordId, key, value) {
