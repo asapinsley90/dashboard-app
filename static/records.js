@@ -394,10 +394,7 @@ function renderAccountRecord(r, area) {
     return `<span style="margin-left:16px;font-size:11px;color:var(--muted)">${yr}: <span style="color:${total>=0?'var(--green)':'var(--red)'};font-weight:500">${fmtPct(total*100)}</span></span>`;
   }).join('');
   const editCell = (rid, month, field, val, display) =>
-    `<span contenteditable="true" style="outline:none;cursor:text;border-radius:3px;padding:1px 3px" title="Click to edit"
-      onblur="saveHistoryCell('${rid}','${month}','${field}',this.textContent)"
-      onfocus="this.style.background='var(--bg3)'"
-    >${display}</span>`;
+    `<span class="hist-cell" onclick="activateHistCell(this,'${rid}','${month}','${field}')" style="cursor:pointer;border-radius:3px;padding:1px 3px" title="Click to edit">${display}</span>`;
   const historyHTML = history.length ? `
     <div style="display:flex;align-items:baseline;margin-bottom:8px">
       <span style="font-size:11px;color:var(--muted)">Annual return${annualReturnHTML}</span>
@@ -956,6 +953,19 @@ async function moveRecordArea(recordId, newAreaId) {
   r.areaId = newAreaId;
   await api('PUT', `/api/records/${recordId}`, { areaId: newAreaId });
   renderSidebar();
+}
+
+function activateHistCell(span, recordId, month, field) {
+  const raw = span.textContent.replace(/[$,%+\s]/g, '');
+  const input = document.createElement('input');
+  input.value = raw === '—' ? '' : raw;
+  input.style.cssText = 'width:80px;background:var(--bg3);border:1px solid var(--accent);border-radius:4px;padding:2px 5px;color:var(--text);font-size:12px;text-align:right;outline:none';
+  span.replaceWith(input);
+  input.focus();
+  input.select();
+  const commit = () => saveHistoryCell(recordId, month, field, input.value);
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } if (e.key === 'Escape') { renderRecordView(recordId); } });
 }
 
 async function saveHistoryCell(recordId, month, field, rawText) {
