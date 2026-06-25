@@ -392,7 +392,7 @@ function renderAccountRecord(r, area) {
       </tr>`).join('')}</tbody>
     </table>` : '<div style="color:var(--muted);font-size:12px">No history yet — import a statement to start tracking.</div>';
 
-  const chartHistory = (r.fields.history || []).slice().sort((a,b) => a.month.localeCompare(b.month));
+  const chartId = `acct-charts-${r.id}`;
   requestAnimationFrame(() => attachStatementPasteListener(r.id));
 
   return `<div class="record-view-header">
