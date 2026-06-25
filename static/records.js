@@ -399,22 +399,22 @@ function renderAccountRecord(r, area) {
     <div style="display:flex;align-items:baseline;margin-bottom:8px">
       <span style="font-size:11px;color:var(--muted)">Annual return${annualReturnHTML}</span>
     </div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <table style="border-collapse:collapse;font-size:12px">
       <thead><tr style="color:var(--muted);text-align:right">
-        <th style="text-align:left;padding:4px 0;font-weight:500">Month</th>
-        <th style="padding:4px 6px;font-weight:500">Start</th>
-        <th style="padding:4px 6px;font-weight:500">End</th>
-        <th style="padding:4px 6px;font-weight:500">Contrib</th>
-        <th style="padding:4px 0;font-weight:500">Return</th>
-        <th style="padding:4px 0;font-weight:500"></th>
+        <th style="text-align:left;padding:4px 8px 4px 0;font-weight:500">Month</th>
+        <th style="padding:4px 8px;font-weight:500">Start</th>
+        <th style="padding:4px 8px;font-weight:500">Contrib</th>
+        <th style="padding:4px 8px;font-weight:500">End</th>
+        <th style="padding:4px 0;font-weight:500;text-align:left">Return</th>
+        <th></th>
       </tr></thead>
-      <tbody>${history.map(h => { const ret = calcReturn(h) * 100; return `<tr style="border-top:1px solid var(--border1);text-align:right">
-        <td style="text-align:left;padding:5px 0;color:var(--text)">${h.month}</td>
-        <td style="padding:5px 6px;color:var(--muted)">${editCell(r.id, h.month, 'beginBalance', h.beginBalance, fmt(h.beginBalance))}</td>
-        <td style="padding:5px 6px;color:var(--text);font-weight:500">${editCell(r.id, h.month, 'endBalance', h.endBalance, fmt(h.endBalance))}</td>
-        <td style="padding:5px 6px;color:var(--muted)">${editCell(r.id, h.month, 'contributions', h.contributions, h.contributions > 0 ? fmt(h.contributions) : '—')}</td>
-        <td style="padding:5px 0;color:${ret>=0?'var(--green)':'var(--red)'};font-weight:500"><span class="hist-cell-return">${fmtPct(ret)}</span></td>
-        <td style="padding:5px 0 5px 8px"><button onclick="deleteHistoryRow('${r.id}','${h.month}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0" title="Delete row">✕</button></td>
+      <tbody>${history.map(h => { const ret = calcReturn(h) * 100; const arrow = ret >= 0 ? '▲' : '▼'; const retColor = ret >= 0 ? 'var(--green)' : 'var(--red)'; return `<tr style="border-top:1px solid var(--border1);text-align:right">
+        <td style="text-align:left;padding:5px 8px 5px 0;color:var(--muted);white-space:nowrap">${h.month}</td>
+        <td style="padding:5px 8px;color:var(--muted)">${editCell(r.id, h.month, 'beginBalance', h.beginBalance, fmt(h.beginBalance))}</td>
+        <td style="padding:5px 8px;color:var(--muted)">${editCell(r.id, h.month, 'contributions', h.contributions, h.contributions > 0 ? fmt(h.contributions) : '—')}</td>
+        <td style="padding:5px 8px;color:var(--text);font-weight:500">${editCell(r.id, h.month, 'endBalance', h.endBalance, fmt(h.endBalance))}</td>
+        <td style="padding:5px 0;white-space:nowrap;text-align:left"><span class="hist-cell-return" style="color:${retColor};font-weight:500">${arrow} ${Math.abs(ret).toFixed(2)}%</span></td>
+        <td style="padding:5px 0 5px 8px"><button onclick="deleteHistoryRow('${r.id}','${h.month}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0;opacity:0.4" title="Delete row" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4">✕</button></td>
       </tr>`; }).join('')}</tbody>
     </table>` : '<div style="color:var(--muted);font-size:12px">No history yet — import a statement to start tracking.</div>';
 
