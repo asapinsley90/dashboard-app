@@ -529,25 +529,34 @@ function renderAccountRecord(r, area) {
         ${(()=>{
           const currentYear = new Date().getFullYear();
           const years = Object.keys(IRA_LIMITS).map(Number).filter(y => y <= currentYear).sort((a,b) => b-a);
+          const annualContribs = r.fields.annualContribs || {};
+          // Overflow: annual contribs for past years first, then monthly history for current year
           const taxYearTotals2 = {};
           let ty = Math.min(...Object.keys(IRA_LIMITS).map(Number));
-          for (const entry of (r.fields.history||[]).slice().sort((a,b)=>a.month.localeCompare(b.month))) {
-            let rem = Number(entry.contributions)||0;
-            while (rem > 0 && ty <= currentYear) {
-              const lim = IRA_LIMITS[ty]||7000, sf = taxYearTotals2[ty]||0, sp = lim-sf;
-              if (sp<=0){ty++;continue;}
-              const al = Math.min(rem,sp); taxYearTotals2[ty]=(sf+al); rem-=al;
-              if (taxYearTotals2[ty]>=lim) ty++;
-            }
+          // Past years from annualContribs field
+          const pastYears = years.filter(y => y < currentYear).sort((a,b)=>a-b);
+          for (const yr of pastYears) {
+            const amt = Number(annualContribs[yr]) || 0;
+            taxYearTotals2[yr] = Math.min(amt, IRA_LIMITS[yr]||7000);
           }
+          // Current year from monthly history overflow
+          const sortedH = (r.fields.history||[]).slice().sort((a,b)=>a.month.localeCompare(b.month)).filter(h=>h.month.startsWith(String(currentYear)));
+          let curTotal = 0;
+          for (const entry of sortedH) curTotal += Number(entry.contributions)||0;
+          taxYearTotals2[currentYear] = curTotal;
           return years.map((yr,i) => {
             const lim = IRA_LIMITS[yr]||7000, contrib = taxYearTotals2[yr]||0;
             const pct = Math.min(100, contrib/lim*100), done = contrib>=lim;
             const color = done?'var(--green)':pct>=75?'#f0b429':'var(--accent)';
+            const isPast = yr < currentYear;
             return `<div style="margin-bottom:${i<years.length-1?10:0}px">
-              <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:4px">
                 <span style="color:var(--text);font-weight:500">${yr}</span>
-                <span style="color:${done?'var(--green)':yr===currentYear?'var(--text)':'var(--muted)'}">${done?'✓ Maxed':yr===currentYear?`$${(lim-contrib).toLocaleString()} left`:`$${contrib.toFixed(0)} / $${lim.toLocaleString()}`}</span>
+                <span style="color:${done?'var(--green)':yr===currentYear?'var(--text)':'var(--muted)'}">
+                  ${isPast
+                    ? `<span class="ira-annual-val" onclick="editAnnualContrib('${r.id}',${yr},this)" style="cursor:pointer;text-decoration:underline dotted" title="Click to edit">$${contrib.toLocaleString()}</span> ${done?'✓ Maxed':`/ $${lim.toLocaleString()}`}`
+                    : done ? '✓ Maxed' : `$${(lim-contrib).toLocaleString()} left`}
+                </span>
               </div>
               <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
                 <div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div>
@@ -1011,6 +1020,28 @@ async function moveRecordArea(recordId, newAreaId) {
   renderSidebar();
 }
 
+
+function editAnnualContrib(recordId, year, el) {
+  const r = getRecord(recordId);
+  if (!r) return;
+  const current = Number((r.fields.annualContribs||{})[year])||0;
+  const input = document.createElement('input');
+  input.value = current||'';
+  input.style.cssText = 'width:70px;background:var(--bg3);border:1px solid var(--accent);border-radius:4px;padding:1px 4px;color:var(--text);font-size:11px;text-align:right;outline:none';
+  el.replaceWith(input);
+  input.focus(); input.select();
+  let done = false;
+  const commit = async () => {
+    if (done) return; done = true;
+    const num = parseFloat(input.value.replace(/[$,\s]/g,''));
+    r.fields.annualContribs = r.fields.annualContribs||{};
+    if (!isNaN(num)) r.fields.annualContribs[year] = num;
+    await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+    renderRecordView(recordId);
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => { if (e.key==='Enter') input.blur(); if (e.key==='Escape'){done=true;renderRecordView(recordId);} });
+}
 
 function activateHistCell(span, recordId, month, field) {
   const fmt = n => '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
