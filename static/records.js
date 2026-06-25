@@ -693,8 +693,8 @@ function renderAccountCharts(containerId, history) {
     </svg>`;
   }
 
-  const balances = history.map(h => h.endBalance);
-  const returns = history.map(h => h.returnPct);
+  const balances = history.map(h => h.endBalance || 0);
+  const returns = history.map(h => h.returnPct ?? 0);
   const fmtK = n => n >= 1000 ? '$'+(n/1000).toFixed(0)+'k' : '$'+n.toFixed(0);
 
   el.innerHTML = `<div style="display:flex;gap:8px;padding:0 0 16px 0;overflow:hidden">
