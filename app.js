@@ -419,9 +419,13 @@ app.get('/api/waitlist/:id/approve', async (req, res) => {
     const serviceUrl = renderData.service?.serviceDetails?.url || `https://${serviceName}.onrender.com`;
     await dbLayer.createTenant({ id: tenantId, name, email, serviceName, serviceUrl, renderServiceId, neonProjectId, r2Prefix });
     await dbLayer.updateWaitlistStatus(req.params.id, 'approved');
-    await sendEmail(email, 'Your Dashboard is ready',
-      `<p>Hi ${name},</p><p>Your personal dashboard is ready at:</p><p style="margin:16px 0"><a href="${serviceUrl}" style="background:#3b82f6;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">${serviceUrl}</a></p><p>Click the link to create your account and get started.</p>`
-    );
+    try {
+      await sendEmail(email, 'Your Dashboard is ready',
+        `<p>Hi ${name},</p><p>Your personal dashboard is ready at:</p><p style="margin:16px 0"><a href="${serviceUrl}" style="background:#3b82f6;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">${serviceUrl}</a></p><p>Click the link to create your account and get started.</p>`
+      );
+    } catch (emailErr) {
+      console.error('[provision] welcome email failed:', emailErr.message);
+    }
     res.send(`<html><body style="font-family:sans-serif;padding:40px;background:#0d0d0d;color:#e2e2e2">
       <h2 style="color:#4caf7d">✓ Provisioned</h2>
       <p style="margin-top:12px">${name} (${email}) has been provisioned.</p>
@@ -1050,10 +1054,12 @@ app.post('/admin/api/provision', requireAdmin, async (req, res) => {
     await dbLayer.createTenant({ id: tenantId, name, email, serviceName, serviceUrl, renderServiceId, neonProjectId, r2Prefix });
 
     // 4. Send welcome email
-    if (SENDGRID_API_KEY && email) {
+    try {
       await sendEmail(email, 'Your Dashboard is ready',
         `<p>Hi ${name},</p><p>Your personal dashboard is ready at:</p><p><a href="${serviceUrl}">${serviceUrl}</a></p><p>Visit the link to create your account and get started.</p>`
       );
+    } catch (emailErr) {
+      console.error('[provision] welcome email failed:', emailErr.message);
     }
 
     res.json({ url: serviceUrl, tenantId, neonProjectId, renderServiceId });
