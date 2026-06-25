@@ -394,7 +394,10 @@ app.get('/api/waitlist/:id/approve', async (req, res) => {
       body: JSON.stringify({
         type: 'web_service', name: serviceName, ownerId: RENDER_OWNER_ID,
         repo: githubRepo, branch: 'main', autoDeploy: 'yes',
-        serviceDetails: { runtime: 'node', plan: 'starter', buildCommand: 'npm install', startCommand: 'node app.js' },
+        serviceDetails: {
+          runtime: 'node', plan: 'starter',
+          envSpecificDetails: { buildCommand: 'npm install', startCommand: 'node app.js' },
+        },
         envVars: [
           { key: 'DATABASE_URL', value: dbUrl },
           { key: 'SESSION_SECRET', value: sessionSecret },
@@ -1021,8 +1024,7 @@ app.post('/admin/api/provision', requireAdmin, async (req, res) => {
         serviceDetails: {
           runtime: 'node',
           plan: 'starter',
-          buildCommand: 'npm install',
-          startCommand: 'node app.js',
+          envSpecificDetails: { buildCommand: 'npm install', startCommand: 'node app.js' },
         },
         envVars: [
           { key: 'DATABASE_URL', value: dbUrl },
