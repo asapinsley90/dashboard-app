@@ -371,20 +371,43 @@ app.get('/api/waitlist/:id/approve', async (req, res) => {
   if (!entry) return res.status(404).send('Waitlist entry not found');
   if (entry.status === 'approved') return res.send(`<html><body style="font-family:sans-serif;padding:40px;background:#0d0d0d;color:#e2e2e2"><h2>Already approved</h2><p>${entry.name} was already provisioned.</p></body></html>`);
   const { name, email } = entry;
-  const serviceName = 'dashboard-' + name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g,'-').slice(0,20) + '-' + crypto.randomBytes(2).toString('hex');
-  const r2Prefix = serviceName;
-  const tenantId = 'tenant-' + Date.now().toString(36);
+
+  // Check for existing in-progress tenant (partial provisioning from a previous attempt)
+  const existingTenants = await dbLayer.getTenants();
+  const existing = existingTenants.find(t => t.email === email && t.status === 'provisioning');
+
+  const serviceName = existing?.serviceName || ('dashboard-' + name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g,'-').slice(0,20) + '-' + crypto.randomBytes(2).toString('hex'));
+  const r2Prefix = existing?.r2Prefix || serviceName;
+  const tenantId = existing?.id || ('tenant-' + Date.now().toString(36));
+
   try {
-    const neonRes = await fetch('https://console.neon.tech/api/v2/projects', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${NEON_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ project: { name: serviceName, ...(NEON_ORG_ID ? { org_id: NEON_ORG_ID } : {}) } }),
-    });
-    if (!neonRes.ok) throw new Error(`Neon: ${await neonRes.text()}`);
-    const neonData = await neonRes.json();
-    const dbUrl = neonData.connection_uris?.[0]?.connection_uri;
+    let dbUrl, neonProjectId;
+    if (existing?.neonProjectId) {
+      // Reuse existing Neon project — fetch connection URI
+      const neonDetail = await fetch(`https://console.neon.tech/api/v2/projects/${existing.neonProjectId}`, {
+        headers: { 'Authorization': `Bearer ${NEON_API_KEY}` },
+      });
+      if (!neonDetail.ok) throw new Error(`Neon fetch: ${await neonDetail.text()}`);
+      const nd = await neonDetail.json();
+      dbUrl = nd.connection_uris?.[0]?.connection_uri;
+      neonProjectId = existing.neonProjectId;
+    } else {
+      const neonRes = await fetch('https://console.neon.tech/api/v2/projects', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${NEON_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project: { name: serviceName, ...(NEON_ORG_ID ? { org_id: NEON_ORG_ID } : {}) } }),
+      });
+      if (!neonRes.ok) throw new Error(`Neon: ${await neonRes.text()}`);
+      const neonData = await neonRes.json();
+      dbUrl = neonData.connection_uris?.[0]?.connection_uri;
+      neonProjectId = neonData.project?.id || '';
+      // Save partial tenant record so retries reuse this Neon project
+      if (!existing) {
+        await dbLayer.createTenant({ id: tenantId, name, email, serviceName, serviceUrl: '', renderServiceId: '', neonProjectId, r2Prefix }).catch(() => {});
+        await dbLayer.updateTenantStatus(tenantId, 'provisioning');
+      }
+    }
     if (!dbUrl) throw new Error('No connection URI from Neon');
-    const neonProjectId = neonData.project?.id || '';
     const sessionSecret = crypto.randomBytes(32).toString('hex');
     const tenantAdminToken = crypto.randomBytes(20).toString('hex');
     const githubRepo = process.env.GITHUB_REPO || 'https://github.com/asapinsley90/dashboard-app';
@@ -418,7 +441,11 @@ app.get('/api/waitlist/:id/approve', async (req, res) => {
     const renderData = await renderRes.json();
     const renderServiceId = renderData.service?.id || '';
     const serviceUrl = renderData.service?.serviceDetails?.url || `https://${serviceName}.onrender.com`;
-    await dbLayer.createTenant({ id: tenantId, name, email, serviceName, serviceUrl, renderServiceId, neonProjectId, r2Prefix });
+    if (existing) {
+      await dbLayer.updateTenantProvisioned(tenantId, { serviceUrl, renderServiceId });
+    } else {
+      await dbLayer.createTenant({ id: tenantId, name, email, serviceName, serviceUrl, renderServiceId, neonProjectId, r2Prefix });
+    }
     await dbLayer.updateWaitlistStatus(req.params.id, 'approved');
     try {
       await sendEmail(email, 'Your Dashboard is ready',
