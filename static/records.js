@@ -20,7 +20,8 @@ function renderRecordView(recordId) {
   else if (r.type === 'account') {
     el.innerHTML = renderAccountRecord(r, area);
     const chartHistory = (r.fields.history || []).slice().sort((a,b) => a.month.localeCompare(b.month));
-    requestAnimationFrame(() => renderAccountCharts(`acct-charts-${r.id}`, chartHistory));
+    const _doCharts = () => renderAccountCharts(`acct-charts-${r.id}`, chartHistory);
+    requestAnimationFrame(() => { _doCharts(); setTimeout(_doCharts, 100); });
   }
   else if (r.type === 'company') el.innerHTML = renderCompanyRecord(r, area);
   else if (TYPE_SCHEMAS.find(s => s.id === r.type)) el.innerHTML = renderSchemaRecord(r, area);
