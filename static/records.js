@@ -413,7 +413,7 @@ function renderAccountRecord(r, area) {
         <td style="padding:5px 6px;color:var(--muted)">${editCell(r.id, h.month, 'beginBalance', h.beginBalance, fmt(h.beginBalance))}</td>
         <td style="padding:5px 6px;color:var(--text);font-weight:500">${editCell(r.id, h.month, 'endBalance', h.endBalance, fmt(h.endBalance))}</td>
         <td style="padding:5px 6px;color:var(--muted)">${editCell(r.id, h.month, 'contributions', h.contributions, h.contributions > 0 ? fmt(h.contributions) : '—')}</td>
-        <td style="padding:5px 0;color:${ret>=0?'var(--green)':'var(--red)'};font-weight:500">${fmtPct(ret)}</td>
+        <td style="padding:5px 0;color:${ret>=0?'var(--green)':'var(--red)'};font-weight:500"><span class="hist-cell-return">${fmtPct(ret)}</span></td>
         <td style="padding:5px 0 5px 8px"><button onclick="deleteHistoryRow('${r.id}','${h.month}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0" title="Delete row">✕</button></td>
       </tr>`; }).join('')}</tbody>
     </table>` : '<div style="color:var(--muted);font-size:12px">No history yet — import a statement to start tracking.</div>';
@@ -956,6 +956,8 @@ async function moveRecordArea(recordId, newAreaId) {
 }
 
 function activateHistCell(span, recordId, month, field) {
+  const fmt = n => '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtPct = n => (n>=0?'+':'')+Number(n).toFixed(2)+'%';
   const raw = span.textContent.replace(/[$,%+\s]/g, '');
   const input = document.createElement('input');
   input.value = raw === '—' ? '' : raw;
@@ -963,28 +965,47 @@ function activateHistCell(span, recordId, month, field) {
   span.replaceWith(input);
   input.focus();
   input.select();
-  const commit = () => saveHistoryCell(recordId, month, field, input.value);
+  let committed = false;
+  const commit = async () => {
+    if (committed) return;
+    committed = true;
+    const r = getRecord(recordId);
+    const entry = r && (r.fields.history || []).find(h => h.month === month);
+    const num = parseFloat(input.value.replace(/[$,%+\s]/g,''));
+    const newSpan = document.createElement('span');
+    newSpan.className = 'hist-cell';
+    newSpan.title = 'Click to edit';
+    newSpan.style.cssText = 'cursor:pointer;border-radius:3px;padding:1px 3px';
+    newSpan.setAttribute('onclick', `activateHistCell(this,'${recordId}','${month}','${field}')`);
+    if (!entry || isNaN(num)) {
+      newSpan.textContent = span.textContent;
+      input.replaceWith(newSpan);
+      return;
+    }
+    entry[field] = num;
+    const begin = Number(entry.beginBalance) || 0;
+    const end = Number(entry.endBalance) || 0;
+    const contrib = Number(entry.contributions) || 0;
+    const base = begin + contrib;
+    entry.returnPct = base === 0 ? 0 : (end - base) / base * 100;
+    // Update display immediately
+    if (field === 'contributions') newSpan.textContent = num > 0 ? fmt(num) : '—';
+    else if (field === 'returnPct') newSpan.textContent = fmtPct(entry.returnPct);
+    else newSpan.textContent = fmt(num);
+    input.replaceWith(newSpan);
+    // Update return cell in same row
+    const row = newSpan.closest('tr');
+    if (row) {
+      const retCell = row.querySelector('.hist-cell-return');
+      if (retCell) retCell.textContent = fmtPct(entry.returnPct);
+    }
+    api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+  };
   input.addEventListener('blur', commit);
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } if (e.key === 'Escape') { renderRecordView(recordId); } });
-}
-
-async function saveHistoryCell(recordId, month, field, rawText) {
-  const r = getRecord(recordId);
-  if (!r) return;
-  const entry = (r.fields.history || []).find(h => h.month === month);
-  if (!entry) return;
-  const cleaned = rawText.replace(/[$,%+\s]/g, '');
-  const num = parseFloat(cleaned);
-  if (isNaN(num)) return;
-  entry[field] = num;
-  // Recalculate return % from formula: (end - (begin + contrib)) / (begin + contrib)
-  const begin = Number(entry.beginBalance) || 0;
-  const end = Number(entry.endBalance) || 0;
-  const contrib = Number(entry.contributions) || 0;
-  const base = begin + contrib;
-  entry.returnPct = base === 0 ? 0 : (end - base) / base * 100;
-  await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
-  renderRecordView(recordId);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { committed = true; input.replaceWith(span); }
+  });
 }
 
 async function deleteHistoryRow(recordId, month) {
