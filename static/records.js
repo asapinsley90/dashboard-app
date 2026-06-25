@@ -374,13 +374,34 @@ function renderAccountRecord(r, area) {
     : `<div class="record-view-icon">💳</div>`;
   const fmt = n => '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
   const fmtPct = n => (n>=0?'+':'')+Number(n).toFixed(2)+'%';
+  const calcReturn = h => {
+    const begin = Number(h.beginBalance) || 0;
+    const end = Number(h.endBalance) || 0;
+    const contrib = Number(h.contributions) || 0;
+    const base = begin + contrib;
+    return base === 0 ? 0 : (end - base) / base;
+  };
   const history = (r.fields.history || []).slice().sort((a,b) => b.month.localeCompare(a.month));
+  // Annual return = product of (1 + monthly return) - 1, grouped by year
+  const annualReturns = {};
+  (r.fields.history || []).forEach(h => {
+    const yr = h.month.slice(0, 4);
+    annualReturns[yr] = annualReturns[yr] || [];
+    annualReturns[yr].push(calcReturn(h));
+  });
+  const annualReturnHTML = Object.entries(annualReturns).sort((a,b)=>b[0].localeCompare(a[0])).map(([yr, rets]) => {
+    const total = rets.reduce((p, r) => p * (1 + r), 1) - 1;
+    return `<span style="margin-left:16px;font-size:11px;color:var(--muted)">${yr}: <span style="color:${total>=0?'var(--green)':'var(--red)'};font-weight:500">${fmtPct(total*100)}</span></span>`;
+  }).join('');
   const editCell = (rid, month, field, val, display) =>
     `<span contenteditable="true" style="outline:none;cursor:text;border-radius:3px;padding:1px 3px" title="Click to edit"
       onblur="saveHistoryCell('${rid}','${month}','${field}',this.textContent)"
-      onfocus="this.style.background='var(--bg3)'" onblur2="this.style.background=''"
+      onfocus="this.style.background='var(--bg3)'"
     >${display}</span>`;
   const historyHTML = history.length ? `
+    <div style="display:flex;align-items:baseline;margin-bottom:8px">
+      <span style="font-size:11px;color:var(--muted)">Annual return${annualReturnHTML}</span>
+    </div>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead><tr style="color:var(--muted);text-align:right">
         <th style="text-align:left;padding:4px 0;font-weight:500">Month</th>
@@ -390,14 +411,14 @@ function renderAccountRecord(r, area) {
         <th style="padding:4px 0;font-weight:500">Return</th>
         <th style="padding:4px 0;font-weight:500"></th>
       </tr></thead>
-      <tbody>${history.map(h => `<tr style="border-top:1px solid var(--border1);text-align:right">
+      <tbody>${history.map(h => { const ret = calcReturn(h) * 100; return `<tr style="border-top:1px solid var(--border1);text-align:right">
         <td style="text-align:left;padding:5px 0;color:var(--text)">${h.month}</td>
         <td style="padding:5px 6px;color:var(--muted)">${editCell(r.id, h.month, 'beginBalance', h.beginBalance, fmt(h.beginBalance))}</td>
         <td style="padding:5px 6px;color:var(--text);font-weight:500">${editCell(r.id, h.month, 'endBalance', h.endBalance, fmt(h.endBalance))}</td>
         <td style="padding:5px 6px;color:var(--muted)">${editCell(r.id, h.month, 'contributions', h.contributions, h.contributions > 0 ? fmt(h.contributions) : '—')}</td>
-        <td style="padding:5px 0;color:${h.returnPct>=0?'var(--green)':'var(--red)'};font-weight:500">${editCell(r.id, h.month, 'returnPct', h.returnPct, fmtPct(h.returnPct))}</td>
+        <td style="padding:5px 0;color:${ret>=0?'var(--green)':'var(--red)'};font-weight:500">${fmtPct(ret)}</td>
         <td style="padding:5px 0 5px 8px"><button onclick="deleteHistoryRow('${r.id}','${h.month}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0" title="Delete row">✕</button></td>
-      </tr>`).join('')}</tbody>
+      </tr>`; }).join('')}</tbody>
     </table>` : '<div style="color:var(--muted);font-size:12px">No history yet — import a statement to start tracking.</div>';
 
   const chartId = `acct-charts-${r.id}`;
@@ -590,7 +611,12 @@ async function confirmStatementImport(recordId, btn) {
   r.fields.balanceDate = monthStr + '-01';
   r.fields.history = r.fields.history || [];
   const existing = r.fields.history.findIndex(h => h.month === monthStr);
-  const entry = { month: monthStr, beginBalance: data.beginBalance, endBalance: data.endBalance, contributions: data.contributions, returnPct: data.returnPct };
+  const begin = Number(data.beginBalance) || 0;
+  const end = Number(data.endBalance) || 0;
+  const contrib = Number(data.contributions) || 0;
+  const base = begin + contrib;
+  const calcedReturn = base === 0 ? 0 : (end - base) / base * 100;
+  const entry = { month: monthStr, beginBalance: begin, endBalance: end, contributions: contrib, returnPct: calcedReturn };
   if (existing >= 0) r.fields.history[existing] = entry; else r.fields.history.push(entry);
   r.fields.history.sort((a,b) => a.month.localeCompare(b.month));
 
@@ -941,6 +967,12 @@ async function saveHistoryCell(recordId, month, field, rawText) {
   const num = parseFloat(cleaned);
   if (isNaN(num)) return;
   entry[field] = num;
+  // Recalculate return % from formula: (end - (begin + contrib)) / (begin + contrib)
+  const begin = Number(entry.beginBalance) || 0;
+  const end = Number(entry.endBalance) || 0;
+  const contrib = Number(entry.contributions) || 0;
+  const base = begin + contrib;
+  entry.returnPct = base === 0 ? 0 : (end - base) / base * 100;
   await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
   renderRecordView(recordId);
 }
