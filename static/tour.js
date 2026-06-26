@@ -137,8 +137,14 @@ function _renderTourStep(step, index) {
 
     // If this step requires clicking the target, wire it up
     if (step.requireClick) {
+      // Add a transparent click zone over the target above the overlay so clicks reach it
+      const clickZone = document.createElement('div');
+      clickZone.id = 'tour-click-zone';
+      clickZone.style.cssText = `position:fixed;top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;z-index:10001;cursor:pointer`;
+      document.body.appendChild(clickZone);
+
       const handler = () => {
-        target.removeEventListener('click', handler);
+        clickZone.remove();
         tour._clickHandler = null;
         clearTourOverlay();
         if (step.advance === 'manual') {
@@ -151,11 +157,11 @@ function _renderTourStep(step, index) {
             const overlay = document.createElement('div');
             overlay.id = 'tour-overlay';
             document.body.appendChild(overlay);
-            const rect = modal.getBoundingClientRect();
-            const halo = document.createElement('div');
-            halo.id = 'tour-halo';
-            halo.style.cssText = `top:${rect.top-6}px;left:${rect.left-6}px;width:${rect.width+12}px;height:${rect.height+12}px;pointer-events:none`;
-            document.body.appendChild(halo);
+            const mRect = modal.getBoundingClientRect();
+            const mHalo = document.createElement('div');
+            mHalo.id = 'tour-halo';
+            mHalo.style.cssText = `top:${mRect.top-6}px;left:${mRect.left-6}px;width:${mRect.width+12}px;height:${mRect.height+12}px;pointer-events:none`;
+            document.body.appendChild(mHalo);
             const bubble = document.createElement('div');
             bubble.id = 'tour-bubble';
             bubble.innerHTML = `<div class="tour-step-count">${index + 1} of ${TOUR_STEPS.length}</div><div class="tour-heading">${step.modalHeading||'Fill it in'}</div><div class="tour-text">${step.modalText||''}</div><div class="tour-actions"><button class="tour-skip" onclick="dismissTour()">Skip tour</button></div>`;
@@ -165,8 +171,12 @@ function _renderTourStep(step, index) {
         }
         // For other event-driven advances, tourNotify handles the next step
       };
-      target.addEventListener('click', handler);
-      tour._clickHandler = { el: target, fn: handler };
+      // clickZone intercepts the click, fires handler, then forwards to real target
+      clickZone.addEventListener('click', () => {
+        handler();
+        target.click();
+      });
+      tour._clickHandler = { el: clickZone, fn: null };
     }
   }
 
@@ -258,12 +268,13 @@ function dismissTour() {
 
 function clearTourOverlay() {
   if (tour._clickHandler) {
-    tour._clickHandler.el.removeEventListener('click', tour._clickHandler.fn);
+    if (tour._clickHandler.fn) tour._clickHandler.el.removeEventListener('click', tour._clickHandler.fn);
     tour._clickHandler = null;
   }
   document.getElementById('tour-overlay')?.remove();
   document.getElementById('tour-bubble')?.remove();
   document.getElementById('tour-halo')?.remove();
+  document.getElementById('tour-click-zone')?.remove();
   document.querySelectorAll('.tour-spotlight').forEach(el => el.classList.remove('tour-spotlight'));
 }
 
