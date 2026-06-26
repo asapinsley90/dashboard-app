@@ -472,7 +472,7 @@ app.get('/dev-reset', async (req, res) => {
   if (!user) return res.send('No user found');
   const hash = await bcrypt.hash(req.query.pw || 'newpass123', BCRYPT_ROUNDS);
   await dbLayer.updateUser(user.id, { passwordHash: hash });
-  res.send(`Password reset. Username: ${user.username || user.name} — login with: ${req.query.pw || 'newpass123'}`);
+  res.send(`Password reset.<br>Username field: "${user.username}"<br>Email field: "${user.email}"<br>Login with identifier: ${user.username || user.email} — password: ${req.query.pw || 'newpass123'}`);
 });
 
 // Protect everything else
