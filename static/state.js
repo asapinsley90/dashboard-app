@@ -137,8 +137,8 @@ const _undoStack = []; // { type, label, restore: async fn }
 const _redoStack = [];
 const UNDO_MAX = 50;
 
-function pushUndo(label, restoreFn) {
-  _undoStack.push({ label, restore: restoreFn });
+function pushUndo(label, restoreFn, redoFn) {
+  _undoStack.push({ label, restore: restoreFn, redo: redoFn });
   if (_undoStack.length > UNDO_MAX) _undoStack.shift();
   _redoStack.length = 0;
 }
@@ -181,9 +181,13 @@ document.addEventListener('keydown', async e => {
   if ((e.ctrlKey || e.metaKey) && (e.shiftKey && e.key === 'z' || e.key === 'y')) {
     e.preventDefault();
     const action = _redoStack.pop();
-    if (!action) return;
-    // Redo = delete again (re-soft-delete)
-    if (action.redelete) await action.redelete();
+    if (!action || !action.redo) return;
+    await action.redo();
+    renderSidebar();
+    if (currentView === 'record' && currentRecordId) renderRecordView(currentRecordId);
+    else if (currentView === 'area') renderAreaView(currentAreaId);
+    else if (currentView === 'dashboard') renderDashboard();
+    _undoStack.push(action);
   }
 });
 

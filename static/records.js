@@ -1053,6 +1053,9 @@ function editAnnualContrib(recordId, year, el) {
     pushUndo(`Edit ${year} IRA contribution`, async () => {
       const r2 = getRecord(recordId);
       if (r2) { r2.fields.annualContribs = r2.fields.annualContribs||{}; r2.fields.annualContribs[year] = current; await api('PUT', `/api/records/${recordId}`, { fields: r2.fields }); renderRecordView(recordId); }
+    }, async () => {
+      const r2 = getRecord(recordId);
+      if (r2) { r2.fields.annualContribs = r2.fields.annualContribs||{}; r2.fields.annualContribs[year] = num; await api('PUT', `/api/records/${recordId}`, { fields: r2.fields }); renderRecordView(recordId); }
     });
     api('PUT', `/api/records/${recordId}`, { fields: r.fields });
   };
@@ -1105,10 +1108,15 @@ function activateHistCell(span, recordId, month, field) {
       const retCell = row.querySelector('.hist-cell-return');
       if (retCell) retCell.textContent = fmtPct(entry.returnPct);
     }
+    const newEntry = { ...entry };
     pushUndo(`Edit ${month} ${field}`, async () => {
       const r2 = getRecord(recordId);
       const e2 = r2 && (r2.fields.history || []).find(h => h.month === month);
       if (e2) { Object.assign(e2, oldEntry); await api('PUT', `/api/records/${recordId}`, { fields: r2.fields }); renderRecordView(recordId); }
+    }, async () => {
+      const r2 = getRecord(recordId);
+      const e2 = r2 && (r2.fields.history || []).find(h => h.month === month);
+      if (e2) { Object.assign(e2, newEntry); await api('PUT', `/api/records/${recordId}`, { fields: r2.fields }); renderRecordView(recordId); }
     });
     api('PUT', `/api/records/${recordId}`, { fields: r.fields });
   };
@@ -1132,6 +1140,11 @@ async function deleteHistoryRow(recordId, month) {
     r2.fields.history.sort((a,b) => a.month.localeCompare(b.month));
     await api('PUT', `/api/records/${recordId}`, { fields: r2.fields });
     renderRecordView(recordId);
+  }, async () => {
+    const r2 = getRecord(recordId);
+    r2.fields.history = (r2.fields.history || []).filter(h => h.month !== month);
+    await api('PUT', `/api/records/${recordId}`, { fields: r2.fields });
+    renderRecordView(recordId);
   });
   renderRecordView(recordId);
 }
@@ -1145,6 +1158,9 @@ async function saveField(recordId, key, value) {
   pushUndo(`Edit ${key}`, async () => {
     const r2 = getRecord(recordId);
     if (r2) { r2[key] = oldValue; await api('PUT', `/api/records/${recordId}`, { [key]: oldValue }); renderRecordView(recordId); }
+  }, async () => {
+    const r2 = getRecord(recordId);
+    if (r2) { r2[key] = value; await api('PUT', `/api/records/${recordId}`, { [key]: value }); renderRecordView(recordId); }
   });
 }
 
@@ -1169,6 +1185,9 @@ async function saveFieldText(recordId, key, value) {
   pushUndo(`Edit ${key}`, async () => {
     const r2 = getRecord(recordId);
     if (r2) { r2.fields[key] = oldValue; await api('PUT', `/api/records/${recordId}`, { fields: r2.fields }); renderRecordView(recordId); }
+  }, async () => {
+    const r2 = getRecord(recordId);
+    if (r2) { r2.fields[key] = nextValue; await api('PUT', `/api/records/${recordId}`, { fields: r2.fields }); renderRecordView(recordId); }
   });
 }
 
@@ -1425,6 +1444,12 @@ function promptAddRecord(forceType, targetAreaId = null) {
         renderSidebar();
         if (currentView === 'record' && currentRecordId === rec.id) navigate('dashboard');
         else if (currentView === 'area') renderAreaView(currentAreaId);
+      }, async () => {
+        await api('POST', `/api/records/${rec.id}/restore`);
+        rec.deletedAt = null;
+        DB.records.push(rec);
+        renderSidebar();
+        navigate('record', aid, rec.id);
       });
       closeModal(); renderSidebar(); navigate('record', aid, rec.id);
     }},
@@ -1466,6 +1491,12 @@ async function promptAddArea(parentId = null) {
         DB.areas = DB.areas.filter(a => a.id !== area.id);
         renderSidebar();
         if (currentAreaId === area.id) navigate('dashboard');
+      }, async () => {
+        await api('POST', `/api/areas/${area.id}/restore`);
+        area.deletedAt = null;
+        DB.areas.push(area);
+        renderSidebar();
+        navigate('area', area.id);
       });
       navigate('area', area.id);
     }},
@@ -1549,6 +1580,11 @@ async function deleteRecord(recordId) {
     await api('POST', `/api/records/${recordId}/restore`);
     renderSidebar();
     navigate('area', areaId);
+  }, async () => {
+    r.deletedAt = new Date().toISOString();
+    await api('DELETE', `/api/records/${recordId}`);
+    renderSidebar();
+    if (currentView === 'record' && currentRecordId === recordId) navigate('area', areaId);
   });
 
   showTourTip('delete-undo', '#delete-toast', 'Deleted', 'Press <b>Ctrl+Z</b> to restore within 24 hours, or find it in <b>History → Recently Deleted</b>.', 'top');

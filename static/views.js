@@ -1271,6 +1271,13 @@ async function setRecordStatus(recordId,newStatus){
     if(currentView==='record')renderRecordView(recordId);
     if(currentView==='dashboard')renderAttention();
     if(currentView==='area')renderAreaView(currentAreaId);
+  }, async () => {
+    r.status=newStatus; if(newStatus==='completed'||newStatus==='archived') r.urgency='none';
+    await api('PUT',`/api/records/${recordId}`,{status:newStatus,urgency:r.urgency});
+    renderSidebar();
+    if(currentView==='record')renderRecordView(recordId);
+    if(currentView==='dashboard')renderAttention();
+    if(currentView==='area')renderAreaView(currentAreaId);
   });
 }
 
@@ -1286,6 +1293,13 @@ async function setUrgency(recordId,level){
   pushUndo(`${r.title} flag → ${prev}`, async () => {
     r.urgency=prev;
     await api('PUT',`/api/records/${recordId}`,{urgency:prev});
+    renderSidebar();
+    if(currentView==='record')renderRecordView(recordId);
+    if(currentView==='dashboard')renderAttention();
+    if(currentView==='area')renderAreaView(currentAreaId);
+  }, async () => {
+    r.urgency=level;
+    await api('PUT',`/api/records/${recordId}`,{urgency:level});
     renderSidebar();
     if(currentView==='record')renderRecordView(recordId);
     if(currentView==='dashboard')renderAttention();
@@ -1344,8 +1358,15 @@ function showAreaCtxMenu(e, areaId) {
       navigate('area', areaId);
     };
 
+    const redeleteFn = async () => {
+      DB.areas = DB.areas.map(a => (a.id === areaId || childIds.includes(a.id)) ? { ...a, deletedAt: now } : a);
+      DB.records = DB.records.map(r => (childIds.includes(r.areaId) || r.areaId === areaId) ? { ...r, deletedAt: now } : r);
+      await api('DELETE', `/api/areas/${areaId}`);
+      if (currentAreaId === areaId || children.some(c => c.id === currentAreaId)) navigate('dashboard');
+      else { renderSidebar(); if (currentView === 'area') renderAreaView(currentAreaId); }
+    };
     deleteToast(label, restoreFn);
-    pushUndo(label, restoreFn);
+    pushUndo(label, restoreFn, redeleteFn);
     showTourTip('delete-undo', '#delete-toast', 'Deleted', 'Press <b>Ctrl+Z</b> to restore within 24 hours, or find it in <b>History → Recently Deleted</b>.', 'top');
 
     api('DELETE', `/api/areas/${areaId}`).catch(() => {
