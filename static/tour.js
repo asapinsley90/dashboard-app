@@ -281,12 +281,19 @@ function endTour() {
 }
 
 function dismissTour() {
-  clearTourOverlay();
-  tour.active = false;
-  const prefs = currentUser.dashboardPrefs || {};
-  prefs.tourDismissed = true;
-  currentUser.dashboardPrefs = prefs;
-  api('PATCH', '/api/me', { dashboardPrefs: prefs, onboardingStep: 'complete' }).catch(() => {});
+  // Close any open modal first, then jump to the sendoff step
+  if (document.getElementById('modal-overlay')?.classList.contains('open')) closeModal();
+  const finishIndex = TOUR_STEPS.findIndex(s => s.id === 'finish');
+  if (finishIndex >= 0 && tour.step !== finishIndex) {
+    setTimeout(() => showTourStep(finishIndex), 100);
+  } else {
+    clearTourOverlay();
+    tour.active = false;
+    const prefs = currentUser.dashboardPrefs || {};
+    prefs.tourDismissed = true;
+    currentUser.dashboardPrefs = prefs;
+    api('PATCH', '/api/me', { dashboardPrefs: prefs, onboardingStep: 'complete' }).catch(() => {});
+  }
 }
 
 function clearTourOverlay() {
