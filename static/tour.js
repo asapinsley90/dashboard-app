@@ -156,6 +156,7 @@ function _renderTourStep(step, index) {
             if (!modal) return;
             const overlay = document.createElement('div');
             overlay.id = 'tour-overlay';
+            overlay.style.pointerEvents = 'none';
             document.body.appendChild(overlay);
             const mRect = modal.getBoundingClientRect();
             const mHalo = document.createElement('div');
