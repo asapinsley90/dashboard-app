@@ -9,6 +9,9 @@ const TOUR_STEPS = [
     advance: 'area-created',
     position: 'right',
     requireClick: true,
+    modalHighlight: '#modal',
+    modalHeading: 'Name your area',
+    modalText: 'Give it a name, pick a color, and click <b>Create</b>.',
   },
   {
     id: 'collapse-area',
@@ -30,6 +33,9 @@ const TOUR_STEPS = [
     advance: 'record-created',
     position: 'bottom',
     requireClick: true,
+    modalHighlight: '#modal',
+    modalHeading: 'Create a record',
+    modalText: 'Give it a name, choose a type, and click <b>Create</b>.',
     onShow: () => {
       const area = DB.areas.find(a => !a.deletedAt);
       if (area && currentView !== 'area') navigate('area', area.id);
@@ -134,10 +140,30 @@ function _renderTourStep(step, index) {
       const handler = () => {
         target.removeEventListener('click', handler);
         tour._clickHandler = null;
-        // Always clear overlay so modals/interactions aren't blocked
         clearTourOverlay();
-        if (step.advance === 'manual') setTimeout(() => showTourStep(tour.step + 1), 300);
-        // For event-driven advances (area-created, record-created), tourNotify handles the next step
+        if (step.advance === 'manual') {
+          setTimeout(() => showTourStep(tour.step + 1), 300);
+        } else if (step.modalHighlight) {
+          // After clicking, highlight the modal that appears
+          setTimeout(() => {
+            const modal = document.querySelector(step.modalHighlight);
+            if (!modal) return;
+            const overlay = document.createElement('div');
+            overlay.id = 'tour-overlay';
+            document.body.appendChild(overlay);
+            const rect = modal.getBoundingClientRect();
+            const halo = document.createElement('div');
+            halo.id = 'tour-halo';
+            halo.style.cssText = `top:${rect.top-6}px;left:${rect.left-6}px;width:${rect.width+12}px;height:${rect.height+12}px;pointer-events:none`;
+            document.body.appendChild(halo);
+            const bubble = document.createElement('div');
+            bubble.id = 'tour-bubble';
+            bubble.innerHTML = `<div class="tour-step-count">${index + 1} of ${TOUR_STEPS.length}</div><div class="tour-heading">${step.modalHeading||'Fill it in'}</div><div class="tour-text">${step.modalText||''}</div><div class="tour-actions"><button class="tour-skip" onclick="dismissTour()">Skip tour</button></div>`;
+            document.body.appendChild(bubble);
+            _positionBubble(bubble, modal, 'right');
+          }, 150);
+        }
+        // For other event-driven advances, tourNotify handles the next step
       };
       target.addEventListener('click', handler);
       tour._clickHandler = { el: target, fn: handler };
@@ -247,6 +273,7 @@ function tourNotify(event, data) {
   if (!step) return;
   if (step.advance === event) {
     if (event === 'area-created' && data?.id) tour.lastAreaId = data.id;
+    clearTourOverlay();
     setTimeout(() => showTourStep(tour.step + 1), 500);
   }
 }
