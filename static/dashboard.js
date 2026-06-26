@@ -546,6 +546,14 @@ function renderAreaView(areaId) {
       </button>`;
       calPanel.appendChild(btn);
     }
+
+    // Investment widgets — inject above calendar if area has account records
+    const existing2 = document.getElementById('area-invest-widgets');
+    if (existing2) existing2.remove();
+    const accountRecs = records.filter(r => r.type === 'account' && !r.deletedAt);
+    if (accountRecs.length) {
+      renderInvestmentWidgets(calPanel, accountRecs, area);
+    }
   }
 
   renderSidebar();
@@ -736,4 +744,104 @@ function unlockAreaTitle(el) {
     if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
     if (e.key === 'Escape') { el.textContent = original; el.blur(); }
   };
+}
+
+// ── INVESTMENT AREA WIDGETS ──────────────────────────────────────────────────
+function renderInvestmentWidgets(calPanel, accountRecs, area) {
+  const wrapper = document.createElement('div');
+  wrapper.id = 'area-invest-widgets';
+  wrapper.style.cssText = 'margin-bottom:16px';
+
+  // Portfolio total from latest end balance per account
+  const total = accountRecs.reduce((sum, r) => {
+    const hist = (r.fields.history || []).slice().sort((a,b) => b.month.localeCompare(a.month));
+    const latest = hist[0];
+    return sum + (latest ? Number(latest.endBalance) || 0 : Number(r.fields.balance) || 0);
+  }, 0);
+
+  const fmt = n => '$' + Math.round(n).toLocaleString();
+
+  // Combined balance history across all accounts by month
+  const monthMap = {};
+  accountRecs.forEach(r => {
+    (r.fields.history || []).forEach(h => {
+      if (!monthMap[h.month]) monthMap[h.month] = 0;
+      monthMap[h.month] += Number(h.endBalance) || 0;
+    });
+  });
+  const months = Object.keys(monthMap).sort();
+  const balances = months.map(m => monthMap[m]);
+
+  // Blended monthly return (weighted average of last month)
+  const lastMonth = months[months.length - 1];
+  let blendedReturn = null;
+  if (lastMonth) {
+    let totalWeight = 0, weightedReturn = 0;
+    accountRecs.forEach(r => {
+      const entry = (r.fields.history || []).find(h => h.month === lastMonth);
+      if (entry) {
+        const w = Number(entry.endBalance) || 0;
+        weightedReturn += (Number(entry.returnPct) || 0) * w;
+        totalWeight += w;
+      }
+    });
+    if (totalWeight > 0) blendedReturn = weightedReturn / totalWeight;
+  }
+
+  const returnColor = blendedReturn === null ? 'var(--muted)' : blendedReturn >= 0 ? 'var(--green)' : 'var(--red)';
+  const returnText = blendedReturn === null ? '—' : (blendedReturn >= 0 ? '+' : '') + blendedReturn.toFixed(2) + '%';
+
+  // SVG line chart (compact)
+  let chartSvg = '';
+  if (balances.length >= 2) {
+    const W = 220, H = 60, PL = 4, PR = 4, PT = 6, PB = 6;
+    const min = Math.min(...balances), max = Math.max(...balances);
+    const range = max - min || 1;
+    const xStep = (W - PL - PR) / (balances.length - 1);
+    const y = v => PT + (H - PT - PB) * (1 - (v - min) / range);
+    const pts = balances.map((v, i) => `${PL + i * xStep},${y(v)}`).join(' ');
+    const areaPath = `M${PL},${H-PB} ` + balances.map((v,i)=>`L${PL+i*xStep},${y(v)}`).join(' ') + ` L${PL+(balances.length-1)*xStep},${H-PB} Z`;
+    chartSvg = `<svg width="100%" viewBox="0 0 ${W} ${H}" style="overflow:visible;margin-top:8px">
+      <path d="${areaPath}" fill="var(--accent)" opacity="0.1"/>
+      <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>`;
+  }
+
+  // Per-account bar chart
+  const maxBal = Math.max(...accountRecs.map(r => {
+    const hist = (r.fields.history || []).slice().sort((a,b) => b.month.localeCompare(a.month));
+    return hist[0] ? Number(hist[0].endBalance) || 0 : Number(r.fields.balance) || 0;
+  }), 1);
+  const barRows = accountRecs.map(r => {
+    const hist = (r.fields.history || []).slice().sort((a,b) => b.month.localeCompare(a.month));
+    const bal = hist[0] ? Number(hist[0].endBalance) || 0 : Number(r.fields.balance) || 0;
+    const pct = Math.round(bal / maxBal * 100);
+    const name = r.title || r.fields.institution || 'Account';
+    return `<div style="margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:2px">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px">${name}</span>
+        <span style="color:var(--text)">${fmt(bal)}</span>
+      </div>
+      <div style="height:4px;background:var(--bg3);border-radius:2px">
+        <div style="height:4px;width:${pct}%;background:var(--accent);border-radius:2px"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  wrapper.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:2px">Portfolio total</div>
+      <div style="font-size:22px;font-weight:700;color:var(--text)">${fmt(total)}</div>
+      <div style="font-size:12px;color:${returnColor};margin-top:2px">${lastMonth ? lastMonth.slice(0,7) + ' return: ' : ''}${returnText}</div>
+      ${chartSvg}
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">By account</div>
+      ${barRows}
+    </div>`;
+
+  // Insert before the calendar label
+  const calLabel = calPanel.querySelector('.dash-section-label');
+  if (calLabel) calPanel.insertBefore(wrapper, calLabel.parentElement || calLabel);
+  else calPanel.prepend(wrapper);
 }

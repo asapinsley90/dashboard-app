@@ -650,6 +650,7 @@ function renderWeekly() {
     const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
     if (calLabel) calLabel.textContent = mon.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
       ' — ' + sun.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    calMode = 'week'; calOffset = 0;
     renderCalWidget('weekly-cal-panel', false);
   }
   const el = document.getElementById('review-history');
