@@ -1418,6 +1418,14 @@ function promptAddRecord(forceType, targetAreaId = null) {
       DB.records.push(rec);
       assistantNotify('record-created', rec);
       if (!tour.active) showTourTip('urgency-flag', '.urgency-widget', 'Flag what needs attention', 'Use the <b>Flag</b> widget to mark urgent items — they surface on your dashboard automatically.', 'bottom');
+      pushUndo(`Create ${title}`, async () => {
+        rec.deletedAt = new Date().toISOString();
+        await api('DELETE', `/api/records/${rec.id}`);
+        DB.records = DB.records.filter(r => r.id !== rec.id);
+        renderSidebar();
+        if (currentView === 'record' && currentRecordId === rec.id) navigate('dashboard');
+        else if (currentView === 'area') renderAreaView(currentAreaId);
+      });
       closeModal(); renderSidebar(); navigate('record', aid, rec.id);
     }},
     { label: 'Cancel', onclick: closeModal }]);
@@ -1452,6 +1460,13 @@ async function promptAddArea(parentId = null) {
       assistantNotify('area-created', area);
       const isFirst = DB.areas.filter(a => a.id !== area.id).length === 0;
       if (isFirst && !tour.active) showTourTip('first-area', '#sidebar-areas', 'Organize your areas', 'Drag areas in the sidebar to reorder them. Click an area name to expand or collapse it.', 'right');
+      pushUndo(`Create area "${title}"`, async () => {
+        area.deletedAt = new Date().toISOString();
+        await api('DELETE', `/api/areas/${area.id}`);
+        DB.areas = DB.areas.filter(a => a.id !== area.id);
+        renderSidebar();
+        if (currentAreaId === area.id) navigate('dashboard');
+      });
       navigate('area', area.id);
     }},
     { label: 'Cancel', onclick: closeModal }]);

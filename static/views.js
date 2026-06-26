@@ -1251,50 +1251,46 @@ async function createJobRecord(areaId,dataStr,url){
   navigate('record',areaId,rec.id);
 }
 
-// Undo stack
-const undoStack = [];
-function pushUndo(a){undoStack.push(a);if(undoStack.length>20)undoStack.shift();}
-async function undoLast(){
-  const a=undoStack.pop();if(!a)return;
-  const r=DB.records.find(r=>r.id===a.recordId);if(!r)return;
-  if(a.type==='status'){r.status=a.before;await api('PUT',`/api/records/${a.recordId}`,{status:a.before});await api('POST',`/api/records/${a.recordId}/timeline`,{text:'Undo: status reverted to '+a.before});const u=await api('GET',`/api/records/${a.recordId}`);DB.records=DB.records.map(rec=>rec.id===a.recordId?u:rec);}
-  else if(a.type==='urgency'){r.urgency=a.before;await api('PUT',`/api/records/${a.recordId}`,{urgency:a.before});}
-  renderSidebar();
-  if(currentView==='record')renderRecordView(a.recordId);
-  if(currentView==='dashboard')renderDashboard();
-  if(currentView==='area')renderAreaView(currentAreaId);
-}
-document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey){e.preventDefault();undoLast();}});
-
 async function setRecordStatus(recordId,newStatus){
   const r=DB.records.find(r=>r.id===recordId);if(!r)return;
   const prev=r.status;
-  pushUndo({type:'status',recordId,before:prev,after:newStatus});
+  const prevUrgency=r.urgency;
   r.status=newStatus;
   if(newStatus==='completed'||newStatus==='archived') r.urgency='none';
-  // Re-render immediately with local state
   renderSidebar();
   if(currentView==='record')renderRecordView(recordId);
   if(currentView==='dashboard')renderAttention();
   if(currentView==='area')renderAreaView(currentAreaId);
-  // Persist in background
   const payload = (newStatus==='completed'||newStatus==='archived') ? {status:newStatus,urgency:'none'} : {status:newStatus};
   api('PUT',`/api/records/${recordId}`,payload);
   api('POST',`/api/records/${recordId}/timeline`,{text:'Status: '+prev+' → '+newStatus});
+  pushUndo(`${r.title} status → ${prev}`, async () => {
+    r.status=prev; r.urgency=prevUrgency;
+    await api('PUT',`/api/records/${recordId}`,{status:prev,urgency:prevUrgency});
+    renderSidebar();
+    if(currentView==='record')renderRecordView(recordId);
+    if(currentView==='dashboard')renderAttention();
+    if(currentView==='area')renderAreaView(currentAreaId);
+  });
 }
 
 async function setUrgency(recordId,level){
   const r=DB.records.find(r=>r.id===recordId);if(!r)return;
   const prev=r.urgency||'none';
-  pushUndo({type:'urgency',recordId,before:prev,after:level});
   r.urgency=level;
-  // Re-render immediately with local state
   renderSidebar();
   if(currentView==='record')renderRecordView(recordId);
   if(currentView==='dashboard')renderAttention();
   if(currentView==='area')renderAreaView(currentAreaId);
-  // Persist in background
   api('PUT',`/api/records/${recordId}`,{urgency:level});
+  pushUndo(`${r.title} flag → ${prev}`, async () => {
+    r.urgency=prev;
+    await api('PUT',`/api/records/${recordId}`,{urgency:prev});
+    renderSidebar();
+    if(currentView==='record')renderRecordView(recordId);
+    if(currentView==='dashboard')renderAttention();
+    if(currentView==='area')renderAreaView(currentAreaId);
+  });
 }
 
 // Context menu

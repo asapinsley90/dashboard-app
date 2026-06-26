@@ -171,6 +171,10 @@ document.addEventListener('keydown', async e => {
     if (!action) return;
     showUndoModal(action.label, async () => {
       await action.restore();
+      renderSidebar();
+      if (currentView === 'record' && currentRecordId) renderRecordView(currentRecordId);
+      else if (currentView === 'area') renderAreaView(currentAreaId);
+      else if (currentView === 'dashboard') renderDashboard();
       _redoStack.push(action);
     }, () => {});
   }
