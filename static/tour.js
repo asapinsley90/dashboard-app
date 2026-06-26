@@ -150,14 +150,10 @@ function _renderTourStep(step, index) {
         if (step.advance === 'manual') {
           setTimeout(() => showTourStep(tour.step + 1), 300);
         } else if (step.modalHighlight) {
-          // After clicking, highlight the modal that appears
+          // After clicking, highlight the modal that appears — no full overlay so modal isn't dimmed
           setTimeout(() => {
             const modal = document.querySelector(step.modalHighlight);
             if (!modal) return;
-            const overlay = document.createElement('div');
-            overlay.id = 'tour-overlay';
-            overlay.style.pointerEvents = 'none';
-            document.body.appendChild(overlay);
             const mRect = modal.getBoundingClientRect();
             const mHalo = document.createElement('div');
             mHalo.id = 'tour-halo';
@@ -168,6 +164,22 @@ function _renderTourStep(step, index) {
             bubble.innerHTML = `<div class="tour-step-count">${index + 1} of ${TOUR_STEPS.length}</div><div class="tour-heading">${step.modalHeading||'Fill it in'}</div><div class="tour-text">${step.modalText||''}</div><div class="tour-actions"><button class="tour-skip" onclick="dismissTour()">Skip tour</button></div>`;
             document.body.appendChild(bubble);
             _positionBubble(bubble, modal, 'right');
+            // If modal closes without completing the step, reset to this step
+            // If modal closes WITHOUT the advance event firing, reset to this step
+            const modalEl = document.getElementById('modal-overlay');
+            if (modalEl) {
+              const obs = new MutationObserver(() => {
+                if (!modalEl.classList.contains('open')) {
+                  obs.disconnect();
+                  // Only reset if still on this step (tourNotify may have already advanced)
+                  if (tour.step === index) {
+                    clearTourOverlay();
+                    setTimeout(() => showTourStep(index), 200);
+                  }
+                }
+              });
+              obs.observe(modalEl, { attributes: true, attributeFilter: ['class'] });
+            }
           }, 150);
         }
         // For other event-driven advances, tourNotify handles the next step
