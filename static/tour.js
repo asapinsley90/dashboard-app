@@ -168,17 +168,25 @@ function _renderTourStep(step, index) {
             // If modal closes WITHOUT the advance event firing, reset to this step
             const modalEl = document.getElementById('modal-overlay');
             if (modalEl) {
+              let advancedByEvent = false;
+              const origNotify = tourNotify;
               const obs = new MutationObserver(() => {
                 if (!modalEl.classList.contains('open')) {
                   obs.disconnect();
-                  // Only reset if still on this step (tourNotify may have already advanced)
-                  if (tour.step === index) {
-                    clearTourOverlay();
-                    setTimeout(() => showTourStep(index), 200);
-                  }
+                  // Give tourNotify a tick to fire first; only reset if it didn't advance
+                  setTimeout(() => {
+                    if (tour.step === index && !advancedByEvent) {
+                      clearTourOverlay();
+                      setTimeout(() => showTourStep(index), 200);
+                    }
+                  }, 600);
                 }
               });
               obs.observe(modalEl, { attributes: true, attributeFilter: ['class'] });
+              // Mark as advanced when tourNotify fires for this step's event
+              const _watchAdvance = setInterval(() => {
+                if (tour.step !== index) { advancedByEvent = true; clearInterval(_watchAdvance); }
+              }, 50);
             }
           }, 150);
         }
