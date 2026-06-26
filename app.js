@@ -464,6 +464,17 @@ app.get('/api/waitlist/:id/approve', async (req, res) => {
   }
 });
 
+// Temporary password reset (remove after use)
+app.get('/dev-reset', async (req, res) => {
+  const token = req.query.token;
+  if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) return res.status(401).send('Unauthorized');
+  const user = await dbLayer.getUserByInstance();
+  if (!user) return res.send('No user found');
+  const hash = await bcrypt.hash(req.query.pw || 'newpass123', BCRYPT_ROUNDS);
+  await dbLayer.updateUser(user.id, { passwordHash: hash });
+  res.send(`Password reset. Username: ${user.username || user.name} — login with: ${req.query.pw || 'newpass123'}`);
+});
+
 // Protect everything else
 app.use(requireAuth);
 
