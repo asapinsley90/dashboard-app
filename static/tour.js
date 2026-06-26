@@ -91,6 +91,16 @@ const TOUR_STEPS = [
     requireClick: true,
     onShow: () => {},
   },
+  {
+    id: 'finish',
+    target: () => document.querySelector('#sidebar-assistant-btn'),
+    heading: "You're all set!",
+    text: "Your space is ready. Use <b>Ask me anything</b> anytime — it knows your data and can help you find, add, or make sense of anything in here.",
+    advance: 'manual',
+    cta: "Let's go!",
+    position: 'right',
+    onShow: () => navigate('dashboard'),
+  },
 ];
 
 const tour = {
@@ -268,13 +278,6 @@ function endTour() {
   prefs.tourDismissed = true;
   currentUser.dashboardPrefs = prefs;
   api('PATCH', '/api/me', { dashboardPrefs: prefs, onboardingStep: 'complete' }).catch(() => {});
-  setTimeout(() => {
-    const t = document.createElement('div');
-    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 20px;font-size:13px;color:var(--text);z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.3);text-align:center';
-    t.innerHTML = `<span style="color:var(--green)">✓</span> You're all set — the assistant is always in the sidebar if you need anything.`;
-    document.body.appendChild(t);
-    setTimeout(() => t.remove(), 5000);
-  }, 200);
 }
 
 function dismissTour() {
