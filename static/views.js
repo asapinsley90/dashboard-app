@@ -1349,7 +1349,7 @@ function showAreaCtxMenu(e, areaId) {
 
     deleteToast(label, restoreFn);
     pushUndo(label, restoreFn);
-    assistantTip('delete-undo', 'Deleted. Press Ctrl+Z to restore within 24 hours, or find it in History → Recently Deleted.');
+    showTourTip('delete-undo', '#delete-toast', 'Deleted', 'Press <b>Ctrl+Z</b> to restore within 24 hours, or find it in <b>History → Recently Deleted</b>.', 'top');
 
     api('DELETE', `/api/areas/${areaId}`).catch(() => {
       DB.areas = DB.areas.map(a => (a.id === areaId || childIds.includes(a.id)) ? { ...a, deletedAt: null } : a);
@@ -1557,52 +1557,6 @@ function assistantClose() {
 }
 
 // ── TIPS ─────────────────────────────────────────────────────────────────────
-function getAssistantPrefs() {
-  return { tipsEnabled: true, dismissedTips: [], ...((currentUser.dashboardPrefs?.assistantPrefs) || {}) };
-}
-
-function assistantTip(key, message) {
-  const ap = getAssistantPrefs();
-  if (!ap.tipsEnabled) return;
-  if (ap.dismissedTips.includes(key)) return;
-
-  document.getElementById('tip-bubble')?.remove();
-  document.getElementById('tip-overlay')?.remove();
-
-  // Dim overlay — clicking it dismisses the tip
-  const overlay = document.createElement('div');
-  overlay.id = 'tip-overlay';
-  overlay.onclick = () => dismissAssistantTip(key, false);
-  document.body.appendChild(overlay);
-
-  const el = document.createElement('div');
-  el.id = 'tip-bubble';
-  el.innerHTML = `
-    <div class="tip-bubble-inner">
-      <span style="font-size:15px;flex-shrink:0">✦</span>
-      <span class="tip-bubble-text">${message}</span>
-    </div>
-    <div class="tip-bubble-actions">
-      <button class="tip-btn-primary" onclick="dismissAssistantTip('${key}',false)">Got it</button>
-      <button class="tip-btn-muted" onclick="dismissAssistantTip('${key}',true)">Turn off tips</button>
-    </div>`;
-  const sidebar = document.getElementById('sidebar-assistant-btn');
-  sidebar ? sidebar.parentNode.insertBefore(el, sidebar) : document.getElementById('sidebar').appendChild(el);
-}
-
-async function dismissAssistantTip(key, dismissAll) {
-  document.getElementById('tip-bubble')?.remove();
-  document.getElementById('tip-overlay')?.remove();
-  const prefs = getDashPrefs();
-  prefs.assistantPrefs = prefs.assistantPrefs || { tipsEnabled: true, dismissedTips: [] };
-  if (dismissAll) {
-    prefs.assistantPrefs.tipsEnabled = false;
-  } else if (!prefs.assistantPrefs.dismissedTips.includes(key)) {
-    prefs.assistantPrefs.dismissedTips.push(key);
-  }
-  currentUser.dashboardPrefs = prefs;
-  await saveDashPrefs(prefs);
-}
 
 function assistantAppendMessage(role, text) {
   const msgs = document.getElementById('assistant-messages');

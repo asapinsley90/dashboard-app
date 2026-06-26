@@ -424,27 +424,14 @@ textarea.modal-input{resize:vertical;min-height:70px}
 
 /* Tip bubble */
 /* Tip overlay — dims everything except the sidebar */
-#tip-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;cursor:pointer;animation:tip-fade-in .25s ease}
-@keyframes tip-fade-in{from{opacity:0}to{opacity:1}}
-/* Sidebar sits above the overlay when tip is active */
-body:has(#tip-overlay) #sidebar{z-index:201;position:relative}
-
-#tip-bubble{background:var(--bg2);border:1px solid var(--accent);border-radius:12px;margin:8px 8px 0;padding:14px 14px 12px;animation:tip-in .25s ease;box-shadow:0 0 0 1px var(--accent),0 8px 32px rgba(0,0,0,.5);position:relative;z-index:202}
 @keyframes tip-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.tip-bubble-inner{display:flex;align-items:flex-start;gap:10px;color:var(--text);font-size:13px;line-height:1.5;margin-bottom:10px}
-.tip-bubble-text{flex:1}
-.tip-bubble-actions{display:flex;gap:10px;align-items:center}
-.tip-btn-primary{background:var(--accent);border:none;border-radius:7px;color:#fff;cursor:pointer;font-size:12px;font-weight:600;padding:6px 14px}
-.tip-btn-primary:hover{opacity:.85}
-.tip-btn-muted{background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0;text-decoration:underline}
-.tip-btn-muted:hover{color:var(--text)}
 
 /* ── GUIDED TOUR ─────────────────────────────────────────────────────────── */
 #tour-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;pointer-events:all}
 #tour-halo{position:fixed;border-radius:10px;box-shadow:0 0 0 3px var(--accent),0 0 0 6px rgba(91,155,213,.3);z-index:302;pointer-events:none;animation:tour-pulse 1.8s ease-in-out infinite}
 @keyframes tour-pulse{0%,100%{box-shadow:0 0 0 3px var(--accent),0 0 0 6px rgba(91,155,213,.2)}50%{box-shadow:0 0 0 3px var(--accent),0 0 0 10px rgba(91,155,213,.0)}}
 .tour-spotlight{position:relative;z-index:301}
-#tour-bubble{position:fixed;width:280px;background:var(--bg2);border:1px solid var(--accent);border-radius:12px;padding:18px 16px 14px;z-index:303;box-shadow:0 8px 32px rgba(0,0,0,.5),0 0 0 1px var(--accent);animation:tip-in .2s ease}
+#tour-bubble,#tour-tip-bubble{position:fixed;width:280px;background:var(--bg2);border:1px solid var(--accent);border-radius:12px;padding:18px 16px 14px;z-index:303;box-shadow:0 8px 32px rgba(0,0,0,.5),0 0 0 1px var(--accent);animation:tip-in .2s ease}
 .tour-step-count{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--accent);text-transform:uppercase;margin-bottom:6px}
 .tour-heading{font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px}
 .tour-text{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:14px}

@@ -1417,8 +1417,7 @@ function promptAddRecord(forceType, targetAreaId = null) {
       const rec = await api('POST', '/api/records', { type:t, areaId:aid, title, urgency:'new', fields: schemaDefaults || legacyDefaults[t] || {}, contacts:t==='job'?[]:undefined, interviews:t==='job'?[]:undefined, documents:t==='job'?[]:undefined });
       DB.records.push(rec);
       assistantNotify('record-created', rec);
-      const isFirst = DB.records.filter(r => r.id !== rec.id).length === 0;
-      if (isFirst) assistantTip('first-record', 'Use the urgency flag (⚑ Flag) in the record to mark items that need attention — they\'ll surface on your dashboard.');
+      if (!tour.active) showTourTip('urgency-flag', '.urgency-widget', 'Flag what needs attention', 'Use the <b>Flag</b> widget to mark urgent items — they surface on your dashboard automatically.', 'bottom');
       closeModal(); renderSidebar(); navigate('record', aid, rec.id);
     }},
     { label: 'Cancel', onclick: closeModal }]);
@@ -1452,7 +1451,7 @@ async function promptAddArea(parentId = null) {
       renderSidebar();
       assistantNotify('area-created', area);
       const isFirst = DB.areas.filter(a => a.id !== area.id).length === 0;
-      if (isFirst) assistantTip('first-area', 'Tip: you can drag areas in the sidebar to reorder them, and click an area name twice to collapse its sub-items.');
+      if (isFirst && !tour.active) showTourTip('first-area', '#sidebar-areas', 'Organize your areas', 'Drag areas in the sidebar to reorder them. Click an area name to expand or collapse it.', 'right');
       navigate('area', area.id);
     }},
     { label: 'Cancel', onclick: closeModal }]);
@@ -1537,7 +1536,7 @@ async function deleteRecord(recordId) {
     navigate('area', areaId);
   });
 
-  assistantTip('delete-undo', 'Deleted. Press Ctrl+Z to restore within 24 hours, or find it in History → Recently Deleted.');
+  showTourTip('delete-undo', '#delete-toast', 'Deleted', 'Press <b>Ctrl+Z</b> to restore within 24 hours, or find it in <b>History → Recently Deleted</b>.', 'top');
 
   // Fire API in background
   api('DELETE', `/api/records/${recordId}`).catch(() => {

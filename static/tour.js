@@ -301,6 +301,44 @@ function clearTourOverlay() {
   document.querySelectorAll('.tour-spotlight').forEach(el => el.classList.remove('tour-spotlight'));
 }
 
+function showTourTip(key, targetSelector, heading, text, position) {
+  const prefs = currentUser.dashboardPrefs || {};
+  if ((prefs.dismissedTourTips || []).includes(key)) return;
+
+  const show = () => {
+    const target = document.querySelector(targetSelector);
+    document.getElementById('tour-tip-bubble')?.remove();
+    document.getElementById('tour-tip-halo')?.remove();
+
+    if (target) {
+      const rect = target.getBoundingClientRect();
+      const halo = document.createElement('div');
+      halo.id = 'tour-tip-halo';
+      halo.className = 'tour-halo-el';
+      halo.style.cssText = `position:fixed;top:${rect.top-6}px;left:${rect.left-6}px;width:${rect.width+12}px;height:${rect.height+12}px;border:2px solid var(--accent);border-radius:8px;pointer-events:none;z-index:9998`;
+      document.body.appendChild(halo);
+    }
+
+    const bubble = document.createElement('div');
+    bubble.id = 'tour-tip-bubble';
+    bubble.className = 'tour-bubble-el';
+    bubble.innerHTML = `<div class="tour-heading">${heading}</div><div class="tour-text">${text}</div><div class="tour-actions"><button class="tour-cta" onclick="dismissTourTip('${key}')">Got it</button></div>`;
+    document.body.appendChild(bubble);
+    _positionBubble(bubble, document.querySelector(targetSelector), position || 'bottom');
+  };
+
+  setTimeout(show, 400);
+}
+
+function dismissTourTip(key) {
+  document.getElementById('tour-tip-bubble')?.remove();
+  document.getElementById('tour-tip-halo')?.remove();
+  const prefs = currentUser.dashboardPrefs || {};
+  prefs.dismissedTourTips = [...(prefs.dismissedTourTips || []), key];
+  currentUser.dashboardPrefs = prefs;
+  api('PATCH', '/api/me', { dashboardPrefs: prefs }).catch(() => {});
+}
+
 function tourNotify(event, data) {
   if (!tour.active) return;
   const step = TOUR_STEPS[tour.step];
