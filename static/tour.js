@@ -201,12 +201,11 @@ function _renderTourStep(step, index) {
   const text = `<div class="tour-text">${step.text}</div>`;
   const skip = `<button class="tour-skip" onclick="dismissTour()">Skip tour</button>`;
 
-  // Only show Next/CTA button if not requireClick
-  const showBtn = !step.requireClick || !target;
-  const ctaLabel = step.cta || 'Next';
-  const actions = showBtn
-    ? `<div class="tour-actions"><button class="tour-cta" onclick="advanceTour()">${ctaLabel}</button>${skip}</div>`
-    : `<div class="tour-actions"><span style="font-size:11px;color:var(--text3);font-style:italic">Click the highlighted element to continue</span>${skip}</div>`;
+  const ctaLabel = step.cta || (step.requireClick && target ? 'Got it' : 'Next');
+  const ctaonclick = (step.requireClick && target && step.advance !== 'manual')
+    ? `document.getElementById('tour-click-zone')?.click()`
+    : `advanceTour()`;
+  const actions = `<div class="tour-actions"><button class="tour-cta" onclick="${ctaonclick}">${ctaLabel}</button>${skip}</div>`;
 
   bubble.innerHTML = `${stepCount}${heading}${text}${actions}`;
   document.body.appendChild(bubble);
