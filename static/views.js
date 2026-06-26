@@ -1337,7 +1337,7 @@ function showAreaCtxMenu(e, areaId) {
     DB.areas = DB.areas.map(a => (a.id === areaId || childIds.includes(a.id)) ? { ...a, deletedAt: now } : a);
     DB.records = DB.records.map(r => (childIds.includes(r.areaId) || r.areaId === areaId) ? { ...r, deletedAt: now } : r);
     if (currentAreaId === areaId || children.some(c => c.id === currentAreaId)) navigate('dashboard');
-    else renderSidebar();
+    else { renderSidebar(); if (currentView === 'area') renderAreaView(currentAreaId); }
 
     const restoreFn = async () => {
       DB.areas = DB.areas.map(a => (a.id === areaId || childIds.includes(a.id)) ? { ...a, deletedAt: null } : a);
