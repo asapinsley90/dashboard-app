@@ -1245,6 +1245,7 @@ async function createJobRecord(areaId,dataStr,url){
   const title=data.company||data.role||'New Job';
   const rec=await api('POST','/api/records',{type:'job',areaId,title,status:'applied',urgency:'new',priority:3,fields:{role:data.role||'',salary:data.salary||'',location:data.location||'',appliedDate:'',source:'',postingUrl:url||'',resumeUsed:'',coverLetterUsed:'',jobDescription:data.description||'',notes:''},contacts:[],interviews:[],documents:[],notes:[]});
   DB.records.push(rec);
+  assistantNotify('record-created', rec);
   closeModal();document.getElementById('modal').style.maxWidth='';renderSidebar();
   if(data.company)checkAndPromptCompany(rec.id,data.company);
   navigate('record',areaId,rec.id);
