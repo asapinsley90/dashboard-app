@@ -135,12 +135,12 @@ const TOUR_STEPS = [
   {
     id: 'finish',
     target: () => document.querySelector('#sidebar-assistant-btn'),
-    heading: "You're all set! 🎉",
-    text: "Your space is ready. <b>Ask me anything</b> is always here — it knows your data and can help you find, add, or make sense of anything.<br><br>Want to start fresh and clear the practice area?",
+    heading: "You're all set!",
+    text: "Your space is ready. <b>Ask me anything</b> is always here — it knows your data and can help you find, add, or make sense of anything.",
     advance: 'manual',
     position: 'right',
     _finish: true,
-    onShow: () => navigate('dashboard'),
+    onShow: () => { navigate('dashboard'); },
   },
 ];
 
@@ -173,7 +173,7 @@ function showTourStep(index) {
   tour.step = index;
   const step = TOUR_STEPS[index];
   if (step.onShow) step.onShow();
-  setTimeout(() => _renderTourStep(step, index), 120);
+  setTimeout(() => _renderTourStep(step, index), step.id === 'finish' ? 400 : 120);
 }
 
 function _renderTourStep(step, index) {
@@ -183,12 +183,12 @@ function _renderTourStep(step, index) {
   overlay.id = 'tour-overlay';
   document.body.appendChild(overlay);
 
-  // ── fields-intro: cycle through highlights with scroll ──
+  // ── fields-intro: manual step-through with Got it ──
   if (step._cycleTargets) {
-    let ci = 0;
     const targets = step._cycleTargets;
+    step._cycleIndex = 0;
 
-    const cycleHalo = () => {
+    const showTarget = (ci) => {
       document.getElementById('tour-halo')?.remove();
       document.querySelectorAll('.tour-spotlight').forEach(el => el.classList.remove('tour-spotlight'));
       const el = document.querySelector(targets[ci].sel);
@@ -206,26 +206,29 @@ function _renderTourStep(step, index) {
       }
       const textEl = document.getElementById('tour-cycle-text');
       if (textEl) textEl.innerHTML = targets[ci].label;
-      ci = (ci + 1) % targets.length;
+      const ctaEl = document.getElementById('tour-cycle-cta');
+      if (ctaEl) ctaEl.textContent = ci < targets.length - 1 ? 'Next →' : 'Got it';
     };
 
-    setTimeout(cycleHalo, 400);
-    step._cycleInterval = setInterval(cycleHalo, 2500);
+    window._tourCycleNext = () => {
+      step._cycleIndex++;
+      if (step._cycleIndex >= targets.length) { advanceTour(); return; }
+      showTarget(step._cycleIndex);
+    };
 
     const bubble = document.createElement('div');
     bubble.id = 'tour-bubble';
     const stepCount = `<div class="tour-step-count">${index + 1} of ${TOUR_STEPS.length}</div>`;
     const heading = `<div class="tour-heading">${step.heading}</div>`;
     const cycleText = `<div class="tour-text" id="tour-cycle-text" style="min-height:40px">${targets[0].label}</div>`;
-    const skipLink = `<button class="tour-skip" onclick="advanceTour()">Skip step →</button>`;
-    const actions = `<div class="tour-actions"><button class="tour-cta" onclick="advanceTour()">Got it</button>${skipLink}</div>`;
+    const actions = `<div class="tour-actions"><button class="tour-cta" id="tour-cycle-cta" onclick="_tourCycleNext()">Next →</button><button class="tour-skip" onclick="dismissTour()">Skip tour</button></div>`;
     bubble.innerHTML = `${stepCount}${heading}${cycleText}${actions}`;
     document.body.appendChild(bubble);
-    // Position at bottom-center, below the record view
     const bRect = bubble.getBoundingClientRect();
     bubble.style.left = Math.max(10, window.innerWidth / 2 - (bRect.width || 280) / 2) + 'px';
     bubble.style.top = Math.min(window.innerHeight - (bRect.height || 160) - 10, window.innerHeight * 0.65) + 'px';
     bubble.style.visibility = 'visible';
+    setTimeout(() => showTarget(0), 400);
     return;
   }
 
@@ -460,8 +463,7 @@ function clearTourOverlay() {
     if (tour._clickHandler.fn) tour._clickHandler.el.removeEventListener('click', tour._clickHandler.fn);
     tour._clickHandler = null;
   }
-  const curStep = TOUR_STEPS[tour.step];
-  if (curStep?._cycleInterval) { clearInterval(curStep._cycleInterval); curStep._cycleInterval = null; }
+  window._tourCycleNext = null;
   document.getElementById('tour-overlay')?.remove();
   document.getElementById('tour-bubble')?.remove();
   document.getElementById('tour-halo')?.remove();
