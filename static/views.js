@@ -1727,7 +1727,7 @@ async function renderTemplatesView() {
 }
 
 async function openTemplateBrowser(targetCb) {
-  if (!targetCb) { navigate('templates'); return; }
+  if (!targetCb && !tour?.active) { navigate('templates'); return; }
   window._templateInstallCb = targetCb || null;
   const templates = await api('GET', '/api/templates');
   const isJobTpl = t => /job/i.test(t.name + (t.id || ''));
