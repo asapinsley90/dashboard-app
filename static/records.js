@@ -1399,7 +1399,7 @@ function promptAddRecord(forceType, targetAreaId = null) {
   const type = forceType || (areaId === 'area-jobs' ? 'job' : null);
   if (type === 'job' || (!forceType && areaId === 'area-jobs')) { openJobModal(areaId); return; }
   if (type === 'company') { openAddCompanyModal(areaId); return; }
-  const builtinTypes = ['job','contact','event','goal','task','project','note','company','account'];
+  const builtinTypes = (tour?.active ? ['contact','event','goal','task','project','note','account'] : ['job','contact','event','goal','task','project','note','company','account']);
   const customTypes = TYPE_SCHEMAS.filter(s => s.is_custom).map(s => s.id);
   const allTypes = [...builtinTypes, ...customTypes];
   // If area has sub-areas, show only sub-areas in picker; otherwise show all
@@ -1471,7 +1471,7 @@ async function promptAddArea(parentId = null) {
   const parentArea = parentId ? DB.areas.find(a => a.id === parentId) : null;
 
   openModal(parentArea ? `New sub-area in ${parentArea.title}` : 'New area', `
-    ${!parentArea ? `<div style="margin-bottom:14px"><button class="btn btn-sm" style="width:100%;justify-content:center" onclick="closeModal();openTemplateBrowser()">✦ Browse templates</button></div>` : ''}
+    ${!parentArea && !tour?.active ? `<div style="margin-bottom:14px"><button class="btn btn-sm" style="width:100%;justify-content:center" onclick="closeModal();openTemplateBrowser()">✦ Browse templates</button></div>` : ''}
     <div class="modal-field"><div class="modal-label">Name</div><input class="modal-input" id="na-title" placeholder="${parentArea ? 'Sub-area name' : 'Area name'}" autofocus></div>
     <div class="modal-field"><div class="modal-label">Color</div><div class="color-swatch-grid" id="na-swatch-grid">${swatches}</div><input type="hidden" id="na-color" value="${defaultColor}"></div>`,
     [{ label: 'Create', primary: true, onclick: async () => {

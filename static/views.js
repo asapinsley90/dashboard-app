@@ -1692,7 +1692,8 @@ function assistantNotify(event, data) {
 // Template browser
 async function renderTemplatesView() {
   const templates = await api('GET', '/api/templates');
-  const system = templates.filter(t => t.source === 'system');
+  const isJobTpl = t => /job/i.test(t.name + (t.id || ''));
+  const system = templates.filter(t => t.source === 'system' && !isJobTpl(t));
   const personal = templates.filter(t => t.source === 'personal');
 
   const installedTemplates = currentUser.dashboardPrefs?.installedTemplates || {};
@@ -1729,7 +1730,8 @@ async function openTemplateBrowser(targetCb) {
   if (!targetCb) { navigate('templates'); return; }
   window._templateInstallCb = targetCb || null;
   const templates = await api('GET', '/api/templates');
-  const system = templates.filter(t => t.source === 'system');
+  const isJobTpl = t => /job/i.test(t.name + (t.id || ''));
+  const system = templates.filter(t => t.source === 'system' && !isJobTpl(t));
   const personal = templates.filter(t => t.source === 'personal');
 
   function tplCard(t) {
