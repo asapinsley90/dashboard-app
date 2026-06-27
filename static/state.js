@@ -172,6 +172,7 @@ document.addEventListener('keydown', async e => {
     if (!action) return;
     showUndoModal(action.label, async () => {
       await action.restore();
+      tourNotify('record-restored');
       renderSidebar();
       if (currentView === 'record' && currentRecordId) renderRecordView(currentRecordId);
       else if (currentView === 'area') renderAreaView(currentAreaId);

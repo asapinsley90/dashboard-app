@@ -42,13 +42,75 @@ const TOUR_STEPS = [
     },
   },
   {
-    id: 'right-click-record',
-    target: () => document.querySelector('.record-card'),
-    heading: 'Quick actions',
-    text: 'Right-click any record to delete, archive, or change its status. <b>Ctrl+Z</b> restores anything deleted within 24 hours.',
+    id: 'fields-intro',
+    heading: 'What lives in a record',
+    text: 'Each record holds your data. A few key things:',
     advance: 'manual',
     cta: 'Got it',
     position: 'bottom',
+    onShow: () => {
+      // Navigate into the first record so we can highlight its fields
+      const rec = DB.records.find(r => !r.deletedAt);
+      if (rec) navigate('record', rec.areaId, rec.id);
+    },
+    _cycleTargets: [
+      { sel: 'button[title*="Copy context"]', label: '📋 <b>Copy for Claude</b> — paste into Claude for help with any record' },
+      { sel: 'button[onclick*="linkContact"]', label: '👤 <b>Link contact</b> — connect people across your areas' },
+      { sel: 'div[ondrop*="recordDocDrop"]', label: '📎 <b>Upload docs</b> — files live with the record' },
+    ],
+  },
+  {
+    id: 'delete-record',
+    target: () => document.querySelector('.record-card'),
+    heading: 'Right-click to delete',
+    text: 'Right-click your record now and choose <b>Delete</b>. Don\'t worry — you\'ll get it back.',
+    advance: 'record-deleted',
+    position: 'bottom',
+    onShow: () => {
+      const area = DB.areas.find(a => !a.deletedAt);
+      if (area && currentView !== 'area') navigate('area', area.id);
+    },
+  },
+  {
+    id: 'undo-delete',
+    target: null,
+    heading: 'Restore it with Ctrl+Z',
+    text: 'Press <b>Ctrl+Z</b> on your keyboard right now. A confirmation modal will appear — confirm to restore your record.',
+    advance: 'record-restored',
+    position: 'bottom',
+  },
+  {
+    id: 'back-forward',
+    heading: 'Navigate like a browser',
+    text: 'Use <b>← Back</b> to return to your area, then <b>Forward</b> in your browser to come back. Let\'s try it — watch.',
+    advance: 'manual',
+    cta: 'Got it',
+    position: 'bottom',
+    onShow: () => {
+      // Navigate into a record so the Back button is visible
+      const rec = DB.records.find(r => !r.deletedAt);
+      if (rec) navigate('record', rec.areaId, rec.id);
+      // After a moment, animate the Back button and click it, then forward
+      setTimeout(() => {
+        const backBtn = document.querySelector('#topbar-actions .btn');
+        if (backBtn) {
+          backBtn.classList.add('tour-pulse-btn');
+          setTimeout(() => {
+            backBtn.classList.remove('tour-pulse-btn');
+            window.history.back();
+            // After navigating back, forward after a pause
+            setTimeout(() => {
+              const fwd = document.querySelector('#tour-fwd-hint');
+              if (fwd) fwd.classList.add('tour-pulse-btn');
+              setTimeout(() => {
+                window.history.forward();
+              }, 1000);
+            }, 1200);
+          }, 1800);
+        }
+      }, 600);
+    },
+    _injectForwardHint: true,
   },
   {
     id: 'calendar',
@@ -136,6 +198,56 @@ function _renderTourStep(step, index) {
   const overlay = document.createElement('div');
   overlay.id = 'tour-overlay';
   document.body.appendChild(overlay);
+
+  // fields-intro: cycle through multiple element highlights
+  if (step._cycleTargets) {
+    let ci = 0;
+    const targets = step._cycleTargets;
+    const cycleHalo = () => {
+      document.getElementById('tour-halo')?.remove();
+      document.querySelectorAll('.tour-spotlight').forEach(el => el.classList.remove('tour-spotlight'));
+      const el = document.querySelector(targets[ci].sel);
+      if (el) {
+        el.classList.add('tour-spotlight');
+        const r = el.getBoundingClientRect();
+        const h = document.createElement('div');
+        h.id = 'tour-halo';
+        h.style.cssText = `top:${r.top-6}px;left:${r.left-6}px;width:${r.width+12}px;height:${r.height+12}px`;
+        document.body.appendChild(h);
+      }
+      // Update bubble text line
+      const textEl = document.getElementById('tour-cycle-text');
+      if (textEl) textEl.innerHTML = targets[ci].label;
+      ci = (ci + 1) % targets.length;
+    };
+    setTimeout(cycleHalo, 300);
+    step._cycleInterval = setInterval(cycleHalo, 2000);
+    // Build bubble with cycling text
+    const bubble = document.createElement('div');
+    bubble.id = 'tour-bubble';
+    const stepCount = `<div class="tour-step-count">${index + 1} of ${TOUR_STEPS.length}</div>`;
+    const heading = `<div class="tour-heading">${step.heading}</div>`;
+    const cycleText = `<div class="tour-text" id="tour-cycle-text">${targets[0].label}</div>`;
+    const skip = `<button class="tour-skip" onclick="dismissTour()">Skip tour</button>`;
+    const actions = `<div class="tour-actions"><button class="tour-cta" onclick="advanceTour()">Got it</button>${skip}</div>`;
+    bubble.innerHTML = `${stepCount}${heading}${cycleText}${actions}`;
+    document.body.appendChild(bubble);
+    _positionBubble(bubble, null, 'bottom');
+    return;
+  }
+
+  // back-forward: inject a temporary forward hint button
+  if (step._injectForwardHint) {
+    const hint = document.createElement('button');
+    hint.id = 'tour-fwd-hint';
+    hint.textContent = '→ Forward';
+    hint.className = 'btn btn-sm';
+    hint.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:10005;opacity:0;pointer-events:none;transition:opacity .3s';
+    document.body.appendChild(hint);
+    // Show it after back navigation completes
+    setTimeout(() => { hint.style.opacity = '1'; }, 3200);
+    setTimeout(() => { hint.remove(); }, 6000);
+  }
 
   if (target) {
     target.classList.add('tour-spotlight');
@@ -301,6 +413,10 @@ function clearTourOverlay() {
     if (tour._clickHandler.fn) tour._clickHandler.el.removeEventListener('click', tour._clickHandler.fn);
     tour._clickHandler = null;
   }
+  // Clear fields-intro cycle
+  const curStep = TOUR_STEPS[tour.step];
+  if (curStep?._cycleInterval) { clearInterval(curStep._cycleInterval); curStep._cycleInterval = null; }
+  document.getElementById('tour-fwd-hint')?.remove();
   document.getElementById('tour-overlay')?.remove();
   document.getElementById('tour-bubble')?.remove();
   document.getElementById('tour-halo')?.remove();

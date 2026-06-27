@@ -1587,7 +1587,8 @@ async function deleteRecord(recordId) {
     api('DELETE', `/api/records/${recordId}`);
   });
 
-  showTourTip('delete-undo', '#delete-toast', 'Deleted', 'Press <b>Ctrl+Z</b> to restore within 24 hours, or find it in <b>History → Recently Deleted</b>.', 'top');
+  tourNotify('record-deleted', { recordId, areaId });
+  if (!tour.active) showTourTip('delete-undo', '#delete-toast', 'Deleted', 'Press <b>Ctrl+Z</b> to restore within 24 hours, or find it in <b>History → Recently Deleted</b>.', 'top');
 
   // Fire API in background
   api('DELETE', `/api/records/${recordId}`).catch(() => {

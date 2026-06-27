@@ -432,6 +432,8 @@ textarea.modal-input{resize:vertical;min-height:70px}
 #tour-halo{position:fixed;border-radius:10px;box-shadow:0 0 0 3px var(--accent),0 0 0 6px rgba(91,155,213,.3);z-index:302;pointer-events:none;animation:tour-pulse 1.8s ease-in-out infinite}
 @keyframes tour-pulse{0%,100%{box-shadow:0 0 0 3px var(--accent),0 0 0 6px rgba(91,155,213,.2)}50%{box-shadow:0 0 0 3px var(--accent),0 0 0 10px rgba(91,155,213,.0)}}
 .tour-spotlight{position:relative;z-index:301}
+.tour-pulse-btn{animation:tour-btn-pulse 0.5s ease-in-out 3;box-shadow:0 0 0 3px var(--accent)}
+@keyframes tour-btn-pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 2px var(--accent)}50%{transform:scale(1.12);box-shadow:0 0 0 5px rgba(91,155,213,.4)}}
 #tour-bubble,#tour-tip-bubble{position:fixed;width:280px;background:var(--bg2);border:1px solid var(--accent);border-radius:12px;padding:18px 16px 14px;z-index:303;box-shadow:0 8px 32px rgba(0,0,0,.5),0 0 0 1px var(--accent);animation:tip-in .2s ease}
 .tour-step-count{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--accent);text-transform:uppercase;margin-bottom:6px}
 .tour-heading{font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px}
