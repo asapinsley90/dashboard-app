@@ -371,7 +371,7 @@ function getAttentionItems() {
 
   // Global urgency triage only
   const todayDateStr = new Date().toISOString().split('T')[0];
-  DB.records.filter(r => !r.deletedAt && r.urgency && r.urgency !== 'none' && r.status !== 'archived' && r.status !== 'completed' && !(r.type === 'event' && r.fields?.date && r.fields.date < todayDateStr)).forEach(r => {
+  DB.records.filter(r => !r.deletedAt && r.urgency && r.urgency !== 'none' && r.status !== 'archived' && r.status !== 'completed' && !(r.type === 'event' && r.fields?.date && r.fields.date < todayDateStr && r.urgency === 'new')).forEach(r => {
     const area = getArea(r.areaId);
     if (attentionFilter !== 'triage' && r.urgency !== attentionFilter) return;
     addItem({
