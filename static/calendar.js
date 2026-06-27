@@ -134,10 +134,17 @@ function timePickerHTML(idPrefix, time24Val = '') {
   const {hour, minute, ampm} = to12Hour(time24Val);
   return `
     <div style="display:flex;gap:8px;align-items:center">
-      <input type="number" id="${idPrefix}-h" class="modal-input" value="${hour}" min="1" max="12" style="width:60px;padding:6px 8px">
+      <input type="number" id="${idPrefix}-h" class="modal-input" value="${hour}" min="1" max="12" style="width:60px;padding:6px 8px"
+        oninput="(function(el){
+          let v=parseInt(el.value)||0;
+          const apEl=document.getElementById('${idPrefix}-ap');
+          if(v>12){v=1;if(apEl)apEl.value=apEl.value==='AM'?'PM':'AM';}
+          else if(v<1){v=12;if(apEl)apEl.value=apEl.value==='AM'?'PM':'AM';}
+          el.value=v;
+        })(this)">
       <span style="color:var(--text)">:</span>
       <select id="${idPrefix}-m" class="modal-select" style="width:80px;padding:6px 8px">
-        <option value="0">00</option>
+        <option value="00">00</option>
         <option value="15">15</option>
         <option value="30">30</option>
         <option value="45">45</option>
@@ -238,7 +245,7 @@ function buildCalBody(mini) {
     for (let i=0;i<7;i++) {
       const d = new Date(mon); d.setDate(mon.getDate()+i);
       const ds = d.toISOString().split('T')[0]; const isToday = ds===todayStr;
-      g += `<div style="text-align:center;padding-bottom:4px"><div class="cal-week-dow">${dayNames[i]}</div><div class="cal-week-num ${isToday?'today-num':''}">${d.getDate()}</div></div>`;
+      g += `<div style="text-align:center;padding-bottom:4px;cursor:pointer" onclick="openDayView('${ds}',event.currentTarget.closest('[id]')?.id,false)" title="View ${ds}"><div class="cal-week-dow">${dayNames[i]}</div><div class="cal-week-num ${isToday?'today-num':''}">${d.getDate()}</div></div>`;
     }
     g += '</div><div class="cal-week-body">';
     const hours = Array.from({length:18},(_,i)=>i+6);
