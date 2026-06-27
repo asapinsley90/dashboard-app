@@ -37,7 +37,7 @@ function renderJobRecord(r, area) {
   return `<div class="record-view-header">
     <div class="record-view-icon">💼</div>
     <div class="record-view-title-wrap">
-      <div class="record-view-title">
+      <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">
         ${(() => {
           const co = r.companyId ? DB.records.find(rec=>rec.id===r.companyId) : DB.records.find(rec=>rec.type==='company'&&rec.title===r.title);
           return co
@@ -1577,14 +1577,14 @@ async function deleteRecord(recordId) {
   // Push to undo stack (Ctrl+Z)
   pushUndo(label, async () => {
     r.deletedAt = null;
-    await api('POST', `/api/records/${recordId}/restore`);
     renderSidebar();
     navigate('area', areaId);
+    api('POST', `/api/records/${recordId}/restore`);
   }, async () => {
     r.deletedAt = new Date().toISOString();
-    await api('DELETE', `/api/records/${recordId}`);
     renderSidebar();
     if (currentView === 'record' && currentRecordId === recordId) navigate('area', areaId);
+    api('DELETE', `/api/records/${recordId}`);
   });
 
   showTourTip('delete-undo', '#delete-toast', 'Deleted', 'Press <b>Ctrl+Z</b> to restore within 24 hours, or find it in <b>History → Recently Deleted</b>.', 'top');

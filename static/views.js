@@ -300,6 +300,8 @@ async function renderDocumentsView(){
 }
 function deleteToast(label, onUndo) {
   document.getElementById('delete-toast')?.remove();
+  document.getElementById('tour-tip-bubble')?.remove();
+  document.getElementById('tour-tip-halo')?.remove();
   const t = document.createElement('div');
   t.id = 'delete-toast';
   t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:10px 16px;font-size:13px;color:var(--text);z-index:9999;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.3)';
@@ -1354,9 +1356,9 @@ function showAreaCtxMenu(e, areaId) {
     const restoreFn = async () => {
       DB.areas = DB.areas.map(a => (a.id === areaId || childIds.includes(a.id)) ? { ...a, deletedAt: null } : a);
       DB.records = DB.records.map(r => r.deletedWithArea === areaId ? { ...r, deletedAt: null } : r);
-      await api('POST', `/api/areas/${areaId}/restore`);
       renderSidebar();
       navigate('area', areaId);
+      api('POST', `/api/areas/${areaId}/restore`);
     };
 
     const redeleteFn = async () => {

@@ -93,7 +93,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .record-view-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--border)}
 .record-view-icon{font-size:28px}
 .record-view-title-wrap{flex:1}
-.record-view-title{font-size:22px;font-weight:600;color:var(--text);margin-bottom:4px}
+.record-view-title{font-size:22px;font-weight:600;color:var(--text);margin-bottom:4px;cursor:text;outline:none;border-radius:4px}
+.record-view-title:focus{background:var(--bg3);padding:2px 6px;margin:-2px -6px}
 .record-view-meta{font-size:12px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
 .record-view-actions{display:flex;gap:8px;flex-shrink:0}
 .record-sections{display:grid;grid-template-columns:1fr 320px;gap:20px}
@@ -111,8 +112,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .field-value{flex:1;font-size:13px;color:var(--text)}
 .field-value a{color:var(--accent);text-decoration:none}
 .field-value a:hover{text-decoration:underline}
-.field-edit{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:13px;padding:5px 8px;outline:none}
-.field-edit:focus{border-color:var(--accent)}
+.field-edit{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:13px;padding:5px 8px;outline:none;cursor:text}
+.field-edit:focus{border-color:var(--accent);cursor:text}
 textarea.field-edit{resize:vertical;min-height:60px}
 
 /* Interviews */

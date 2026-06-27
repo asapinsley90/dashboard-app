@@ -165,6 +165,7 @@ function showUndoModal(label, onYes, onNo) {
 document.addEventListener('keydown', async e => {
   const tag = document.activeElement?.tagName;
   if (['INPUT','TEXTAREA','SELECT'].includes(tag)) return;
+  if (document.activeElement?.contentEditable === 'true') return;
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
     e.preventDefault();
     const action = _undoStack.pop();
