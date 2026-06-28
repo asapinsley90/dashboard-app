@@ -85,7 +85,7 @@ const TOUR_STEPS = [
     id: 'undo-delete',
     target: null,
     heading: 'Restore it with Ctrl+Z',
-    text: 'Press <b>Ctrl+Z</b> right now. A confirmation will appear — confirm to restore your record.',
+    text: 'Press <b>Ctrl+Z</b> right now. A confirmation will appear — confirm to restore your record. You can also find deleted items in the <b>History</b> page for up to 24 hours.',
     advance: 'record-restored',
     position: 'bottom',
   },
@@ -167,6 +167,37 @@ const TOUR_STEPS = [
     heading: 'Calendar on your dashboard',
     text: "Your calendar lives here — click <b>+ New event</b> or tap any time slot to create an event. Try it now.",
     advance: 'event-created',
+    position: 'bottom',
+    spotlight: true,
+    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
+  },
+  {
+    id: 'dash-cal-week',
+    target: () => document.querySelector('[data-widget-id="cal"] .cal-mode-pill'),
+    heading: 'Switch to week view',
+    text: 'Click <b>Week</b> to see your whole week at a glance.',
+    advance: 'calendar-view-week',
+    position: 'bottom',
+    spotlight: true,
+    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
+  },
+  {
+    id: 'dash-cal-month',
+    target: () => document.querySelector('[data-widget-id="cal"] .cal-mode-pill'),
+    heading: 'Now try month view',
+    text: 'Click <b>Month</b> to see the full month.',
+    advance: 'calendar-view-month',
+    position: 'bottom',
+    spotlight: true,
+    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
+  },
+  {
+    id: 'dash-cal-today',
+    target: () => document.querySelector('[data-widget-id="cal"] .cal-today-btn'),
+    heading: 'Reset with Today',
+    text: 'Click <b>Today</b> to jump back to the current date from any view.',
+    advance: 'calendar-today',
+    allowManualAdvance: true,
     position: 'bottom',
     spotlight: true,
     onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
@@ -269,7 +300,7 @@ function showTourStep(index) {
   if (index >= TOUR_STEPS.length) { endTour(); return; }
   tour.step = index;
   const step = TOUR_STEPS[index];
-  const delay = step.id === 'finish' ? 400 : step.spotlight ? 650 : step.onShow ? 380 : 150;
+  const delay = step.id === 'finish' ? 400 : step.onShow ? 380 : 150;
   if (step.onShow) {
     const result = step.onShow();
     if (result && typeof result.then === 'function') {
