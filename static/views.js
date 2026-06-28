@@ -1818,7 +1818,7 @@ async function installTemplate(templateId, triggerEl) {
     rebuildLookupCaches();
     renderSidebar();
     assistantNotify('area-created', area);
-    setTimeout(() => showTourTip('area-rename', `[data-area="${area.id}"]`, 'Rename or recolor anytime', 'Right-click your area in the sidebar to rename it, change its color, or delete it.', 'right'), 1200);
+    setTimeout(() => showTourTip('area-rename', `[data-area="${area.id}"]`, 'Rename or recolor anytime', 'Right-click your area in the sidebar to rename it, change its color, add sub-areas, or delete it.', 'right'), 1200);
     if (window._templateInstallCb) { window._templateInstallCb(area); window._templateInstallCb = null; }
     // Record installed version in prefs so we can show update badges later
     if (tpl.source === 'system' && tpl.version !== undefined) {

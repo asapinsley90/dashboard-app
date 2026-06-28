@@ -221,6 +221,7 @@ function renderJobRecord(r, area) {
     </div>
     <div class="record-view-actions">
       ${statusBadge(r)}
+      <button class="btn btn-sm" style="font-size:11px" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
       <button class="btn btn-sm btn-p" onclick="addInterview('${r.id}')">+ Interview</button>
     </div>
   </div>
@@ -338,6 +339,10 @@ function renderContactRecord(r, area) {
     <div class="record-view-title-wrap">
       <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
       <div class="record-view-meta"><span>${r.fields.role || ''}</span>${linkableCompany(r.fields.company)}</div>
+    </div>
+    <div class="record-view-actions">
+      ${statusBadge(r)}
+      <button class="btn btn-sm" style="font-size:11px" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
     </div>
   </div>
   <div class="record-sections">
