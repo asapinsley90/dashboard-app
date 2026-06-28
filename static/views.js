@@ -1774,13 +1774,15 @@ async function installTemplate(templateId, triggerEl) {
   if (tile) {
     if (tile.dataset.installing) return;
     tile.dataset.installing = '1';
-    tile.style.opacity = '0.5';
-    tile.style.pointerEvents = 'none';
-    const spinner = document.createElement('div');
-    spinner.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);border-radius:10px;font-size:20px';
-    spinner.textContent = '⏳';
-    tile.style.position = 'relative';
-    tile.appendChild(spinner);
+  }
+  const modalBody = document.querySelector('.modal-body');
+  if (modalBody) {
+    const overlay = document.createElement('div');
+    overlay.id = 'tpl-loading-overlay';
+    overlay.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg2);border-radius:inherit;z-index:10;gap:12px';
+    overlay.innerHTML = `<div style="font-size:28px">⏳</div><div style="font-size:14px;color:var(--muted)">Setting up your area…</div>`;
+    modalBody.style.position = 'relative';
+    modalBody.appendChild(overlay);
   }
   try {
     const templates = await api('GET', '/api/templates');
@@ -1794,7 +1796,7 @@ async function installTemplate(templateId, triggerEl) {
     rebuildLookupCaches();
     renderSidebar();
     assistantNotify('area-created', area);
-    if (tour?.active) setTimeout(() => showTourTip('area-rename', `[data-area="${area.id}"]`, 'Rename or recolor anytime', 'Right-click your area in the sidebar to rename it, change its color, or delete it.', 'right'), 1200);
+    if (!tour?.active) setTimeout(() => showTourTip('area-rename', `[data-area="${area.id}"]`, 'Rename or recolor anytime', 'Right-click your area in the sidebar to rename it, change its color, or delete it.', 'right'), 1200);
     if (window._templateInstallCb) { window._templateInstallCb(area); window._templateInstallCb = null; }
     // Record installed version in prefs so we can show update badges later
     if (tpl.source === 'system' && tpl.version !== undefined) {
@@ -1803,6 +1805,7 @@ async function installTemplate(templateId, triggerEl) {
       currentUser.dashboardPrefs = prefs;
       api('PATCH', '/api/me', { dashboardPrefs: prefs }).catch(() => {});
     }
+    closeModal();
     navigate('area', area.id);
     const t = document.createElement('div');
     t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--text);z-index:9999;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.3)';

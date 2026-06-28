@@ -10,8 +10,8 @@ const TOUR_STEPS = [
     position: 'right',
     requireClick: true,
     modalHighlight: '#modal',
-    modalHeading: 'Name your area',
-    modalText: 'Give it a name, pick a color, and click <b>Create</b>.',
+    modalHeading: 'Pick a template',
+    modalText: 'Choose one to get started, or scroll down to create a blank area. Then give it a name and color.',
   },
   {
     id: 'add-record',
@@ -32,7 +32,7 @@ const TOUR_STEPS = [
   {
     id: 'fields-intro',
     heading: 'Records have widgets',
-    text: 'Click <b>⚡ Widgets</b> in the top bar, then toggle one on or off to continue.',
+    text: 'Click <b>⚡ Widgets</b> in the record header to show or hide sections. Toggle one on or off to continue.',
     advance: 'widget-toggled',
     position: 'bottom',
     target: () => document.querySelector('button[onclick*="openWidgetsModal"]'),
@@ -46,7 +46,7 @@ const TOUR_STEPS = [
     target: () => document.querySelector('.section-title[oncontextmenu]'),
     heading: 'Right-click any widget title',
     text: 'Right-click a widget title to edit its fields or hide the widget from this record.',
-    advance: 'widget-title-rightclicked',
+    advance: 'widget-hidden',
     position: 'bottom',
     onShow: () => {
       const rec = DB.records.find(r => !r.deletedAt);
@@ -88,8 +88,9 @@ const TOUR_STEPS = [
   {
     id: 'back-forward',
     heading: 'Navigate like a browser',
-    text: 'Use your browser\'s back and forward buttons — or the arrows below — to move between views. Try pressing back now.',
-    advance: 'browser-nav',
+    text: 'Your browser\'s back and forward buttons work here — or use the arrows below to jump between views.',
+    advance: 'manual',
+    cta: 'Got it',
     position: 'bottom',
     _backForward: true,
     onShow: () => {
@@ -111,7 +112,7 @@ const TOUR_STEPS = [
     id: 'calendar-views',
     target: () => document.querySelector('.cal-mode-btn'),
     heading: 'Day, week, or month',
-    text: 'This calendar pulls in events from <b>every area</b> — color coded to the area they belong to. <b>Click any day</b> to jump to it and add an event. Try switching views now.',
+    text: 'Events from <b>every area</b> — color coded to the area they belong to. Switch between Day, Week, and Month views. Try one now.',
     advance: 'calendar-view-changed',
     position: 'bottom',
     onShow: () => { if (currentView !== 'calendar') navigate('calendar'); },
@@ -120,9 +121,8 @@ const TOUR_STEPS = [
     id: 'contacts',
     target: () => document.querySelector('[data-view="contacts"]'),
     heading: 'Contacts span everything',
-    text: 'Contacts link across all your areas — one contact, referenced everywhere. Click to explore.',
-    advance: 'manual',
-    cta: 'Got it',
+    text: 'Contacts link across all your areas — one contact, referenced everywhere. Click to open.',
+    advance: 'navigate-contacts',
     position: 'right',
     requireClick: true,
   },
@@ -130,9 +130,8 @@ const TOUR_STEPS = [
     id: 'documents',
     target: () => document.querySelector('[data-view="documents"]'),
     heading: 'All your files, one place',
-    text: 'Any file uploaded to a record appears here — searchable across every area. Click to explore.',
-    advance: 'manual',
-    cta: 'Got it',
+    text: 'Any file uploaded to a record appears here — searchable across every area. Click to open.',
+    advance: 'navigate-documents',
     position: 'right',
     requireClick: true,
   },
@@ -140,12 +139,10 @@ const TOUR_STEPS = [
     id: 'dashboard',
     target: () => document.querySelector('[data-view="dashboard"]'),
     heading: 'Your home base',
-    text: 'The dashboard brings everything together. Click to take a look.',
-    advance: 'manual',
-    cta: 'Got it',
+    text: 'The dashboard brings everything together. Click to go there.',
+    advance: 'navigate-dashboard',
     position: 'right',
     requireClick: true,
-    onShow: () => {},
   },
   {
     id: 'dash-areas',
@@ -179,19 +176,19 @@ const TOUR_STEPS = [
   },
   {
     id: 'dash-cal',
-    target: () => document.getElementById('dash-cal'),
+    target: () => document.querySelector('[data-widget-id="cal"] .dash-widget-title, [data-widget-id="cal"] h3, #dash-cal'),
     heading: 'Global calendar',
-    text: "You've already seen this one — your calendar lives here on the dashboard too, always in view.",
+    text: "Your calendar lives here on the dashboard too — always in view across every area.",
     advance: 'manual',
     cta: 'Got it',
-    position: 'left',
+    position: 'bottom',
     onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
   },
   {
     id: 'dash-attention-explain',
-    target: () => document.querySelector('[data-widget-id="attention"]'),
+    target: () => document.querySelector('[data-widget-id="attention"] .record-card') || document.querySelector('[data-widget-id="attention"]'),
     heading: 'Needs attention',
-    text: 'Flagged records surface here so you always know what to act on. <b>🔴 Urgent</b> at the top, then <b>🟣 Priority</b>, <b>🟡 Follow up</b> — each with its own color. Try it: right-click any record card in the sidebar and set an urgency.',
+    text: '<b>Right-click the record above</b> to set its urgency — <b>🔴 Urgent</b> sits at the top, then <b>🟣 Priority</b>, <b>🟡 Follow up</b>. Each level has its own color so the most critical things are always visible.',
     advance: 'urgency-changed',
     position: 'bottom',
     onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
@@ -215,8 +212,10 @@ const tour = {
   _clickHandler: null,
 };
 
-// Track areas/records created during the tour so we can wipe them
-const tourCreated = { areaIds: [], recordIds: [] };
+// Track areas/records created during the tour so we can wipe them (persisted across refreshes)
+const _savedTourCreated = (() => { try { return JSON.parse(localStorage.getItem('tourCreated') || '{}'); } catch { return {}; } })();
+const tourCreated = { areaIds: _savedTourCreated.areaIds || [], recordIds: _savedTourCreated.recordIds || [] };
+function _saveTourCreated() { try { localStorage.setItem('tourCreated', JSON.stringify(tourCreated)); } catch {} }
 
 function tourDismissed() {
   return !!(currentUser.dashboardPrefs?.tourDismissed);
@@ -228,6 +227,7 @@ function startTour() {
   tour.step = 0;
   tourCreated.areaIds = [];
   tourCreated.recordIds = [];
+  _saveTourCreated();
   showTourStep(0);
 }
 
@@ -410,7 +410,7 @@ function _renderTourStep(step, index) {
   const text = `<div class="tour-text">${step.text}</div>`;
 
   // Event-driven steps (waiting for user action): show faded skip link, no Got it
-  const isEventDriven = step.advance && step.advance !== 'manual' && !step.requireClick;
+  const isEventDriven = step.advance && step.advance !== 'manual';
   let actions;
   if (isEventDriven) {
     actions = `<div class="tour-actions"><button class="tour-skip" style="opacity:0.5" onclick="advanceTour()">Skip step →</button><button class="tour-skip" onclick="dismissTour()">Skip tour</button></div>`;
@@ -451,6 +451,7 @@ function tourNavForward() {
 
 async function wipeTourData() {
   clearTourOverlay();
+  localStorage.removeItem('tourCreated');
   // Delete tour-created records and areas
   for (const id of tourCreated.recordIds) {
     const r = DB.records.find(r => r.id === id);
@@ -581,11 +582,14 @@ function tourNotify(event, data) {
     if (event === 'area-created' && data?.id) {
       tour.lastAreaId = data.id;
       tourCreated.areaIds.push(data.id);
+      _saveTourCreated();
     }
     if (event === 'record-created' && data?.id) {
       tourCreated.recordIds.push(data.id);
+      _saveTourCreated();
     }
     clearTourOverlay();
+    closeModal?.();
     setTimeout(() => showTourStep(tour.step + 1), 500);
   }
 }

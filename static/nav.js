@@ -45,6 +45,11 @@ function navigate(view, areaId, recordId, push = true) {
 
   // Notify assistant of dashboard navigation (for onboarding)
   if (safeView === 'dashboard' && push) assistantNotify('navigate-dashboard');
+  if (push) {
+    if (safeView === 'contacts') tourNotify('navigate-contacts');
+    else if (safeView === 'documents') tourNotify('navigate-documents');
+    else if (safeView === 'dashboard') tourNotify('navigate-dashboard');
+  }
 
   // Render
   if (safeView === 'dashboard') renderDashboard();
@@ -107,7 +112,6 @@ function updatePlanningSubitems() {
 
 window.addEventListener('popstate', e => {
   if (!e.state) return;
-  tourNotify('browser-nav');
   const s = e.state;
   // Restore calendar mode if this was a cal mode change
   if (s.calMode && s.calCid) {

@@ -107,7 +107,6 @@ function openWidgetTitleMenu(e, recordId, widgetId) {
   const r = getRecord(recordId);
   if (!r) return;
   const def = getWidgetDefs(r).find(d => d.id === widgetId);
-  tourNotify('widget-title-rightclicked');
   const menu = document.createElement('div');
   menu.className = 'ctx-menu widget-ctx-menu';
   menu.style.cssText = `left:${Math.min(e.clientX, window.innerWidth - 180)}px;top:${Math.min(e.clientY, window.innerHeight - 80)}px`;
@@ -120,6 +119,7 @@ function openWidgetTitleMenu(e, recordId, widgetId) {
     active.delete(widgetId);
     r.fields._widgets = [...active];
     api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+    tourNotify('widget-hidden');
     menu.remove();
     const content = document.getElementById('record-view-content');
     const area2 = DB.areas.find(a => a.id === r.areaId);
@@ -151,7 +151,6 @@ function renderRecordView(recordId) {
   const urgencyNext = { none: 'flagged', flagged: 'priority', priority: 'urgent', urgent: 'none' };
   document.getElementById('topbar-actions').innerHTML = `
     <button class="btn btn-sm" onclick="navigate('area','${r.areaId}')">← Back</button>
-    <button class="btn btn-sm" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
     <button class="btn btn-sm" onclick="copyRecordContext('${r.id}')" title="Copy context to paste into Claude">📋 Copy for Claude</button>
     <button class="btn btn-sm btn-danger" onclick="deleteRecord('${r.id}')">Delete</button>`;
 
@@ -409,6 +408,7 @@ function renderCompanyRecord(r, area) {
       <select class="field-edit" style="font-size:11px" onchange="moveRecordArea('${r.id}',this.value)">
         ${DB.areas.map(a=>`<option value="${a.id}" ${a.id===r.areaId?'selected':''}>${a.title}</option>`).join('')}
       </select>
+      <button class="btn btn-sm" style="font-size:11px" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
       <button class="btn btn-sm" style="font-size:11px" onclick="openEditTypeSchema('company')" title="Edit field definitions">Fields ⚙</button>
     </div>
   </div>
@@ -625,6 +625,7 @@ function renderAccountRecord(r, area) {
       </div>
     </div>
     <div class="record-view-actions">
+      <button class="btn btn-sm" style="font-size:11px" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
       <button class="btn btn-sm" style="font-size:11px" onclick="openEditTypeSchema('account')" title="Edit field definitions">Fields ⚙</button>
     </div>
   </div>
@@ -1000,7 +1001,8 @@ function renderSchemaRecord(r, area) {
     </div>
     <div class="record-view-actions">
       ${statusBadge(r)}
-      <button class="btn btn-sm" onclick="openEditTypeSchema('${r.type}')" title="Edit field definitions" style="margin-left:6px;font-size:11px">Fields ⚙</button>
+      <button class="btn btn-sm" onclick="openWidgetsModal('${r.id}')" style="font-size:11px">⚡ Widgets</button>
+      <button class="btn btn-sm" onclick="openEditTypeSchema('${r.type}')" title="Edit field definitions" style="font-size:11px">Fields ⚙</button>
     </div>
   </div>
   <div class="record-sections">
