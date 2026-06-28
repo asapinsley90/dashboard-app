@@ -67,7 +67,7 @@ function openWidgetsModal(recordId) {
     <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Active widgets appear in this record. Click any widget to toggle it on or off.</p>
     <div class="widget-toggle-grid">${defs.map(d => `
       <div class="widget-toggle${active.has(d.id) ? ' active' : ''}" onclick="toggleWidgetActive('${recordId}','${d.id}',this)">
-        <span style="font-size:22px">${d.icon}</span>
+        <span style="font-size:32px">${d.icon}</span>
         <span class="widget-toggle-label">${d.label}</span>
         <span class="widget-toggle-dot"></span>
       </div>`).join('')}

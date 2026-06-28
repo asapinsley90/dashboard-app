@@ -101,8 +101,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .record-main{}
 .record-sidebar{}
 .section-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px}
-.widget-toggle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
-.widget-toggle{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;opacity:0.4;transition:opacity .15s,border-color .15s}
+.widget-toggle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.widget-toggle{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:22px 14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;opacity:0.4;transition:opacity .15s,border-color .15s}
 .widget-toggle.active{opacity:1;border-color:var(--accent)}
 .widget-toggle:hover{opacity:0.65}
 .widget-toggle.active:hover{opacity:0.9}

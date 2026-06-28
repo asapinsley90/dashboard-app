@@ -36,6 +36,7 @@ const TOUR_STEPS = [
     advance: 'widget-toggled',
     position: 'bottom',
     target: () => document.querySelector('button[onclick*="openWidgetsModal"]'),
+    modalInteractive: true,
     onShow: () => {
       const rec = DB.records.find(r => !r.deletedAt);
       if (rec) navigate('record', rec.areaId, rec.id);
