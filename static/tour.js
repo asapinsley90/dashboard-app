@@ -38,7 +38,7 @@ const TOUR_STEPS = [
     target: () => document.querySelector('button[onclick*="openWidgetsModal"]'),
     modalInteractive: true,
     onShow: () => {
-      const rec = DB.records.find(r => !r.deletedAt);
+      const rec = _tourSchemaRecord();
       if (rec) navigate('record', rec.areaId, rec.id);
     },
   },
@@ -50,20 +50,22 @@ const TOUR_STEPS = [
     advance: 'widget-hidden',
     position: 'bottom',
     onShow: () => {
-      const rec = DB.records.find(r => !r.deletedAt);
+      const rec = _tourSchemaRecord();
       if (rec) navigate('record', rec.areaId, rec.id);
     },
   },
   {
     id: 'widget-custom',
     heading: 'Fields are yours to define',
-    text: 'Every record has a <b>Fields ⚙</b> button — add, rename, or remove fields to match how you work. Click it, look around, then click <b>Save</b>.',
+    text: 'Every record has a <b>Fields ⚙</b> button — add, rename, or remove fields to match how you work. Click it, look around, then click <b>Save</b> to save as your personal template.',
     advance: 'schema-saved',
+    allowManualAdvance: true,
+    cta: 'Got it',
     position: 'bottom',
     target: () => document.querySelector('button[onclick*="openEditTypeSchema"]'),
     modalInteractive: true,
     onShow: () => {
-      const rec = DB.records.find(r => !r.deletedAt && r.type !== 'job');
+      const rec = _tourSchemaRecord();
       if (rec) navigate('record', rec.areaId, rec.id);
     },
   },
@@ -134,6 +136,7 @@ const TOUR_STEPS = [
     advance: 'manual',
     cta: 'Got it',
     position: 'bottom',
+    spotlight: true,
     onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
   },
   {
@@ -144,6 +147,7 @@ const TOUR_STEPS = [
     advance: 'manual',
     cta: 'Got it',
     position: 'bottom',
+    spotlight: true,
     onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
   },
   {
@@ -154,34 +158,37 @@ const TOUR_STEPS = [
     advance: 'manual',
     cta: 'Got it',
     position: 'bottom',
+    spotlight: true,
     onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
   },
   {
     id: 'dash-cal',
-    target: () => document.querySelector('[data-widget-id="cal"] .dash-section-label'),
-    heading: 'Global calendar',
-    text: "Your calendar lives here on the dashboard too — always in view across every area.",
-    advance: 'manual',
-    cta: 'Got it',
+    target: () => document.querySelector('[data-widget-id="cal"]'),
+    heading: 'Calendar on your dashboard',
+    text: "Your calendar lives here — click <b>+ New event</b> or tap any time slot to create an event. Try it now.",
+    advance: 'event-created',
     position: 'bottom',
+    spotlight: true,
     onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
-  },
-  {
-    id: 'calendar',
-    target: () => document.querySelector('[data-view="calendar"]'),
-    heading: 'Full calendar view',
-    text: 'Click to open the full calendar — Day, Week, and Month views, all your events color-coded by area.',
-    advance: 'navigate-calendar',
-    position: 'right',
-    requireClick: true,
   },
   {
     id: 'dash-attention-explain',
     target: () => document.querySelector('[data-widget-id="attention"] .record-card') || document.querySelector('[data-widget-id="attention"]'),
     heading: 'Needs attention',
-    text: '<b>Right-click the record above</b> to set its urgency — <b>🔴 Urgent</b> sits at the top, then <b>🟣 Priority</b>, <b>🟡 Follow up</b>. Each level has its own color so the most critical things are always visible.',
-    advance: 'urgency-changed',
+    text: 'New records start with <b>New</b> status and appear here automatically. <b>Right-click the record above</b> and change it to <b>🔴 Urgent</b> to continue.',
+    advance: 'urgency-set-urgent',
     position: 'bottom',
+    spotlight: true,
+    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
+  },
+  {
+    id: 'urgency-clear',
+    target: () => document.querySelector('[data-widget-id="attention"] .record-card') || document.querySelector('[data-widget-id="attention"]'),
+    heading: 'Downgrade to clear it',
+    text: 'Now right-click the record and set urgency back to <b>blank</b>. Once a record is complete or downgraded it leaves this list automatically.',
+    advance: 'urgency-cleared',
+    position: 'bottom',
+    spotlight: true,
     onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
   },
   {
@@ -208,6 +215,11 @@ const _savedTourCreated = (() => { try { return JSON.parse(localStorage.getItem(
 const tourCreated = { areaIds: _savedTourCreated.areaIds || [], recordIds: _savedTourCreated.recordIds || [] };
 function _saveTourCreated() { try { localStorage.setItem('tourCreated', JSON.stringify(tourCreated)); } catch {} }
 
+function _tourSchemaRecord() {
+  const BUILTIN = ['job','account','company','contact','event'];
+  return DB.records.find(r => !r.deletedAt && !BUILTIN.includes(r.type));
+}
+
 function tourDismissed() {
   return !!(currentUser.dashboardPrefs?.tourDismissed);
 }
@@ -232,7 +244,8 @@ function showTourStep(index) {
   tour.step = index;
   const step = TOUR_STEPS[index];
   if (step.onShow) step.onShow();
-  setTimeout(() => _renderTourStep(step, index), step.id === 'finish' ? 400 : (step.onShow ? 380 : 150));
+  const delay = step.id === 'finish' ? 400 : step.spotlight ? 650 : step.onShow ? 380 : 150;
+  setTimeout(() => _renderTourStep(step, index), delay);
 }
 
 function _renderTourStep(step, index) {
@@ -241,6 +254,7 @@ function _renderTourStep(step, index) {
   const overlay = document.createElement('div');
   overlay.id = 'tour-overlay';
   if (step.modalInteractive) overlay.style.pointerEvents = 'none';
+  if (step.spotlight) overlay.style.background = 'transparent';
   document.body.appendChild(overlay);
 
   // ── fields-intro: manual step-through with Got it ──
@@ -328,8 +342,8 @@ function _renderTourStep(step, index) {
     const bubble = document.createElement('div');
     bubble.id = 'tour-bubble';
     const heading = `<div class="tour-heading">${step.heading}</div>`;
-    const wipeBtn = `<button style="width:100%;margin-top:8px;padding:8px;font-size:12px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline" onclick="wipeTourData()">Starting fresh and clearing tutorial data</button>`;
-    const actions = `<div class="tour-actions" style="flex-direction:column;align-items:stretch"><button class="tour-cta" style="width:100%" onclick="endTour()">Let's go!</button>${wipeBtn}</div>`;
+    const keepBtn = `<button style="width:100%;margin-top:4px;padding:6px;font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;opacity:0.6" onclick="endTour()">Keep tutorial data</button>`;
+    const actions = `<div class="tour-actions" style="flex-direction:column;align-items:stretch"><button class="tour-cta" style="width:100%" onclick="wipeTourData()">Let's go!</button>${keepBtn}</div>`;
     bubble.innerHTML = `${heading}${actions}`;
     document.body.appendChild(bubble);
     _positionBubble(bubble, target, step.position);
@@ -342,6 +356,7 @@ function _renderTourStep(step, index) {
     const rect = target.getBoundingClientRect();
     const halo = document.createElement('div');
     halo.id = 'tour-halo';
+    if (step.spotlight) halo.classList.add('tour-halo-spotlight');
     halo.style.cssText = `top:${rect.top - 6}px;left:${rect.left - 6}px;width:${rect.width + 12}px;height:${rect.height + 12}px`;
     document.body.appendChild(halo);
 
@@ -401,9 +416,10 @@ function _renderTourStep(step, index) {
   const text = `<div class="tour-text">${step.text}</div>`;
 
   // Event-driven steps (waiting for user action): show faded skip link, no Got it
+  // unless allowManualAdvance is set, which shows a Got it alongside the event trigger
   const isEventDriven = step.advance && step.advance !== 'manual';
   let actions;
-  if (isEventDriven) {
+  if (isEventDriven && !step.allowManualAdvance) {
     actions = `<div class="tour-actions"><button class="tour-skip" style="opacity:0.5" onclick="advanceTour()">Skip step →</button><button class="tour-skip" onclick="dismissTour()">Skip tour</button></div>`;
   } else {
     const ctaLabel = step.cta || (step.requireClick && target ? 'Got it' : 'Next');
@@ -411,7 +427,8 @@ function _renderTourStep(step, index) {
       ? `document.getElementById('tour-click-zone')?.click()`
       : `advanceTour()`;
     const skip = `<button class="tour-skip" onclick="dismissTour()">Skip tour</button>`;
-    actions = `<div class="tour-actions"><button class="tour-cta" onclick="${ctaOnclick}">${ctaLabel}</button>${skip}</div>`;
+    const skipStep = isEventDriven ? `<button class="tour-skip" style="opacity:0.5" onclick="advanceTour()">Skip step →</button>` : '';
+    actions = `<div class="tour-actions"><button class="tour-cta" onclick="${ctaOnclick}">${ctaLabel}</button>${skipStep}${skip}</div>`;
   }
 
   bubble.innerHTML = `${stepCount}${heading}${text}${actions}`;

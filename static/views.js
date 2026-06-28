@@ -1289,6 +1289,8 @@ async function setUrgency(recordId,level){
   const prev=r.urgency||'none';
   r.urgency=level;
   tourNotify('urgency-changed');
+  if (level === 'none') tourNotify('urgency-cleared');
+  if (level === 'urgent') tourNotify('urgency-set-urgent');
   renderSidebar();
   if(currentView==='record')renderRecordView(recordId);
   if(currentView==='dashboard')renderAttention();

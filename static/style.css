@@ -438,6 +438,7 @@ textarea.modal-input{resize:vertical;min-height:70px}
 /* ── GUIDED TOUR ─────────────────────────────────────────────────────────── */
 #tour-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;pointer-events:all}
 #tour-halo{position:fixed;border-radius:10px;box-shadow:0 0 0 3px var(--accent),0 0 0 6px rgba(91,155,213,.3);z-index:302;pointer-events:none;animation:tour-pulse 1.8s ease-in-out infinite}
+#tour-halo.tour-halo-spotlight{box-shadow:0 0 0 9999px rgba(0,0,0,.65),0 0 0 3px var(--accent),0 0 0 8px rgba(91,155,213,.35)}
 @keyframes tour-pulse{0%,100%{box-shadow:0 0 0 3px var(--accent),0 0 0 6px rgba(91,155,213,.2)}50%{box-shadow:0 0 0 3px var(--accent),0 0 0 10px rgba(91,155,213,.0)}}
 .tour-spotlight{position:relative;z-index:301}
 .tour-pulse-btn{animation:tour-btn-pulse 0.5s ease-in-out 3;box-shadow:0 0 0 3px var(--accent)}

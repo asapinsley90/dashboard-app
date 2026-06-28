@@ -1802,7 +1802,9 @@ function promptAddEvent(targetAreaId = null) {
         links: []
       });
       DB.records.push(ev);
+      tourCreated.recordIds.push(ev.id); _saveTourCreated();
       closeModal();
+      tourNotify('event-created');
       renderSidebar();
       if (currentView === 'dashboard') renderDashboard();
       else if (currentView === 'calendar') renderCalFull();
