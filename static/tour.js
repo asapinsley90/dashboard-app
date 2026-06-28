@@ -137,7 +137,6 @@ const TOUR_STEPS = [
     cta: 'Got it',
     position: 'bottom',
     spotlight: true,
-    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
   },
   {
     id: 'dash-week',
@@ -148,7 +147,6 @@ const TOUR_STEPS = [
     cta: 'Got it',
     position: 'bottom',
     spotlight: true,
-    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
   },
   {
     id: 'dash-today',
@@ -159,7 +157,6 @@ const TOUR_STEPS = [
     cta: 'Got it',
     position: 'bottom',
     spotlight: true,
-    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
   },
   {
     id: 'dash-cal',
@@ -169,7 +166,6 @@ const TOUR_STEPS = [
     advance: 'event-created',
     position: 'bottom',
     spotlight: true,
-    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
   },
   {
     id: 'dash-cal-week',
@@ -179,7 +175,6 @@ const TOUR_STEPS = [
     advance: 'calendar-view-week',
     position: 'bottom',
     spotlight: true,
-    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
   },
   {
     id: 'dash-cal-month',
@@ -189,7 +184,6 @@ const TOUR_STEPS = [
     advance: 'calendar-view-month',
     position: 'bottom',
     spotlight: true,
-    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
   },
   {
     id: 'dash-cal-today',
@@ -200,7 +194,6 @@ const TOUR_STEPS = [
     allowManualAdvance: true,
     position: 'bottom',
     spotlight: true,
-    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
   },
   {
     id: 'dash-attention-explain',
@@ -210,7 +203,6 @@ const TOUR_STEPS = [
     advance: 'urgency-set-urgent',
     position: 'bottom',
     spotlight: true,
-    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
   },
   {
     id: 'urgency-clear',
@@ -220,7 +212,6 @@ const TOUR_STEPS = [
     advance: 'urgency-cleared',
     position: 'bottom',
     spotlight: true,
-    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
   },
   {
     id: 'finish',
@@ -299,8 +290,9 @@ function showTourStep(index) {
   clearTourOverlay();
   if (index >= TOUR_STEPS.length) { endTour(); return; }
   tour.step = index;
+  tour._advanceReady = false;
   const step = TOUR_STEPS[index];
-  const delay = step.id === 'finish' ? 400 : step.onShow ? 380 : 150;
+  const delay = 0;
   if (step.onShow) {
     const result = step.onShow();
     if (result && typeof result.then === 'function') {
@@ -314,9 +306,10 @@ function showTourStep(index) {
 function _renderTourStep(step, index) {
   const target = step.target?.();
 
+  clearTourOverlay();
   const overlay = document.createElement('div');
   overlay.id = 'tour-overlay';
-  if (step.modalInteractive) overlay.style.pointerEvents = 'none';
+  if (step.modalInteractive) { overlay.style.pointerEvents = 'none'; overlay.style.background = 'transparent'; }
   if (step.spotlight) overlay.style.background = 'transparent';
   document.body.appendChild(overlay);
 
@@ -366,6 +359,7 @@ function _renderTourStep(step, index) {
     bubble.style.top = Math.min(window.innerHeight - (bRect.height || 160) - 10, window.innerHeight * 0.65) + 'px';
     bubble.style.visibility = 'visible';
     setTimeout(() => showTarget(0), 400);
+    tour._advanceReady = true;
     return;
   }
 
@@ -389,6 +383,7 @@ function _renderTourStep(step, index) {
     bubble.innerHTML = `${stepCount}${heading}${text}${navArrows}${actions}`;
     document.body.appendChild(bubble);
     _positionBubble(bubble, null, 'bottom');
+    tour._advanceReady = true;
     return;
   }
 
@@ -410,6 +405,7 @@ function _renderTourStep(step, index) {
     bubble.innerHTML = `${heading}${actions}`;
     document.body.appendChild(bubble);
     _positionBubble(bubble, target, step.position);
+    tour._advanceReady = true;
     return;
   }
 
@@ -497,6 +493,7 @@ function _renderTourStep(step, index) {
   bubble.innerHTML = `${stepCount}${heading}${text}${actions}`;
   document.body.appendChild(bubble);
   _positionBubble(bubble, target, step.position);
+  tour._advanceReady = true;
 }
 
 // Back/forward interactive handlers
@@ -648,7 +645,7 @@ function dismissTourTip(key) {
 }
 
 function tourNotify(event, data) {
-  if (!tour.active) return;
+  if (!tour.active || !tour._advanceReady) return;
   const step = TOUR_STEPS[tour.step];
   if (!step) return;
   if (step.advance === event) {

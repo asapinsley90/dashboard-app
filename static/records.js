@@ -35,6 +35,11 @@ const RECORD_WIDGET_DEFS = {
     { id: 'timeline', label: 'Timeline', icon: '⏱', defaultOn: true },
     { id: 'documents', label: 'Documents', icon: '📎', defaultOn: false },
   ],
+  event: [
+    { id: 'event-details', label: 'Event details', icon: '📅', defaultOn: true },
+    { id: 'links',    label: 'Linked records', icon: '🔗', defaultOn: true },
+    { id: 'timeline', label: 'Timeline',        icon: '⏱', defaultOn: true },
+  ],
   _default: [
     { id: 'fields', label: 'Fields', icon: '📋', defaultOn: true },
     { id: 'status-urgency', label: 'Status & urgency', icon: '🎯', defaultOn: true },
@@ -67,6 +72,14 @@ const DEFAULT_FIELD_SCHEMAS = {
     { key: 'website',  label: 'Website',  type: 'url',      order: 2 },
     { key: 'location', label: 'Location', type: 'text',     order: 3 },
     { key: 'notes',    label: 'Notes',    type: 'textarea', order: 4 },
+  ]},
+  event: { name: 'Event', icon: '📅', fields: [
+    { key: 'date',     label: 'Date',       type: 'date',     order: 1 },
+    { key: 'time',     label: 'Start time', type: 'time',     order: 2 },
+    { key: 'endTime',  label: 'End time',   type: 'time',     order: 3 },
+    { key: 'location', label: 'Location',   type: 'text',     order: 4 },
+    { key: 'link',     label: 'Link',       type: 'url',      order: 5 },
+    { key: 'notes',    label: 'Notes',      type: 'textarea', order: 6 },
   ]},
 };
 
@@ -124,19 +137,7 @@ function toggleWidgetActive(recordId, widgetId, el) {
   el.classList.toggle('active');
   api('PUT', `/api/records/${recordId}`, { fields: r.fields });
   tourNotify('widget-toggled');
-  const content = document.getElementById('record-view-content');
-  if (!content) return;
-  const area = DB.areas.find(a => a.id === r.areaId);
-  if (r.type === 'job') content.innerHTML = renderJobRecord(r, area);
-  else if (r.type === 'account') {
-    content.innerHTML = renderAccountRecord(r, area);
-    const ch = (r.fields.history || []).slice().sort((a,b) => a.month.localeCompare(b.month));
-    requestAnimationFrame(() => renderAccountCharts(`acct-charts-${r.id}`, ch));
-  }
-  else if (r.type === 'company') content.innerHTML = renderCompanyRecord(r, area);
-  else if (r.type === 'contact') content.innerHTML = renderContactRecord(r, area);
-  else if (TYPE_SCHEMAS.find(s => s.id === r.type)) content.innerHTML = renderSchemaRecord(r, area);
-  else content.innerHTML = renderGenericRecord(r, area);
+  renderRecordView(r.id);
 }
 
 function getWidgetLabel(r, widgetId, defaultLabel) {
@@ -212,18 +213,16 @@ function renderRecordView(recordId) {
     <button class="btn btn-sm btn-danger" onclick="deleteRecord('${r.id}')">Delete</button>`;
 
   const el = document.getElementById('record-view-content');
-  // Bespoke renderers for types with custom UI; schema-driven for everything else
-  if (r.type === 'job') el.innerHTML = renderJobRecord(r, area);
-  else if (r.type === 'account') {
-    el.innerHTML = renderAccountRecord(r, area);
-    const chartHistory = (r.fields.history || []).slice().sort((a,b) => a.month.localeCompare(b.month));
-    const _doCharts = () => renderAccountCharts(`acct-charts-${r.id}`, chartHistory);
-    requestAnimationFrame(() => { _doCharts(); setTimeout(_doCharts, 100); });
+  if (r.type === 'job') {
+    el.innerHTML = renderJobRecord(r, area);
+  } else {
+    el.innerHTML = renderSchemaRecord(r, area);
+    if (r.type === 'account') {
+      const chartHistory = (r.fields.history || []).slice().sort((a,b) => a.month.localeCompare(b.month));
+      const _doCharts = () => renderAccountCharts(`acct-charts-${r.id}`, chartHistory);
+      requestAnimationFrame(() => { _doCharts(); setTimeout(_doCharts, 100); });
+    }
   }
-  else if (r.type === 'company') el.innerHTML = renderCompanyRecord(r, area);
-  else if (r.type === 'contact') el.innerHTML = renderContactRecord(r, area);
-  else if (TYPE_SCHEMAS.find(s => s.id === r.type)) el.innerHTML = renderSchemaRecord(r, area);
-  else el.innerHTML = renderGenericRecord(r, area);
 }
 
 function renderJobRecord(r, area) {
@@ -368,14 +367,14 @@ function renderContactRecord(r, area) {
   return `<div class="record-view-header">
     <div class="record-view-icon">👤</div>
     <div class="record-view-title-wrap">
-      <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
+      <div class="record-title-row">
+        <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
+        <button class="record-header-tile" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
+        <button class="record-header-tile" onclick="openEditTypeSchema('contact')">Fields ⚙</button>
+      </div>
       <div class="record-view-meta"><span>${r.fields.role || ''}</span>${linkableCompany(r.fields.company)}</div>
     </div>
-    <div class="record-view-actions">
-      ${statusBadge(r)}
-      <button class="btn btn-sm" style="font-size:11px" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
-      <button class="btn btn-sm" style="font-size:11px" onclick="openEditTypeSchema('contact')" title="Edit field definitions">Fields ⚙</button>
-    </div>
+    <div class="record-view-actions">${statusBadge(r)}</div>
   </div>
   <div class="record-sections">
     <div class="record-main">
@@ -442,7 +441,11 @@ function renderCompanyRecord(r, area) {
   return `<div class="record-view-header">
     <div class="record-view-icon">🏢</div>
     <div class="record-view-title-wrap">
-      <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
+      <div class="record-title-row">
+        <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
+        <button class="record-header-tile" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
+        <button class="record-header-tile" onclick="openEditTypeSchema('company')">Fields ⚙</button>
+      </div>
       <div class="record-view-meta">
         <span>${r.fields.industry||''}</span>
         ${r.fields.location?`<span>${r.fields.location}</span>`:''}
@@ -454,8 +457,6 @@ function renderCompanyRecord(r, area) {
       <select class="field-edit" style="font-size:11px" onchange="moveRecordArea('${r.id}',this.value)">
         ${DB.areas.map(a=>`<option value="${a.id}" ${a.id===r.areaId?'selected':''}>${a.title}</option>`).join('')}
       </select>
-      <button class="btn btn-sm" style="font-size:11px" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
-      <button class="btn btn-sm" style="font-size:11px" onclick="openEditTypeSchema('company')" title="Edit field definitions">Fields ⚙</button>
     </div>
   </div>
   <div class="record-sections">
@@ -660,7 +661,11 @@ function renderAccountRecord(r, area) {
   return `<div class="record-view-header">
     ${logoHTML}
     <div class="record-view-title-wrap">
-      <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
+      <div class="record-title-row">
+        <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
+        <button class="record-header-tile" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
+        <button class="record-header-tile" onclick="openEditTypeSchema('account')">Fields ⚙</button>
+      </div>
       <div class="record-view-meta">
         ${r.fields.institution ? `<span>${r.fields.institution}</span>` : ''}
         ${r.fields.accountType ? `<span>${r.fields.accountType}</span>` : ''}
@@ -668,10 +673,7 @@ function renderAccountRecord(r, area) {
         ${r.fields.last4 ? `<span>····${r.fields.last4}</span>` : ''}
       </div>
     </div>
-    <div class="record-view-actions">
-      <button class="btn btn-sm" style="font-size:11px" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
-      <button class="btn btn-sm" style="font-size:11px" onclick="openEditTypeSchema('account')" title="Edit field definitions">Fields ⚙</button>
-    </div>
+    <div class="record-view-actions"></div>
   </div>
   <div class="record-sections">
     <div class="record-main">
@@ -1014,60 +1016,232 @@ function renderAccountCharts(containerId, history) {
 }
 
 function renderSchemaRecord(r, area) {
-  const schema = TYPE_SCHEMAS.find(s => s.id === r.type);
-  const fields = schema ? [...schema.fields].sort((a,b) => a.order - b.order) : [];
-  const notesField = fields.find(f => f.key === 'notes');
-  const mainFields = fields.filter(f => f.key !== 'notes');
+  const schema = getEffectiveSchema(r.type);
+  const defs = getWidgetDefs(r);
 
-  function renderFieldInput(f) {
-    const val = r.fields?.[f.key] || '';
-    if (f.type === 'textarea') {
-      return `<textarea class="field-edit" style="resize:vertical;min-height:60px" placeholder="—"
-        onblur="saveFieldText('${r.id}','${f.key}',this.value)">${val}</textarea>`;
-    }
-    return `<input class="field-edit" type="${f.type === 'email' ? 'email' : f.type === 'url' ? 'url' : f.type === 'date' ? 'date' : f.type === 'tel' ? 'tel' : 'text'}"
-      value="${val}" placeholder="—" onblur="saveFieldText('${r.id}','${f.key}',this.value)">`;
+  // Icon: account gets institution favicon, others use schema icon
+  let headerIcon;
+  if (r.type === 'account') {
+    const instDefaults = getInstitutionDefaults(r.fields.institution);
+    const domain = r.fields.institutionDomain || instDefaults?.domain || null;
+    const loginUrl = r.fields.institutionUrl || instDefaults?.url || null;
+    headerIcon = domain
+      ? `<a href="${loginUrl || '#'}" target="_blank" rel="noopener" title="Log in to ${r.fields.institution}" style="display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:10px;background:var(--bg3);border:1px solid var(--border1);overflow:hidden;flex-shrink:0;text-decoration:none">
+          <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=64" style="width:32px;height:32px;object-fit:contain" onerror="this.parentElement.innerHTML='💳'">
+         </a>`
+      : `<div class="record-view-icon">💳</div>`;
+  } else {
+    headerIcon = `<div class="record-view-icon">${schema?.icon || typeIcon(r.type)}</div>`;
   }
 
-  const icon = schema?.icon || typeIcon(r.type);
+  // Meta subtitle: first 2 non-empty, non-compound, non-textarea field values
+  const metaVals = (schema?.fields || [])
+    .filter(f => !['company-link','textarea','url'].includes(f.type))
+    .slice(0, 3)
+    .map(f => r.fields[f.key])
+    .filter(Boolean);
+
+  // Widget body for any widget id
+  function widgetBody(id) {
+    const def = defs.find(d => d.id === id);
+    const label = getWidgetLabel(r, id, def?.label || id);
+    const ctx = `openWidgetTitleMenu(event,'${r.id}','${id}')`;
+
+    // Fields-style widgets (all map to renderFieldsFromSchema + area selector)
+    if (['fields','contact-info','company-details','account-details','event-details'].includes(id)) {
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        ${renderFieldsFromSchema(r)}
+        <div class="field-row">
+          <div class="field-label">Area</div>
+          <div class="field-value">
+            <select class="field-edit" onchange="moveRecordArea('${r.id}',this.value)">
+              ${DB.areas.map(a=>`<option value="${a.id}" ${a.id===r.areaId?'selected':''}>${a.title}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    if (id === 'notes') return renderNotesSection(r);
+
+    if (id === 'timeline' || id === 'activity') {
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        ${renderTimeline(r)}
+      </div>`;
+    }
+
+    if (id === 'documents') {
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        <div style="font-size:12px;color:var(--muted)">No documents yet.</div>
+      </div>`;
+    }
+
+    if (id === 'contacts') {
+      const linked = DB.records.filter(rec => !rec.deletedAt && rec.type === 'contact' && rec.companyId === r.id);
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label} (${linked.length})</div>
+        ${linked.map(ct=>`<div class="contact-chip" data-record-link data-area-id="${ct.areaId}" data-record-id="${ct.id}">
+          <span>👤</span><span class="contact-chip-name">${ct.title}</span>
+          ${ct.fields.role?`<span class="contact-chip-role">&middot; ${ct.fields.role}</span>`:''}
+        </div>`).join('')}
+        ${!linked.length?'<div style="font-size:12px;color:var(--muted)">No contacts linked.</div>':''}
+        <div style="margin-top:8px;display:flex;gap:6px">
+          <button class="btn btn-xs" onclick="linkContactToCompany('${r.id}')">+ Link contact</button>
+          <button class="btn btn-xs" onclick="promptAddRecord('contact')">+ New contact</button>
+        </div>
+      </div>`;
+    }
+
+    if (id === 'applications') {
+      const jobs = DB.records.filter(rec => !rec.deletedAt && rec.type === 'job' && rec.companyId === r.id);
+      if (!jobs.length) return '';
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label} (${jobs.length})</div>
+        ${jobs.map(j=>`<div class="record-card" data-record-link data-area-id="${j.areaId}" data-record-id="${j.id}" style="margin-bottom:6px">
+          <div class="record-card-icon">💼</div>
+          <div class="record-card-body"><div class="record-card-title">${j.fields.role||j.title}</div><div class="record-card-sub">${j.status}</div></div>
+        </div>`).join('')}
+      </div>`;
+    }
+
+    if (id === 'links') {
+      const linked = (r.links || []).map(id => DB.records.find(rec => rec.id === id)).filter(Boolean);
+      if (!linked.length) return '';
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        ${linked.map(rec=>`<div class="contact-chip" data-record-link data-area-id="${rec.areaId}" data-record-id="${rec.id}">${rec.title}</div>`).join('')}
+      </div>`;
+    }
+
+    if (id === 'status-urgency') {
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        ${statusBadge(r)}
+      </div>`;
+    }
+
+    // ── Account-specific widgets ──────────────────────────────────────────────
+    if (id === 'balance') {
+      const bal = r.fields.balance !== undefined && r.fields.balance !== '' ? Number(r.fields.balance) : null;
+      const balFmt = bal !== null ? '$' + bal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+      const balDate = r.fields.balanceDate ? `Updated ${formatDate(r.fields.balanceDate)}` : 'Balance not set';
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+          <div>
+            <div style="font-size:28px;font-weight:700;color:var(--text);cursor:pointer;line-height:1.2" onclick="editAccountBalance('${r.id}')" title="Click to update balance">${balFmt}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${balDate}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <button class="btn-s" style="font-size:11px" onclick="parseStatementUpload('${r.id}')">⬆ Import statement</button>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px">or paste a screenshot</div>
+            <input type="file" id="stmt-input-${r.id}" accept="image/*,application/pdf" style="display:none" onchange="handleStatementFile('${r.id}',this)">
+          </div>
+        </div>
+      </div>`;
+    }
+
+    if (id === 'balance-chart') {
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        <div id="acct-charts-${r.id}"></div>
+      </div>`;
+    }
+
+    if (id === 'history') {
+      const fmt = n => '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+      const fmtPct = n => (n>=0?'+':'')+Number(n).toFixed(2)+'%';
+      const calcRet = h => { const b=Number(h.beginBalance)||0,e=Number(h.endBalance)||0,c=Number(h.contributions)||0,base=b+c; return base===0?0:(e-base)/base; };
+      const hist = (r.fields.history||[]).slice().sort((a,b)=>b.month.localeCompare(a.month));
+      const annualReturns = {};
+      (r.fields.history||[]).forEach(h => { const yr=h.month.slice(0,4); annualReturns[yr]=annualReturns[yr]||[]; annualReturns[yr].push(calcRet(h)); });
+      const annualHTML = Object.entries(annualReturns).sort((a,b)=>b[0].localeCompare(a[0])).map(([yr,rets])=>{const t=rets.reduce((p,r)=>p*(1+r),1)-1;return `<span style="margin-left:16px;font-size:11px;color:var(--muted)">${yr}: <span style="color:${t>=0?'var(--green)':'var(--red)'};font-weight:500">${fmtPct(t*100)}</span></span>`;}).join('');
+      const editCell = (month,field,val,display)=>`<span class="hist-cell" onclick="activateHistCell(this,'${r.id}','${month}','${field}')" style="cursor:pointer;border-radius:3px;padding:1px 3px" title="Click to edit">${display}</span>`;
+      const tableHTML = hist.length ? `<div style="display:flex;align-items:baseline;margin-bottom:8px"><span style="font-size:11px;color:var(--muted)">Annual return${annualHTML}</span></div>
+        <table style="border-collapse:collapse;font-size:12px"><thead><tr style="color:var(--muted);text-align:right">
+          <th style="text-align:left;padding:4px 8px 4px 0;font-weight:500">Month</th>
+          <th style="padding:4px 8px;font-weight:500">Start</th><th style="padding:4px 8px;font-weight:500">Contrib</th>
+          <th style="padding:4px 8px;font-weight:500">End</th><th style="padding:4px 0;font-weight:500;text-align:left">Return</th><th></th>
+        </tr></thead><tbody>${hist.map(h=>{const ret=calcRet(h)*100,arrow=ret>=0?'▲':'▼',retColor=ret>=0?'var(--green)':'var(--red)';return `<tr style="border-top:1px solid var(--border1);text-align:right">
+          <td style="text-align:left;padding:5px 8px 5px 0;color:var(--muted);white-space:nowrap">${h.month}</td>
+          <td style="padding:5px 8px;color:var(--muted)">${editCell(h.month,'beginBalance',h.beginBalance,fmt(h.beginBalance))}</td>
+          <td style="padding:5px 8px;color:var(--muted)">${editCell(h.month,'contributions',h.contributions,h.contributions>0?fmt(h.contributions):'—')}</td>
+          <td style="padding:5px 8px;color:var(--text);font-weight:500">${editCell(h.month,'endBalance',h.endBalance,fmt(h.endBalance))}</td>
+          <td style="padding:5px 0;white-space:nowrap;text-align:left"><span style="color:${retColor};font-weight:500">${arrow} ${Math.abs(ret).toFixed(2)}%</span></td>
+          <td style="padding:5px 0 5px 8px"><button onclick="deleteHistoryRow('${r.id}','${h.month}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0;opacity:0.4" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4">✕</button></td>
+        </tr>`;}).join('')}</tbody></table>` : '<div style="color:var(--muted);font-size:12px">No history yet — import a statement to start tracking.</div>';
+      return `<div class="section-card collapsible-section">
+        <div class="section-title section-toggle" onclick="toggleSection(this)" oncontextmenu="${ctx}"><span class="section-chevron">▾</span> ${label}</div>
+        <div class="section-body">${tableHTML}</div>
+      </div>`;
+    }
+
+    if (id === 'ira-progress') {
+      const isIRA = ['Roth IRA','Traditional IRA'].includes(r.fields.accountType);
+      if (!isIRA) return '';
+      const IRA_LIMITS = r.fields.iraLimits || {2025:7000,2026:7500,2027:7500};
+      const currentYear = new Date().getFullYear();
+      const taxYearTotals = {};
+      let taxYear = Math.min(...Object.keys(IRA_LIMITS).map(Number));
+      for (const entry of (r.fields.history||[]).slice().sort((a,b)=>a.month.localeCompare(b.month))) {
+        let rem = Number(entry.contributions)||0;
+        while (rem>0&&taxYear<=currentYear+1){const lim=IRA_LIMITS[taxYear]||7000,sf=taxYearTotals[taxYear]||0,sp=lim-sf;if(sp<=0){taxYear++;continue;}const al=Math.min(rem,sp);taxYearTotals[taxYear]=(sf+al);rem-=al;if(taxYearTotals[taxYear]>=lim)taxYear++;}
+      }
+      const years = Object.keys(IRA_LIMITS).map(Number).filter(y=>y<=currentYear).sort((a,b)=>b-a);
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        ${years.map((yr,i)=>{const lim=IRA_LIMITS[yr]||7000,contrib=taxYearTotals[yr]||0,pct=Math.min(100,contrib/lim*100),done=contrib>=lim,color=done?'var(--green)':pct>=75?'#f0b429':'var(--accent)',isCurrent=yr===currentYear;return `<div style="margin-bottom:${i<years.length-1?14:0}px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
+            <span style="font-size:12px;color:var(--text);font-weight:500">${yr}</span>
+            <span style="font-size:12px;color:${done?'var(--green)':isCurrent?'var(--text)':'var(--muted)'}">
+              ${done?'✓ Maxed out':isCurrent?`$${Math.max(0,lim-contrib).toLocaleString()} remaining`:contrib>0?`$${contrib.toFixed(0)} / $${lim.toLocaleString()}`:'—'}
+            </span>
+          </div>
+          <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div></div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--muted)">
+            <span>$${contrib.toFixed(0)} contributed</span><span>$${lim.toLocaleString()} limit</span>
+          </div>
+        </div>`;}).join('')}
+      </div>`;
+    }
+
+    return '';
+  }
+
+  // Split active widgets into main vs sidebar
+  const SIDEBAR_WIDGETS = new Set(['timeline','activity','contacts','ira-progress','applications','documents','links']);
+  const active = getActiveWidgets(r);
+  const mainDefs = defs.filter(d => active.has(d.id) && !SIDEBAR_WIDGETS.has(d.id));
+  const sidebarDefs = defs.filter(d => active.has(d.id) && SIDEBAR_WIDGETS.has(d.id));
+
+  if (r.type === 'account') requestAnimationFrame(() => attachStatementPasteListener(r.id));
+
   return `<div class="record-view-header">
-    <div class="record-view-icon">${icon}</div>
+    ${headerIcon}
     <div class="record-view-title-wrap">
-      <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
+      <div class="record-title-row">
+        <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
+        <button class="record-header-tile" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
+        <button class="record-header-tile" onclick="openEditTypeSchema('${r.type}')">Fields ⚙</button>
+      </div>
       <div class="record-view-meta">
-        <span>${schema?.name || r.type}</span>
+        ${metaVals.map(v=>`<span>${v}</span>`).join('')}
         ${area ? `<span class="doc-ref doc-ref-area" data-area-link="${area.id}" style="background:${area.color}18;border:1px solid ${area.color}44;color:${area.color}">${area.title}</span>` : ''}
       </div>
     </div>
-    <div class="record-view-actions">
-      ${statusBadge(r)}
-      <button class="btn btn-sm" onclick="openWidgetsModal('${r.id}')" style="font-size:11px">⚡ Widgets</button>
-      <button class="btn btn-sm" onclick="openEditTypeSchema('${r.type}')" title="Edit field definitions" style="font-size:11px">Fields ⚙</button>
-    </div>
+    <div class="record-view-actions">${statusBadge(r)}</div>
   </div>
   <div class="record-sections">
     <div class="record-main">
-      ${widgetCard('fields', mainFields.length ? `<div class="section-card">
-        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','fields')">${getWidgetLabel(r,'fields','Details')}</div>
-        ${mainFields.map(f => `<div class="field-row">
-          <div class="field-label">${f.label}</div>
-          <div class="field-value">${renderFieldInput(f)}</div>
-        </div>`).join('')}
-      </div>` : '', r)}
-      ${widgetCard('notes', notesField ? renderNotesSection(r) : '', r)}
+      ${mainDefs.map(d => widgetCard(d.id, widgetBody(d.id), r)).join('')}
     </div>
     <div class="record-sidebar">
-      ${widgetCard('timeline', `<div class="section-card">
-        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','timeline')">${getWidgetLabel(r,'timeline','Timeline')}</div>
-        ${renderTimeline(r)}
-      </div>`, r)}
+      ${sidebarDefs.map(d => widgetCard(d.id, widgetBody(d.id), r)).join('')}
     </div>
   </div>`;
-}
-
-// Keep for backward compat (used as fallback)
-function renderGenericRecord(r, area) {
-  return renderSchemaRecord(r, area);
 }
 
 // Edit type schema modal
