@@ -1761,7 +1761,7 @@ async function openTemplateBrowser(targetCb) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${personal.map(tplCard).join('')}</div>` : '';
 
   openModal('Choose a template', `
-    <div style="max-height:420px;overflow-y:auto;padding:2px">
+    <div style="max-height:420px;overflow-y:auto;padding:2px;outline:none">
       ${systemSection}${personalSection}
       ${!system.length && !personal.length ? '<div class="empty">No templates yet.</div>' : ''}
     </div>`,
