@@ -1034,7 +1034,6 @@ function renderGenericRecord(r, area) {
 function openEditTypeSchema(typeId) {
   const schema = TYPE_SCHEMAS.find(s => s.id === typeId);
   if (!schema) return;
-  tourNotify('schema-opened');
   const fields = [...schema.fields].sort((a,b) => a.order - b.order);
 
   function fieldRow(f, i) {
@@ -1080,6 +1079,7 @@ function openEditTypeSchema(typeId) {
       const updated = await api('GET', '/api/type-schemas');
       TYPE_SCHEMAS = updated;
       closeModal();
+      tourNotify('schema-saved');
       renderRecordView(currentRecordId);
     }},
     { label: 'Cancel', onclick: closeModal }]);

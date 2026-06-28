@@ -45,7 +45,7 @@ const TOUR_STEPS = [
     id: 'widget-rightclick',
     target: () => document.querySelector('.section-title[oncontextmenu]'),
     heading: 'Right-click any widget title',
-    text: 'Right-click a widget title to edit its fields or hide the widget from this record.',
+    text: 'Right-click a widget title to hide it from this record.',
     advance: 'widget-hidden',
     position: 'bottom',
     onShow: () => {
@@ -56,8 +56,8 @@ const TOUR_STEPS = [
   {
     id: 'widget-custom',
     heading: 'Fields are yours to define',
-    text: 'Every record has a <b>Fields ⚙</b> button — add, rename, or remove fields to match exactly how you work. Nothing is fixed. Click it to try.',
-    advance: 'schema-opened',
+    text: 'Every record has a <b>Fields ⚙</b> button — add, rename, or remove fields to match how you work. Click it, look around, then click <b>Save</b>.',
+    advance: 'schema-saved',
     position: 'bottom',
     target: () => document.querySelector('button[onclick*="openEditTypeSchema"]'),
     onShow: () => {
@@ -176,7 +176,7 @@ const TOUR_STEPS = [
   },
   {
     id: 'dash-cal',
-    target: () => document.querySelector('[data-widget-id="cal"] .dash-widget-title, [data-widget-id="cal"] h3, #dash-cal'),
+    target: () => document.querySelector('[data-widget-id="cal"] .dash-section-label'),
     heading: 'Global calendar',
     text: "Your calendar lives here on the dashboard too — always in view across every area.",
     advance: 'manual',
@@ -237,7 +237,7 @@ function showTourStep(index) {
   tour.step = index;
   const step = TOUR_STEPS[index];
   if (step.onShow) step.onShow();
-  setTimeout(() => _renderTourStep(step, index), step.id === 'finish' ? 400 : 120);
+  setTimeout(() => _renderTourStep(step, index), step.id === 'finish' ? 400 : (step.onShow ? 380 : 150));
 }
 
 function _renderTourStep(step, index) {
@@ -312,7 +312,7 @@ function _renderTourStep(step, index) {
       </button>
     </div>`;
     const skip = `<button class="tour-skip" onclick="dismissTour()">Skip tour</button>`;
-    const actions = `<div class="tour-actions"><button class="tour-cta" id="tour-bf-got-it" onclick="advanceTour()" style="opacity:0.35;pointer-events:none">Got it</button>${skip}</div>`;
+    const actions = `<div class="tour-actions"><button class="tour-cta" id="tour-bf-got-it" onclick="advanceTour()">Got it</button>${skip}</div>`;
     bubble.innerHTML = `${stepCount}${heading}${text}${navArrows}${actions}`;
     document.body.appendChild(bubble);
     _positionBubble(bubble, null, 'bottom');
