@@ -872,7 +872,7 @@ function renderSchemaRecord(r, area) {
       </div>
     </div>
     <button class="record-header-tile" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
-    <button class="record-header-tile" onclick="openEditTypeSchema('${r.type}')">Details ⚙</button>
+    <button class="record-header-tile" onclick="openEditTypeSchema('${r.type}')">Fields ⚙</button>
     <div class="record-view-actions">${statusBadge(r)}</div>
   </div>
   <div class="record-sections">
@@ -906,7 +906,7 @@ function openEditTypeSchema(typeId) {
     </div>`;
   }
 
-  openModal(`Details: ${schema.name}`, `
+  openModal(`Fields: ${schema.name}`, `
     <div id="schema-fields-list" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">
       ${fields.map((f,i) => fieldRow(f,i)).join('')}
     </div>
