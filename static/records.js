@@ -865,16 +865,14 @@ function renderSchemaRecord(r, area) {
   return `<div class="record-view-header">
     ${headerIcon}
     <div class="record-view-title-wrap">
-      <div class="record-title-row">
-        <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
-        <button class="record-header-tile" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
-        <button class="record-header-tile" onclick="openEditTypeSchema('${r.type}')">Fields ⚙</button>
-      </div>
+      <div class="record-view-title" contenteditable="true" onblur="saveField('${r.id}','title',this.textContent)">${r.title}</div>
       <div class="record-view-meta">
         ${metaVals.map(v=>`<span>${v}</span>`).join('')}
         ${area ? `<span class="doc-ref doc-ref-area" data-area-link="${area.id}" style="background:${area.color}18;border:1px solid ${area.color}44;color:${area.color}">${area.title}</span>` : ''}
       </div>
     </div>
+    <button class="record-header-tile" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
+    <button class="record-header-tile" onclick="openEditTypeSchema('${r.type}')">Fields ⚙</button>
     <div class="record-view-actions">${statusBadge(r)}</div>
   </div>
   <div class="record-sections">
