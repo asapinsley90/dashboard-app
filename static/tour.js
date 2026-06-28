@@ -364,11 +364,6 @@ function _renderTourStep(step, index) {
           setTimeout(() => {
             const modal = document.querySelector(step.modalHighlight);
             if (!modal) return;
-            const mRect = modal.getBoundingClientRect();
-            const mHalo = document.createElement('div');
-            mHalo.id = 'tour-halo';
-            mHalo.style.cssText = `top:${mRect.top-6}px;left:${mRect.left-6}px;width:${mRect.width+12}px;height:${mRect.height+12}px;pointer-events:none`;
-            document.body.appendChild(mHalo);
             const bubble = document.createElement('div');
             bubble.id = 'tour-bubble';
             bubble.innerHTML = `<div class="tour-step-count">${index + 1} of ${TOUR_STEPS.length}</div><div class="tour-heading">${step.modalHeading||'Fill it in'}</div><div class="tour-text">${step.modalText||''}</div><div class="tour-actions"><button class="tour-skip" onclick="dismissTour()">Skip tour</button></div>`;
