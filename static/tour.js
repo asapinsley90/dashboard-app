@@ -563,6 +563,11 @@ function dismissTourTip(key) {
   prefs.dismissedTourTips = [...(prefs.dismissedTourTips || []), key];
   currentUser.dashboardPrefs = prefs;
   api('PATCH', '/api/me', { dashboardPrefs: prefs }).catch(() => {});
+  if (key === 'area-rename' && tour?.active && tour._pendingAdvance !== undefined) {
+    const next = tour._pendingAdvance;
+    tour._pendingAdvance = undefined;
+    setTimeout(() => showTourStep(next), 300);
+  }
 }
 
 function tourNotify(event, data) {
@@ -581,6 +586,19 @@ function tourNotify(event, data) {
     }
     clearTourOverlay();
     closeModal?.();
-    setTimeout(() => showTourStep(tour.step + 1), 500);
+    if (event === 'area-created') {
+      // Wait for the rename/recolor tip's Got it before showing step 2
+      tour._pendingAdvance = tour.step + 1;
+      // Fallback: advance after 4s in case tip was already dismissed or doesn't appear
+      setTimeout(() => {
+        if (tour._pendingAdvance !== undefined) {
+          const next = tour._pendingAdvance;
+          tour._pendingAdvance = undefined;
+          showTourStep(next);
+        }
+      }, 4000);
+    } else {
+      setTimeout(() => showTourStep(tour.step + 1), 500);
+    }
   }
 }
