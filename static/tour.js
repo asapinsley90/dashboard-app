@@ -89,8 +89,7 @@ const TOUR_STEPS = [
     id: 'back-forward',
     heading: 'Navigate like a browser',
     text: 'Your browser\'s back and forward buttons work here — or use the arrows below to jump between views.',
-    advance: 'manual',
-    cta: 'Got it',
+    advance: 'browser-nav',
     position: 'bottom',
     _backForward: true,
     onShow: () => {
@@ -312,7 +311,7 @@ function _renderTourStep(step, index) {
       </button>
     </div>`;
     const skip = `<button class="tour-skip" onclick="dismissTour()">Skip tour</button>`;
-    const actions = `<div class="tour-actions"><button class="tour-cta" id="tour-bf-got-it" onclick="advanceTour()">Got it</button>${skip}</div>`;
+    const actions = `<div class="tour-actions"><button class="tour-skip" style="opacity:0.5" onclick="advanceTour()">Skip step →</button>${skip}</div>`;
     bubble.innerHTML = `${stepCount}${heading}${text}${navArrows}${actions}`;
     document.body.appendChild(bubble);
     _positionBubble(bubble, null, 'bottom');
@@ -443,10 +442,7 @@ function tourNavForward() {
   const fwdBtn = document.getElementById('tour-fwd-arrow');
   if (fwdBtn) { fwdBtn.style.opacity = '0.4'; fwdBtn.style.pointerEvents = 'none'; }
   window.history.forward();
-  setTimeout(() => {
-    const gotIt = document.getElementById('tour-bf-got-it');
-    if (gotIt) { gotIt.style.opacity = '1'; gotIt.style.pointerEvents = ''; }
-  }, 600);
+  setTimeout(() => tourNotify('browser-nav'), 600);
 }
 
 async function wipeTourData() {
