@@ -45,6 +45,45 @@ const RECORD_WIDGET_DEFS = {
   ],
 };
 
+// ── DEFAULT FIELD SCHEMAS for built-in types ──────────────────────────────────
+const DEFAULT_FIELD_SCHEMAS = {
+  contact: { name: 'Contact', icon: '👤', fields: [
+    { key: 'role',     label: 'Role',     type: 'text',         order: 1 },
+    { key: 'company',  label: 'Company',  type: 'company-link', order: 2 },
+    { key: 'email',    label: 'Email',    type: 'email',        order: 3 },
+    { key: 'phone',    label: 'Phone',    type: 'tel',          order: 4 },
+    { key: 'linkedin', label: 'LinkedIn', type: 'url',          order: 5 },
+  ]},
+  account: { name: 'Account', icon: '🏦', fields: [
+    { key: 'institution',  label: 'Institution',   type: 'text', order: 1 },
+    { key: 'accountType',  label: 'Account type',  type: 'text', order: 2 },
+    { key: 'owner',        label: 'Owner',         type: 'text', order: 3 },
+    { key: 'last4',        label: 'Last 4',        type: 'text', order: 4 },
+    { key: 'balance',      label: 'Balance',       type: 'text', order: 5 },
+    { key: 'balanceDate',  label: 'Balance date',  type: 'date', order: 6 },
+  ]},
+  company: { name: 'Company', icon: '🏢', fields: [
+    { key: 'industry', label: 'Industry', type: 'text',     order: 1 },
+    { key: 'website',  label: 'Website',  type: 'url',      order: 2 },
+    { key: 'location', label: 'Location', type: 'text',     order: 3 },
+    { key: 'notes',    label: 'Notes',    type: 'textarea', order: 4 },
+  ]},
+};
+
+function getEffectiveSchema(typeId) {
+  return TYPE_SCHEMAS.find(s => s.id === typeId)
+    || (DEFAULT_FIELD_SCHEMAS[typeId] ? { id: typeId, ...DEFAULT_FIELD_SCHEMAS[typeId] } : null);
+}
+
+function renderFieldsFromSchema(r) {
+  const schema = getEffectiveSchema(r.type);
+  if (!schema?.fields?.length) return '';
+  return [...schema.fields]
+    .sort((a, b) => (a.order || 0) - (b.order || 0))
+    .map(f => editableField(r, f.key, f.label, f.type))
+    .join('');
+}
+
 function getWidgetDefs(r) {
   return RECORD_WIDGET_DEFS[r.type] || RECORD_WIDGET_DEFS._default;
 }
@@ -343,30 +382,14 @@ function renderContactRecord(r, area) {
     <div class="record-view-actions">
       ${statusBadge(r)}
       <button class="btn btn-sm" style="font-size:11px" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
+      <button class="btn btn-sm" style="font-size:11px" onclick="openEditTypeSchema('contact')" title="Edit field definitions">Fields ⚙</button>
     </div>
   </div>
   <div class="record-sections">
     <div class="record-main">
       ${widgetCard('contact-info', `<div class="section-card">
-        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','contact-info')">Contact info</div>
-        ${editableField(r, 'role', 'Role')}
-        <div class="field-row">
-          <div class="field-label">Company</div>
-          <div class="field-value">
-            <div style="position:relative">
-              <input class="field-edit" style="width:100%" value="${r.fields.company||''}" placeholder="Type company name..." 
-                id="company-input-${r.id}"
-                oninput="showCompanySuggestions(this,'${r.id}')"
-                onblur="hideCompanySuggestions('${r.id}')"
-                onkeydown="companyInputKey(event,'${r.id}')">
-              <div id="company-suggestions-${r.id}" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;z-index:50;max-height:150px;overflow-y:auto"></div>
-            </div>
-            <div style="margin-top:4px">${linkableCompany(r.fields.company, r.companyId)}</div>
-          </div>
-        </div>
-        ${editableField(r, 'email', 'Email')}
-        ${editableField(r, 'phone', 'Phone')}
-        ${editableField(r, 'linkedin', 'LinkedIn')}
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','contact-info')">${getWidgetLabel(r,'contact-info','Contact info')}</div>
+        ${renderFieldsFromSchema(r)}
         <div class="field-row">
           <div class="field-label">Area</div>
           <div class="field-value">
@@ -446,10 +469,8 @@ function renderCompanyRecord(r, area) {
   <div class="record-sections">
     <div class="record-main">
       ${widgetCard('company-details', `<div class="section-card">
-        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','company-details')">Details</div>
-        ${editableField(r,'industry','Industry')}
-        ${editableField(r,'website','Website')}
-        ${editableField(r,'location','Location')}
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','company-details')">${getWidgetLabel(r,'company-details','Details')}</div>
+        ${renderFieldsFromSchema(r)}
       </div>`, r)}
       ${widgetCard('notes', renderNotesSection(r), r)}
     </div>
@@ -685,12 +706,8 @@ function renderAccountRecord(r, area) {
         <div class="section-body">${historyHTML}</div>
       </div>`, r)}
       ${widgetCard('account-details', `<div class="section-card collapsible-section">
-        <div class="section-title section-toggle" onclick="toggleSection(this)" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','account-details')"><span class="section-chevron">▾</span> Account details</div>
-        <div class="section-body">
-        ${(TYPE_SCHEMAS.find(s => s.id === 'account')?.fields || [])
-          .slice().sort((a,b) => (a.order||0)-(b.order||0))
-          .map(f => editableField(r, f.key, f.label, f.type)).join('')}
-        </div>
+        <div class="section-title section-toggle" onclick="toggleSection(this)" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','account-details')"><span class="section-chevron">▾</span> ${getWidgetLabel(r,'account-details','Account details')}</div>
+        <div class="section-body">${renderFieldsFromSchema(r)}</div>
       </div>`, r)}
       ${widgetCard('notes', renderNotesSection(r), r)}
     </div>
@@ -1063,15 +1080,19 @@ function renderGenericRecord(r, area) {
 
 // Edit type schema modal
 function openEditTypeSchema(typeId) {
-  const schema = TYPE_SCHEMAS.find(s => s.id === typeId);
+  const existing = TYPE_SCHEMAS.find(s => s.id === typeId);
+  const schema = existing || (DEFAULT_FIELD_SCHEMAS[typeId] ? { id: typeId, ...DEFAULT_FIELD_SCHEMAS[typeId] } : null);
   if (!schema) return;
-  const fields = [...schema.fields].sort((a,b) => a.order - b.order);
+  const EDITABLE_TYPES = ['text','textarea','date','time','url','email','tel','number'];
+  const fields = [...schema.fields]
+    .filter(f => f.type !== 'company-link')
+    .sort((a,b) => (a.order||0) - (b.order||0));
 
   function fieldRow(f, i) {
     return `<div class="field-row" style="align-items:center;gap:6px" id="schema-field-${i}">
       <input class="modal-input" style="flex:1" value="${f.label}" placeholder="Label" id="sf-label-${i}">
       <select class="modal-select" style="width:90px" id="sf-type-${i}">
-        ${['text','textarea','date','time','url','email','tel','number'].map(t =>
+        ${EDITABLE_TYPES.map(t =>
           `<option value="${t}" ${f.type===t?'selected':''}>${t}</option>`).join('')}
       </select>
       <button class="btn btn-sm" style="color:var(--red);flex-shrink:0" onclick="this.closest('.field-row').remove()">×</button>
@@ -1106,7 +1127,15 @@ function openEditTypeSchema(typeId) {
           newFields.push({ key: existing?.key || label.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''), label, type, order: i+1 });
         }
       }
-      await api('PUT', `/api/type-schemas/${typeId}`, { name: schema.name, icon: schema.icon, fields: newFields });
+      // Preserve any non-editable fields (like company-link) from the original schema
+      const preserved = schema.fields.filter(f => !EDITABLE_TYPES.includes(f.type));
+      const allFields = [...preserved, ...newFields];
+      if (existing) {
+        await api('PUT', `/api/type-schemas/${typeId}`, { name: schema.name, icon: schema.icon, fields: allFields });
+      } else {
+        const created = await api('POST', '/api/type-schemas', { name: schema.name, icon: schema.icon, fields: allFields });
+        TYPE_SCHEMAS.push(created);
+      }
       const updated = await api('GET', '/api/type-schemas');
       TYPE_SCHEMAS = updated;
       closeModal();
@@ -1170,6 +1199,31 @@ function formatSalary(raw) {
 function editableField(r, key, label, type = 'text') {
   const val = r.fields?.[key] || '';
   const stepAttr = type === 'time' ? 'step="900"' : '';
+  if (type === 'company-link') {
+    return `<div class="field-row">
+      <div class="field-label">${label}</div>
+      <div class="field-value">
+        <div style="position:relative">
+          <input class="field-edit" style="width:100%" value="${escapeHtml(val)}" placeholder="Type company name..."
+            id="company-input-${r.id}"
+            oninput="showCompanySuggestions(this,'${r.id}')"
+            onblur="hideCompanySuggestions('${r.id}')"
+            onkeydown="companyInputKey(event,'${r.id}')">
+          <div id="company-suggestions-${r.id}" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;z-index:50;max-height:150px;overflow-y:auto"></div>
+        </div>
+        <div style="margin-top:4px">${linkableCompany(val, r.companyId)}</div>
+      </div>
+    </div>`;
+  }
+  if (type === 'textarea') {
+    return `<div class="field-row" style="align-items:flex-start">
+      <div class="field-label" style="padding-top:6px">${label}</div>
+      <div class="field-value">
+        <textarea class="field-edit" rows="3" style="resize:vertical;width:100%" placeholder="—"
+          onblur="saveFieldText('${r.id}','${key}',this.value)">${escapeHtml(val)}</textarea>
+      </div>
+    </div>`;
+  }
   if (key === 'salary') {
     const display = formatSalary(val);
     return `<div class="field-row">
