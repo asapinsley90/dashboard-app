@@ -167,6 +167,7 @@ function openWidgetTitleMenu(e, recordId, widgetId, defaultLabel) {
     if (!r.fields._widgetLabels) r.fields._widgetLabels = {};
     r.fields._widgetLabels[widgetId] = val.trim();
     api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+    tourNotify('widget-hidden');
     renderRecordView(recordId);
   };
 
@@ -179,17 +180,7 @@ function openWidgetTitleMenu(e, recordId, widgetId, defaultLabel) {
     api('PUT', `/api/records/${recordId}`, { fields: r.fields });
     tourNotify('widget-hidden');
     menu.remove();
-    const content = document.getElementById('record-view-content');
-    const area2 = DB.areas.find(a => a.id === r.areaId);
-    if (!content) return;
-    if (r.type === 'account') {
-      content.innerHTML = renderAccountRecord(r, area2);
-      const ch = (r.fields.history||[]).slice().sort((a,b)=>a.month.localeCompare(b.month));
-      requestAnimationFrame(() => renderAccountCharts(`acct-charts-${r.id}`, ch));
-    } else if (r.type === 'job') content.innerHTML = renderJobRecord(r, area2);
-    else if (r.type === 'company') content.innerHTML = renderCompanyRecord(r, area2);
-    else if (r.type === 'contact') content.innerHTML = renderContactRecord(r, area2);
-    else content.innerHTML = renderSchemaRecord(r, area2);
+    renderRecordView(recordId);
   };
   menu.appendChild(h); menu.appendChild(rename); menu.appendChild(hide);
   document.body.appendChild(menu);

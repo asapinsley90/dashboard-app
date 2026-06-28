@@ -1414,17 +1414,25 @@ function showRecordCtxMenu(e,recordId){
   menu.style.cssText='left:'+Math.min(e.clientX,window.innerWidth-200)+'px;top:'+Math.min(e.clientY,window.innerHeight-320)+'px';
   const addH=t=>{const h=document.createElement('div');h.className='ctx-header';h.textContent=t;menu.appendChild(h);};
   const addD=()=>{const d=document.createElement('div');d.className='ctx-divider';menu.appendChild(d);};
-  const addI=(label,fn,cls)=>{const i=document.createElement('div');i.className='ctx-item'+(cls?' '+cls:'');i.textContent=label;i.onclick=()=>{fn();closeCtxMenu();};menu.appendChild(i);};
+  const addI=(label,fn,cls,disabled)=>{const i=document.createElement('div');i.className='ctx-item'+(cls?' '+cls:'')+(disabled?' dim':'');i.textContent=label;if(disabled)i.style.pointerEvents='none';else i.onclick=()=>{fn();closeCtxMenu();};menu.appendChild(i);};
+  const tourStepId = window.tour?.active ? (window.TOUR_STEPS?.[window.tour.step]?.id) : null;
+  const forceUrgent = tourStepId === 'dash-attention-explain';
+  const forceNone   = tourStepId === 'urgency-clear';
   addH('Urgency');
-  urgencyOpts.forEach(u=>addI((urgency===u.val?'✔ ':'')+u.label,()=>setUrgency(recordId,u.val),urgency===u.val?'checked':''));
+  urgencyOpts.forEach(u=>{
+    const isTourTarget = (forceUrgent && u.val==='urgent') || (forceNone && u.val==='none');
+    const dimmed = (forceUrgent || forceNone) && !isTourTarget;
+    addI((urgency===u.val?'✔ ':'')+u.label,()=>setUrgency(recordId,u.val),urgency===u.val?'checked':'',dimmed);
+  });
   addD();addH('Status');
-  statusOpts.forEach(s=>addI((r.status===s?'✔ ':'')+s.charAt(0).toUpperCase()+s.slice(1),()=>setRecordStatus(recordId,s),r.status===s?'checked':s==='archived'?'dim':''));
+  const forceStatus = forceUrgent || forceNone;
+  statusOpts.forEach(s=>addI((r.status===s?'✔ ':'')+s.charAt(0).toUpperCase()+s.slice(1),()=>setRecordStatus(recordId,s),r.status===s?'checked':s==='archived'?'dim':'',forceStatus));
   addD();
-  addI('→ Open record',()=>navigate('record',r.areaId,recordId));
+  addI('→ Open record',()=>navigate('record',r.areaId,recordId),'',forceStatus);
   addD();
   addI('Delete record', async () => {
     await deleteRecord(recordId);
-  }, 'danger');
+  }, 'danger', forceStatus);
   addI('Move to area…', () => {
     const leafAreas = DB.areas.filter(a => !DB.areas.some(b => b.parentId === a.id));
     const opts = leafAreas.map(a => {

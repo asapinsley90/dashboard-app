@@ -59,8 +59,6 @@ const TOUR_STEPS = [
     heading: 'Fields are yours to define',
     text: 'Every record has a <b>Fields ⚙</b> button — add, rename, or remove fields to match how you work. Click it, look around, then click <b>Save</b> to save as your personal template.',
     advance: 'schema-saved',
-    allowManualAdvance: true,
-    cta: 'Got it',
     position: 'bottom',
     target: () => document.querySelector('button[onclick*="openEditTypeSchema"]'),
     modalInteractive: true,
@@ -208,7 +206,7 @@ const TOUR_STEPS = [
     id: 'urgency-clear',
     target: () => document.querySelector('[data-widget-id="attention"] .record-card') || document.querySelector('[data-widget-id="attention"]'),
     heading: 'Downgrade to clear it',
-    text: 'Now right-click the record and set urgency back to <b>blank</b>. Once a record is complete or downgraded it leaves this list automatically.',
+    text: 'Now right-click the record and set urgency back to <b>None</b>. Once a record is complete or downgraded it leaves this list automatically.',
     advance: 'urgency-cleared',
     position: 'bottom',
     spotlight: true,
@@ -309,8 +307,8 @@ function _renderTourStep(step, index) {
   clearTourOverlay();
   const overlay = document.createElement('div');
   overlay.id = 'tour-overlay';
-  if (step.modalInteractive) { overlay.style.pointerEvents = 'none'; overlay.style.background = 'transparent'; }
-  if (step.spotlight) overlay.style.background = 'transparent';
+  if (step.modalInteractive || step.spotlight) { overlay.style.pointerEvents = 'none'; overlay.style.background = 'transparent'; }
+  else if (step.spotlight) overlay.style.background = 'transparent';
   document.body.appendChild(overlay);
 
   // ── fields-intro: manual step-through with Got it ──
