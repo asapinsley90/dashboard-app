@@ -178,7 +178,7 @@ function renderSidebar() {
     } else if (subs) {
       subsHTML = `<div class="sidebar-subitems" id="subitems-${area.id}"></div>`;
     }
-    return `<div class="sidebar-item ${isActive?'active':''}" data-area="${area.id}" data-area-link="${area.id}">
+    return `<div class="sidebar-item ${isActive?'active':''}" data-area="${area.id}" data-area-link="${area.id}" oncontextmenu="showAreaCtxMenu(event,'${area.id}')">
       <div class="sidebar-dot" style="background:${area.color}"></div>
       <span class="sidebar-item-title" ondblclick="renameArea(event,'${area.id}')">${area.title}</span>
       ${count > 0 ? `<span class="sidebar-badge">${count}</span>` : ''}

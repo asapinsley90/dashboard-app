@@ -1320,13 +1320,18 @@ function showAreaCtxMenu(e, areaId) {
   e.preventDefault(); e.stopPropagation(); closeCtxMenu();
   const area = DB.areas.find(a => a.id === areaId); if (!area) return;
   const menu = document.createElement('div'); menu.className = 'ctx-menu';
-  menu.style.cssText = 'left:'+Math.min(e.clientX,window.innerWidth-200)+'px;top:'+Math.min(e.clientY,window.innerHeight-200)+'px';
+  menu.style.cssText = `left:${Math.min(e.clientX + 4, window.innerWidth - 210)}px;top:${Math.min(e.clientY + 4, window.innerHeight - 280)}px`;
   const addH = t => { const h=document.createElement('div');h.className='ctx-header';h.textContent=t;menu.appendChild(h); };
   const addI = (label,fn,cls) => { const i=document.createElement('div');i.className='ctx-item'+(cls?' '+cls:'');i.textContent=label;i.onclick=()=>{fn();closeCtxMenu();};menu.appendChild(i); };
   const addD = () => { const d=document.createElement('div');d.className='ctx-divider';menu.appendChild(d); };
+
+  // Group 1: add actions
   addH(area.title);
   addI('+ Add record', () => promptAddRecord(null, areaId));
   addI('+ Add event', () => promptAddEvent(areaId));
+  addI('+ Add sub-area', () => promptAddArea(areaId));
+
+  // Group 2: rename + color
   addD();
   addI('Rename', () => {
     const val = prompt('Rename area:', area.title);
@@ -1336,11 +1341,26 @@ function showAreaCtxMenu(e, areaId) {
     renderSidebar();
     if (currentView === 'area' && currentAreaId === areaId) renderAreaView(areaId);
   });
-  if (area.parentId) {
-    addI('+ Add sub-area', () => promptAddArea(areaId));
-  } else {
-    addI('+ Add sub-area', () => promptAddArea(areaId));
-  }
+  const PALETTE = ['#e05555','#d4943a','#4caf7d','#d4705a','#9b7fd4','#c4607a','#5b9bd5','#4db6ac','#8d6e63','#78909c','#7cb342','#e8834a'];
+  const colorRow = document.createElement('div');
+  colorRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;padding:5px 12px 6px';
+  PALETTE.forEach(c => {
+    const dot = document.createElement('span');
+    dot.style.cssText = `width:17px;height:17px;border-radius:50%;background:${c};cursor:pointer;flex-shrink:0;border:2px solid ${area.color === c ? 'var(--text)' : 'transparent'};box-sizing:border-box;transition:transform .1s`;
+    dot.onmouseenter = () => { dot.style.transform = 'scale(1.2)'; };
+    dot.onmouseleave = () => { dot.style.transform = ''; };
+    dot.onclick = async (ev) => { ev.stopPropagation();
+      area.color = c;
+      await api('PUT', `/api/areas/${areaId}`, { color: c });
+      renderSidebar();
+      if (currentView === 'area' && currentAreaId === areaId) renderAreaView(areaId);
+      closeCtxMenu();
+    };
+    colorRow.appendChild(dot);
+  });
+  menu.appendChild(colorRow);
+
+  // Group 3: delete
   addD();
   addI('Delete area', async () => {
     const children = DB.areas.filter(a => a.parentId === areaId && !a.deletedAt);
