@@ -37,8 +37,8 @@ const TOUR_STEPS = [
     position: 'bottom',
     target: () => document.querySelector('button[onclick*="openWidgetsModal"]'),
     modalInteractive: true,
-    onShow: () => {
-      const rec = _tourSchemaRecord();
+    onShow: async () => {
+      const rec = await _ensureTourSchemaRecord();
       if (rec) navigate('record', rec.areaId, rec.id);
     },
   },
@@ -215,15 +215,35 @@ const _savedTourCreated = (() => { try { return JSON.parse(localStorage.getItem(
 const tourCreated = { areaIds: _savedTourCreated.areaIds || [], recordIds: _savedTourCreated.recordIds || [] };
 function _saveTourCreated() { try { localStorage.setItem('tourCreated', JSON.stringify(tourCreated)); } catch {} }
 
+const _TOUR_BUILTIN = ['job','account','company','contact','event'];
+
 function _tourSchemaRecord() {
-  // Prefer the record created during this tour session
+  // Prefer a schema-typed record created during this tour session
   for (const id of [...tourCreated.recordIds].reverse()) {
-    const r = DB.records.find(r => r.id === id && !r.deletedAt);
+    const r = DB.records.find(r => r.id === id && !r.deletedAt && !_TOUR_BUILTIN.includes(r.type));
     if (r) return r;
   }
-  // Fallback: any non-builtin record
-  const BUILTIN = ['job','account','company','contact','event'];
-  return DB.records.find(r => !r.deletedAt && !BUILTIN.includes(r.type));
+  // Fallback: any non-builtin record in the DB
+  return DB.records.find(r => !r.deletedAt && !_TOUR_BUILTIN.includes(r.type));
+}
+
+async function _ensureTourSchemaRecord() {
+  let r = _tourSchemaRecord();
+  if (r) return r;
+  // No schema record exists — create a minimal one so the Fields button is guaranteed
+  const area = DB.areas.find(a => !a.deletedAt && tourCreated.areaIds.includes(a.id))
+             || DB.areas.find(a => !a.deletedAt);
+  if (!area) return null;
+  const schema = TYPE_SCHEMAS[0];
+  const type = schema?.id || 'goal';
+  const fields = schema ? Object.fromEntries(schema.fields.map(f => [f.key, ''])) : { notes: '' };
+  try {
+    r = await api('POST', '/api/records', { type, areaId: area.id, title: 'My first record', urgency: 'new', fields });
+    DB.records.push(r);
+    tourCreated.recordIds.push(r.id);
+    _saveTourCreated();
+  } catch {}
+  return r;
 }
 
 function tourDismissed() {
@@ -249,8 +269,14 @@ function showTourStep(index) {
   if (index >= TOUR_STEPS.length) { endTour(); return; }
   tour.step = index;
   const step = TOUR_STEPS[index];
-  if (step.onShow) step.onShow();
   const delay = step.id === 'finish' ? 400 : step.spotlight ? 650 : step.onShow ? 380 : 150;
+  if (step.onShow) {
+    const result = step.onShow();
+    if (result && typeof result.then === 'function') {
+      result.then(() => setTimeout(() => _renderTourStep(step, index), delay));
+      return;
+    }
+  }
   setTimeout(() => _renderTourStep(step, index), delay);
 }
 
