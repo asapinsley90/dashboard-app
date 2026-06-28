@@ -11,7 +11,7 @@ const TOUR_STEPS = [
     requireClick: true,
     modalHighlight: '#modal',
     modalHeading: 'Pick a template',
-    modalText: 'Choose one to get started, or scroll down to create a blank area. Then give it a name and color.',
+    modalText: 'Choose one to get started, or just enter a name and pick a color to create a blank one.',
   },
   {
     id: 'add-record',
