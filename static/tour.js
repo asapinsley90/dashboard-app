@@ -158,38 +158,45 @@ const TOUR_STEPS = [
   },
   {
     id: 'dash-cal',
-    target: () => document.querySelector('[data-widget-id="cal"]'),
+    target: () => document.getElementById('dash-cal')?.parentElement,
     heading: 'Calendar on your dashboard',
     text: "Your calendar lives here — click <b>+ New event</b> or tap any time slot to create an event. Try it now.",
     advance: 'event-created',
+    allowManualAdvance: true,
+    cta: 'Got it',
     position: 'bottom',
     spotlight: true,
   },
   {
     id: 'dash-cal-week',
-    target: () => document.querySelector('[data-widget-id="cal"] .cal-mode-pill'),
+    target: () => document.querySelector('#dash-cal .cal-mode-pill'),
     heading: 'Switch to week view',
     text: 'Click <b>Week</b> to see your whole week at a glance.',
     advance: 'calendar-view-week',
+    allowManualAdvance: true,
+    cta: 'Got it',
     position: 'bottom',
     spotlight: true,
   },
   {
     id: 'dash-cal-month',
-    target: () => document.querySelector('[data-widget-id="cal"] .cal-mode-pill'),
+    target: () => document.querySelector('#dash-cal .cal-mode-pill'),
     heading: 'Now try month view',
     text: 'Click <b>Month</b> to see the full month.',
     advance: 'calendar-view-month',
+    allowManualAdvance: true,
+    cta: 'Got it',
     position: 'bottom',
     spotlight: true,
   },
   {
     id: 'dash-cal-today',
-    target: () => document.querySelector('[data-widget-id="cal"] .cal-today-btn'),
+    target: () => document.querySelector('#dash-cal .cal-today-btn'),
     heading: 'Reset with Today',
     text: 'Click <b>Today</b> to jump back to the current date from any view.',
     advance: 'calendar-today',
     allowManualAdvance: true,
+    cta: 'Got it',
     position: 'bottom',
     spotlight: true,
   },
@@ -477,14 +484,14 @@ function _renderTourStep(step, index) {
   const isEventDriven = step.advance && step.advance !== 'manual';
   let actions;
   if (isEventDriven && !step.allowManualAdvance) {
-    actions = `<div class="tour-actions"><button class="tour-skip" style="opacity:0.5" onclick="advanceTour()">Skip step →</button><button class="tour-skip" onclick="dismissTour()">Skip tour</button></div>`;
+    actions = `<div class="tour-actions"><button class="tour-skip" style="opacity:0.5" onclick="advanceTour()">Got it</button><button class="tour-skip" onclick="dismissTour()">Skip tour</button></div>`;
   } else {
     const ctaLabel = step.cta || (step.requireClick && target ? 'Got it' : 'Next');
     const ctaOnclick = (step.requireClick && target && step.advance !== 'manual')
       ? `document.getElementById('tour-click-zone')?.click()`
       : `advanceTour()`;
     const skip = `<button class="tour-skip" onclick="dismissTour()">Skip tour</button>`;
-    const skipStep = isEventDriven ? `<button class="tour-skip" style="opacity:0.5" onclick="advanceTour()">Skip step →</button>` : '';
+    const skipStep = isEventDriven ? `<button class="tour-skip" style="opacity:0.5" onclick="advanceTour()">Got it</button>` : '';
     actions = `<div class="tour-actions"><button class="tour-cta" onclick="${ctaOnclick}">${ctaLabel}</button>${skipStep}${skip}</div>`;
   }
 

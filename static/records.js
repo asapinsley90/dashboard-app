@@ -872,7 +872,7 @@ function renderSchemaRecord(r, area) {
       </div>
     </div>
     <button class="record-header-tile" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
-    <button class="record-header-tile" onclick="openEditTypeSchema('${r.type}')">Fields ⚙</button>
+    <button class="record-header-tile" onclick="openEditTypeSchema('${r.type}')">Details ⚙</button>
     <div class="record-view-actions">${statusBadge(r)}</div>
   </div>
   <div class="record-sections">
@@ -906,7 +906,7 @@ function openEditTypeSchema(typeId) {
     </div>`;
   }
 
-  openModal(`Fields: ${schema.name}`, `
+  openModal(`Details: ${schema.name}`, `
     <div id="schema-fields-list" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">
       ${fields.map((f,i) => fieldRow(f,i)).join('')}
     </div>
@@ -948,8 +948,23 @@ function openEditTypeSchema(typeId) {
       closeModal();
       tourNotify('schema-saved');
       renderRecordView(currentRecordId);
+      setTimeout(() => highlightDetailsSection(typeId), 80);
     }},
     { label: 'Cancel', onclick: closeModal }]);
+}
+
+function highlightDetailsSection(typeId) {
+  const card = document.querySelector('.record-main .section-card');
+  if (!card) return;
+  card.style.transition = 'box-shadow .3s';
+  card.style.boxShadow = '0 0 0 3px var(--accent)';
+  const tip = document.createElement('div');
+  tip.style.cssText = 'position:absolute;z-index:9000;background:var(--bg2);border:1px solid var(--accent);border-radius:10px;padding:12px 16px;font-size:13px;color:var(--text);box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:240px';
+  tip.innerHTML = `<div style="font-weight:600;margin-bottom:6px">Details updated</div><div style="color:var(--muted);font-size:12px;margin-bottom:10px">These fields apply to every ${typeId} record.</div><button class="tour-cta" style="font-size:12px" onclick="this.closest('[style*=z-index]').remove();document.querySelector('.section-card[style*=box-shadow]')&&(document.querySelector('.section-card[style*=box-shadow]').style.boxShadow='')">Got it</button>`;
+  const rect = card.getBoundingClientRect();
+  tip.style.left = (rect.left + window.scrollX + 16) + 'px';
+  tip.style.top = (rect.top + window.scrollY - 10) + 'px';
+  document.body.appendChild(tip);
 }
 
 // Create custom record type
@@ -1640,8 +1655,10 @@ function promptAddEvent(targetAreaId = null) {
   const children = defaultArea ? DB.areas.filter(a => a.parentId === defaultArea) : [];
   const areaOptions = children.length > 0 ? children : DB.areas.filter(a => !DB.areas.some(p => p.parentId === a.id));
   const defaultAreaId = children.length > 0 ? children[0].id : defaultArea;
+  const isTourCal = window.tour?.active && TOUR_STEPS[window.tour?.step]?.id === 'dash-cal';
+  const tourTitle = isTourCal ? 'Dashboard tutorial' : '';
   openModal('New event', `
-    <div class="modal-field"><div class="modal-label">Title</div><input class="modal-input" id="ev-title" autofocus></div>
+    <div class="modal-field"><div class="modal-label">Title</div><input class="modal-input" id="ev-title" autofocus value="${tourTitle}" ${isTourCal ? 'readonly style="opacity:0.7"' : ''}></div>
     <div class="modal-field"><div class="modal-label">Date</div><input class="modal-input" id="ev-date" type="date" value="${today}" style="font-size:14px"></div>
     <div class="modal-field"><div class="modal-label">Time</div>${timePickerHTML('ev-time')}</div>
     <div class="modal-field"><div class="modal-label">End time</div>${timePickerHTML('ev-endtime')}</div>
@@ -1699,6 +1716,13 @@ function promptAddEvent(targetAreaId = null) {
     document.getElementById('ev-time-m')?.addEventListener('change', syncEnd);
     document.getElementById('ev-time-ap')?.addEventListener('change', syncEnd);
     syncEnd();
+    if (isTourCal) {
+      const h = document.getElementById('ev-time-h');
+      const ap = document.getElementById('ev-time-ap');
+      if (h) h.value = '12';
+      if (ap) ap.value = 'PM';
+      syncEnd();
+    }
     document.getElementById('ev-title')?.focus();
   }, 50);
 }

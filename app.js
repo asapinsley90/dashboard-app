@@ -845,6 +845,9 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px 12px;text-align:left
 <h2>Pending template submissions</h2>
 <div id="pending-list"><div style="color:#444">Loading...</div></div>
 
+<h2>Schema changes <span style="font-size:12px;font-weight:400;color:#888">(custom fields added or edited by users)</span></h2>
+<div id="schema-changes-list"><div style="color:#444">Loading...</div></div>
+
 <script>
 const TOKEN = new URLSearchParams(location.search).get('token') || localStorage.getItem('admin_token') || '';
 if (TOKEN) localStorage.setItem('admin_token', TOKEN);
@@ -986,10 +989,31 @@ async function loadStats() {
   </tbody></table>\`;
 }
 
+async function loadSchemaChanges() {
+  const res = await fetch('/admin/api/schema-changes', { headers: H });
+  const list = await res.json();
+  const el = document.getElementById('schema-changes-list');
+  if (!list.length) { el.innerHTML = '<div style="color:#444;font-size:13px">No schema changes yet.</div>'; return; }
+  el.innerHTML = '<table><thead><tr><th>Schema</th><th>Action</th><th>Fields</th><th>Date</th><th></th></tr></thead><tbody>' +
+    list.map(c => \`<tr style="opacity:\${c.reviewed?0.5:1}">
+      <td>\${c.schemaName} <span style="font-size:11px;color:#555">(\${c.schemaId})</span></td>
+      <td><span class="badge badge-\${c.action==='created'?'approved':'pending'}">\${c.action}</span></td>
+      <td style="color:#888;font-size:11px">\${JSON.parse(typeof c.fields==='string'?c.fields:'[]').map(f=>f.label).join(', ')||'—'}</td>
+      <td style="color:#555">\${c.createdAt?.slice(0,10)||'—'}</td>
+      <td>\${!c.reviewed?\`<button onclick="markReviewed('\${c.id}')">Mark reviewed</button>\`:'<span style="color:#4caf50">✓</span>'}</td>
+    </tr>\`).join('') + '</tbody></table>';
+}
+
+async function markReviewed(id) {
+  await fetch(\`/admin/api/schema-changes/\${id}/reviewed\`, { method:'PATCH', headers:H });
+  loadSchemaChanges();
+}
+
 loadStats();
 loadWaitlist();
 loadTenants();
 loadPending();
+loadSchemaChanges();
 </script></body></html>`;
 
 app.get('/admin', (req, res) => {
@@ -1043,6 +1067,16 @@ app.delete('/admin/api/waitlist/:id', requireAdmin, async (req, res) => {
 app.delete('/admin/api/tenants/:id', requireAdmin, async (req, res) => {
   try { await dbLayer.deleteTenant(req.params.id); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/admin/api/schema-changes', requireAdmin, async (req, res) => {
+  const changes = await dbLayer.getSchemaChanges();
+  res.json(changes);
+});
+
+app.patch('/admin/api/schema-changes/:id/reviewed', requireAdmin, async (req, res) => {
+  await dbLayer.markSchemaChangeReviewed(req.params.id);
+  res.json({ ok: true });
 });
 
 app.post('/admin/api/provision', requireAdmin, async (req, res) => {
@@ -1260,12 +1294,14 @@ app.post('/api/type-schemas', async (req, res) => {
   if (!name) return res.status(400).json({ error: 'Name required' });
   const id = 'custom-' + name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Date.now().toString(36);
   await dbLayer.saveTypeSchema({ id, name, icon, fields, isCustom: true });
+  await dbLayer.logSchemaChange({ schemaId: id, schemaName: name, action: 'created', fields });
   res.json({ id, name, icon, fields, isCustom: true });
 });
 
 app.put('/api/type-schemas/:id', async (req, res) => {
   const { name, icon, fields } = req.body;
   await dbLayer.saveTypeSchema({ id: req.params.id, name, icon, fields });
+  await dbLayer.logSchemaChange({ schemaId: req.params.id, schemaName: name, action: 'updated', fields });
   res.json({ ok: true });
 });
 

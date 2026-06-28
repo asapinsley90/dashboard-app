@@ -508,7 +508,8 @@ function openQAdd(date, hour) {
   document.getElementById('qadd-endtime-h').value = endH;
   document.getElementById('qadd-endtime-m').value = endM;
   document.getElementById('qadd-endtime-ap').value = endAP;
-  document.getElementById('qadd-title').value = '';
+  const isTourCal = window.tour?.active && TOUR_STEPS[window.tour?.step]?.id === 'dash-cal';
+  document.getElementById('qadd-title').value = isTourCal ? 'Dashboard tutorial' : '';
   const mx=event.clientX, my=event.clientY;
   box.style.left = Math.min(mx, window.innerWidth-280)+'px';
   box.style.top = Math.min(my, window.innerHeight-200)+'px';
