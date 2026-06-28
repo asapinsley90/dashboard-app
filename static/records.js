@@ -1603,7 +1603,9 @@ function promptAddRecord(forceType, targetAreaId = null) {
       const legacyDefaults = { contact:{role:'',company:'',email:'',phone:'',linkedin:'',notes:''}, event:{date:'',time:'',endTime:'',location:'',link:'',category:'',notes:''}, goal:{targetDate:'',progress:'',notes:''}, task:{frequency:'',lastDone:'',nextDue:'',notes:''}, project:{description:'',nextAction:'',notes:''}, note:{body:'',notes:''}, account:{institution:'',accountType:'',owner:'',last4:'',balance:'',balanceDate:'',notes:''} };
       const rec = await api('POST', '/api/records', { type:t, areaId:aid, title, urgency:'new', fields: schemaDefaults || legacyDefaults[t] || {}, contacts:t==='job'?[]:undefined, interviews:t==='job'?[]:undefined, documents:t==='job'?[]:undefined });
       DB.records.push(rec);
+      if (tour.active) { tourCreated.recordIds.push(rec.id); _saveTourCreated(); }
       assistantNotify('record-created', rec);
+      tourNotify('record-created');
       if (!tour.active) showTourTip('urgency-flag', '.urgency-widget', 'Flag what needs attention', 'Use the <b>Flag</b> widget to mark urgent items — they surface on your dashboard automatically.', 'bottom');
       pushUndo(`Create ${title}`, async () => {
         rec.deletedAt = new Date().toISOString();

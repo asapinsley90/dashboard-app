@@ -216,6 +216,12 @@ const tourCreated = { areaIds: _savedTourCreated.areaIds || [], recordIds: _save
 function _saveTourCreated() { try { localStorage.setItem('tourCreated', JSON.stringify(tourCreated)); } catch {} }
 
 function _tourSchemaRecord() {
+  // Prefer the record created during this tour session
+  for (const id of [...tourCreated.recordIds].reverse()) {
+    const r = DB.records.find(r => r.id === id && !r.deletedAt);
+    if (r) return r;
+  }
+  // Fallback: any non-builtin record
   const BUILTIN = ['job','account','company','contact','event'];
   return DB.records.find(r => !r.deletedAt && !BUILTIN.includes(r.type));
 }
