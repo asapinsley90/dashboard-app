@@ -434,8 +434,8 @@ function renderAreaView(areaId) {
       btnEl.appendChild(b);
       const b2 = document.createElement('button');
       b2.className = 'btn btn-sm btn-p'; b2.style.marginLeft = '6px';
-      b2.textContent = '+ Add sub-area';
-      b2.onclick = () => promptAddArea(areaId);
+      b2.textContent = area.parentId ? '+ Add widget' : '+ Add sub-area';
+      b2.onclick = area.parentId ? () => openAreaWidgetsModal(areaId) : () => promptAddArea(areaId);
       btnEl.appendChild(b2);
       const b3 = document.createElement('button');
       b3.className = 'btn btn-sm'; b3.style.marginLeft = '6px';
@@ -483,8 +483,8 @@ function renderAreaView(areaId) {
       btnEl.appendChild(b);
       const b2 = document.createElement('button');
       b2.className = 'btn btn-sm btn-p'; b2.style.marginLeft='6px';
-      b2.textContent = '+ Add sub-area';
-      b2.onclick = () => promptAddArea(areaId);
+      b2.textContent = area.parentId ? '+ Add widget' : '+ Add sub-area';
+      b2.onclick = area.parentId ? () => openAreaWidgetsModal(areaId) : () => promptAddArea(areaId);
       btnEl.appendChild(b2);
       const b3 = document.createElement('button');
       b3.className = 'btn btn-sm'; b3.style.marginLeft='6px';
@@ -525,20 +525,26 @@ function renderAreaView(areaId) {
       (archivedRecs.length ? collapsibleGroup('Archived', archivedRecs, false, 'archived-'+areaId) : '');
   }
 
+  const areaWidgets = area.widgets || null; // null = all on (default), array = explicit set
+  const areaWidgetOn = id => !areaWidgets || areaWidgets.includes(id);
+
   // Render area calendar filtered to this area
   const calEl = document.getElementById('area-cal');
   if (calEl) {
-    window._calAreaFilter = areaId;
-    renderAreaCalWidget('area-cal', areaId);
+    if (areaWidgetOn('calendar')) {
+      window._calAreaFilter = areaId;
+      renderAreaCalWidget('area-cal', areaId);
+    } else {
+      calEl.innerHTML = '';
+    }
   }
 
-  // Add contacts button if area has contacts
   const areaContacts = DB.records.filter(r => r.areaId === areaId && r.type === 'contact' && !r.deletedAt);
   const calPanel = document.querySelector('.area-cal-panel');
   if (calPanel) {
     const existing = document.getElementById('area-contacts-btn');
     if (existing) existing.remove();
-    if (areaContacts.length) {
+    if (areaWidgetOn('contacts') && areaContacts.length) {
       const btn = document.createElement('div');
       btn.id = 'area-contacts-btn';
       btn.style.cssText = 'margin-top:10px';
@@ -548,11 +554,10 @@ function renderAreaView(areaId) {
       calPanel.appendChild(btn);
     }
 
-    // Investment widgets — inject above calendar if area has account records
     const existing2 = document.getElementById('area-invest-widgets');
     if (existing2) existing2.remove();
     const accountRecs = records.filter(r => r.type === 'account' && !r.deletedAt);
-    if (accountRecs.length) {
+    if (accountRecs.length && (areaWidgetOn('portfolio') || areaWidgetOn('by-account'))) {
       renderInvestmentWidgets(calPanel, accountRecs, area);
     }
   }

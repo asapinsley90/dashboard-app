@@ -1288,6 +1288,7 @@ async function setUrgency(recordId,level){
   const r=DB.records.find(r=>r.id===recordId);if(!r)return;
   const prev=r.urgency||'none';
   r.urgency=level;
+  tourNotify('urgency-changed');
   renderSidebar();
   if(currentView==='record')renderRecordView(recordId);
   if(currentView==='dashboard')renderAttention();
@@ -1814,6 +1815,44 @@ async function installTemplate(templateId, triggerEl) {
     t.innerHTML = `<span style="color:var(--red)">✗</span> Failed to install template`;
     document.body.appendChild(t); setTimeout(() => t.remove(), 4000);
   }
+}
+
+const AREA_WIDGET_DEFS = [
+  { id: 'calendar', label: 'Calendar', icon: '📅' },
+  { id: 'contacts', label: 'Contacts', icon: '👤' },
+  { id: 'notes', label: 'Notes', icon: '📝' },
+  { id: 'documents', label: 'Documents', icon: '📎' },
+  { id: 'portfolio', label: 'Portfolio chart', icon: '📈' },
+  { id: 'by-account', label: 'By account bars', icon: '📊' },
+];
+
+function openAreaWidgetsModal(areaId) {
+  const area = DB.areas.find(a => a.id === areaId);
+  if (!area) return;
+  const active = new Set(area.widgets || []);
+  openModal('Area widgets', `
+    <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Toggle widgets for this area's side panel.</p>
+    <div class="widget-toggle-grid">${AREA_WIDGET_DEFS.map(d => `
+      <div class="widget-toggle${active.has(d.id) ? ' active' : ''}" onclick="toggleAreaWidget('${areaId}','${d.id}',this)">
+        <span style="font-size:22px">${d.icon}</span>
+        <span class="widget-toggle-label">${d.label}</span>
+        <span class="widget-toggle-dot"></span>
+      </div>`).join('')}
+    </div>
+  `);
+}
+
+function toggleAreaWidget(areaId, widgetId, el) {
+  const area = DB.areas.find(a => a.id === areaId);
+  if (!area) return;
+  area.widgets = area.widgets || [];
+  if (area.widgets.includes(widgetId)) {
+    area.widgets = area.widgets.filter(w => w !== widgetId);
+  } else {
+    area.widgets.push(widgetId);
+  }
+  el.classList.toggle('active');
+  api('PUT', `/api/areas/${areaId}`, { widgets: area.widgets });
 }
 
 function promptSaveAsTemplate(area) {

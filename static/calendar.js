@@ -454,6 +454,7 @@ function calNav(dir, cid, mini) {
 function setCalMode(mode, cid, mini) {
   const prev = calMode;
   calMode=mode; calOffset=0; renderCalWidget(cid,mini);
+  tourNotify('calendar-view-changed');
   const _lbl = document.getElementById('dash-cal-label');
   if (_lbl) { const _t=new Date(); if(calMode==='day'){const _d=new Date(_t);_d.setDate(_t.getDate()+calOffset);_lbl.textContent=_d.toLocaleDateString('en-US',{weekday:'long'});}else if(calMode==='week'){const _dow=_t.getDay();const _mon=new Date(_t);_mon.setDate(_t.getDate()-(_dow===0?6:_dow-1)+calOffset*7);const _sun=new Date(_mon);_sun.setDate(_mon.getDate()+6);_lbl.textContent=_mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+_sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}else{const _d=new Date(_t.getFullYear(),_t.getMonth()+calOffset,1);_lbl.textContent=_d.toLocaleDateString('en-US',{month:'long',year:'numeric'});} }
   if (prev !== mode) history.pushState({view:currentView,areaId:currentAreaId,recordId:currentRecordId,calMode:mode,calCid:cid,calMini:mini},'','#'+currentView+(currentAreaId?'/'+currentAreaId:''));

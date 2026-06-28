@@ -1,4 +1,144 @@
 ﻿// â"€â"€ RECORD VIEW â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ── WIDGET SYSTEM ──────────────────────────────────────────────────────────────
+const RECORD_WIDGET_DEFS = {
+  account: [
+    { id: 'account-details', label: 'Account details', icon: '🏦', defaultOn: true },
+    { id: 'history', label: 'Monthly history', icon: '📊', defaultOn: true },
+    { id: 'balance-chart', label: 'Balance chart', icon: '📈', defaultOn: true },
+    { id: 'ira-progress', label: 'IRA contributions', icon: '📋', defaultOn: true },
+    { id: 'activity', label: 'Activity', icon: '⏱', defaultOn: true },
+    { id: 'notes', label: 'Notes', icon: '📝', defaultOn: true },
+    { id: 'contacts', label: 'Contacts', icon: '👤', defaultOn: false },
+    { id: 'documents', label: 'Documents', icon: '📎', defaultOn: false },
+  ],
+  job: [
+    { id: 'role-details', label: 'Role details', icon: '💼', defaultOn: true },
+    { id: 'interviews', label: 'Interviews', icon: '🗓', defaultOn: true },
+    { id: 'job-description', label: 'Job description', icon: '📄', defaultOn: true },
+    { id: 'status-urgency', label: 'Status & urgency', icon: '🎯', defaultOn: true },
+    { id: 'contacts', label: 'Contacts', icon: '👤', defaultOn: true },
+    { id: 'documents', label: 'Documents', icon: '📎', defaultOn: true },
+    { id: 'timeline', label: 'Timeline', icon: '⏱', defaultOn: true },
+    { id: 'notes', label: 'Notes', icon: '📝', defaultOn: true },
+  ],
+  contact: [
+    { id: 'contact-info', label: 'Contact info', icon: '👤', defaultOn: true },
+    { id: 'notes', label: 'Notes', icon: '📝', defaultOn: true },
+    { id: 'timeline', label: 'Timeline', icon: '⏱', defaultOn: true },
+    { id: 'documents', label: 'Documents', icon: '📎', defaultOn: false },
+  ],
+  company: [
+    { id: 'company-details', label: 'Company details', icon: '🏢', defaultOn: true },
+    { id: 'contacts', label: 'Contacts', icon: '👤', defaultOn: true },
+    { id: 'applications', label: 'Applications', icon: '💼', defaultOn: true },
+    { id: 'notes', label: 'Notes', icon: '📝', defaultOn: true },
+    { id: 'timeline', label: 'Timeline', icon: '⏱', defaultOn: true },
+    { id: 'documents', label: 'Documents', icon: '📎', defaultOn: false },
+  ],
+  _default: [
+    { id: 'fields', label: 'Fields', icon: '📋', defaultOn: true },
+    { id: 'status-urgency', label: 'Status & urgency', icon: '🎯', defaultOn: true },
+    { id: 'contacts', label: 'Contacts', icon: '👤', defaultOn: true },
+    { id: 'notes', label: 'Notes', icon: '📝', defaultOn: true },
+    { id: 'timeline', label: 'Timeline', icon: '⏱', defaultOn: true },
+    { id: 'documents', label: 'Documents', icon: '📎', defaultOn: false },
+  ],
+};
+
+function getWidgetDefs(r) {
+  return RECORD_WIDGET_DEFS[r.type] || RECORD_WIDGET_DEFS._default;
+}
+
+function getActiveWidgets(r) {
+  if (r.fields._widgets) return new Set(r.fields._widgets);
+  return new Set(getWidgetDefs(r).filter(d => d.defaultOn).map(d => d.id));
+}
+
+function widgetCard(id, html, r) {
+  return getActiveWidgets(r).has(id) ? html : '';
+}
+
+function openWidgetsModal(recordId) {
+  const r = getRecord(recordId);
+  if (!r) return;
+  const defs = getWidgetDefs(r);
+  const active = getActiveWidgets(r);
+  openModal('Widgets', `
+    <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Active widgets appear in this record. Click any widget to toggle it on or off.</p>
+    <div class="widget-toggle-grid">${defs.map(d => `
+      <div class="widget-toggle${active.has(d.id) ? ' active' : ''}" onclick="toggleWidgetActive('${recordId}','${d.id}',this)">
+        <span style="font-size:22px">${d.icon}</span>
+        <span class="widget-toggle-label">${d.label}</span>
+        <span class="widget-toggle-dot"></span>
+      </div>`).join('')}
+    </div>
+  `);
+}
+
+function toggleWidgetActive(recordId, widgetId, el) {
+  const r = getRecord(recordId);
+  if (!r) return;
+  const active = getActiveWidgets(r);
+  if (active.has(widgetId)) active.delete(widgetId);
+  else active.add(widgetId);
+  r.fields._widgets = [...active];
+  el.classList.toggle('active');
+  api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+  tourNotify('widget-toggled');
+  const content = document.getElementById('record-view-content');
+  if (!content) return;
+  const area = DB.areas.find(a => a.id === r.areaId);
+  if (r.type === 'job') content.innerHTML = renderJobRecord(r, area);
+  else if (r.type === 'account') {
+    content.innerHTML = renderAccountRecord(r, area);
+    const ch = (r.fields.history || []).slice().sort((a,b) => a.month.localeCompare(b.month));
+    requestAnimationFrame(() => renderAccountCharts(`acct-charts-${r.id}`, ch));
+  }
+  else if (r.type === 'company') content.innerHTML = renderCompanyRecord(r, area);
+  else if (r.type === 'contact') content.innerHTML = renderContactRecord(r, area);
+  else if (TYPE_SCHEMAS.find(s => s.id === r.type)) content.innerHTML = renderSchemaRecord(r, area);
+  else content.innerHTML = renderGenericRecord(r, area);
+}
+
+function openWidgetTitleMenu(e, recordId, widgetId) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.querySelectorAll('.widget-ctx-menu').forEach(m => m.remove());
+  const r = getRecord(recordId);
+  if (!r) return;
+  const def = getWidgetDefs(r).find(d => d.id === widgetId);
+  tourNotify('widget-title-rightclicked');
+  const menu = document.createElement('div');
+  menu.className = 'ctx-menu widget-ctx-menu';
+  menu.style.cssText = `left:${Math.min(e.clientX, window.innerWidth - 180)}px;top:${Math.min(e.clientY, window.innerHeight - 80)}px`;
+  const h = document.createElement('div'); h.className = 'ctx-header';
+  h.textContent = (def?.icon || '') + ' ' + (def?.label || widgetId);
+  const hide = document.createElement('div'); hide.className = 'ctx-item';
+  hide.textContent = 'Hide widget';
+  hide.onclick = () => {
+    const active = getActiveWidgets(r);
+    active.delete(widgetId);
+    r.fields._widgets = [...active];
+    api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+    menu.remove();
+    const content = document.getElementById('record-view-content');
+    const area2 = DB.areas.find(a => a.id === r.areaId);
+    if (!content) return;
+    if (r.type === 'account') {
+      content.innerHTML = renderAccountRecord(r, area2);
+      const ch = (r.fields.history||[]).slice().sort((a,b)=>a.month.localeCompare(b.month));
+      requestAnimationFrame(() => renderAccountCharts(`acct-charts-${r.id}`, ch));
+    } else if (r.type === 'job') content.innerHTML = renderJobRecord(r, area2);
+    else if (r.type === 'company') content.innerHTML = renderCompanyRecord(r, area2);
+    else if (r.type === 'contact') content.innerHTML = renderContactRecord(r, area2);
+    else content.innerHTML = renderSchemaRecord(r, area2);
+  };
+  menu.appendChild(h); menu.appendChild(hide);
+  document.body.appendChild(menu);
+  const close = ev => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('mousedown', close); } };
+  setTimeout(() => document.addEventListener('mousedown', close), 0);
+}
+
 function renderRecordView(recordId) {
   const r = getRecord(recordId);
   if (!r) return;
@@ -11,6 +151,7 @@ function renderRecordView(recordId) {
   const urgencyNext = { none: 'flagged', flagged: 'priority', priority: 'urgent', urgent: 'none' };
   document.getElementById('topbar-actions').innerHTML = `
     <button class="btn btn-sm" onclick="navigate('area','${r.areaId}')">← Back</button>
+    <button class="btn btn-sm" onclick="openWidgetsModal('${r.id}')">⚡ Widgets</button>
     <button class="btn btn-sm" onclick="copyRecordContext('${r.id}')" title="Copy context to paste into Claude">📋 Copy for Claude</button>
     <button class="btn btn-sm btn-danger" onclick="deleteRecord('${r.id}')">Delete</button>`;
 
@@ -24,6 +165,7 @@ function renderRecordView(recordId) {
     requestAnimationFrame(() => { _doCharts(); setTimeout(_doCharts, 100); });
   }
   else if (r.type === 'company') el.innerHTML = renderCompanyRecord(r, area);
+  else if (r.type === 'contact') el.innerHTML = renderContactRecord(r, area);
   else if (TYPE_SCHEMAS.find(s => s.id === r.type)) el.innerHTML = renderSchemaRecord(r, area);
   else el.innerHTML = renderGenericRecord(r, area);
 }
@@ -59,8 +201,8 @@ function renderJobRecord(r, area) {
   </div>
   <div class="record-sections">
     <div class="record-main">
-      <div class="section-card">
-        <div class="section-title">Role details</div>
+      ${widgetCard('role-details', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','role-details')">Role details</div>
         <div class="field-row">
           <div class="field-label">Company</div>
           <div class="field-value">
@@ -91,9 +233,9 @@ function renderJobRecord(r, area) {
           </div>
         </div>
 
-      </div>
-      <div class="section-card">
-        <div class="section-title">Interviews</div>
+      </div>`, r)}
+      ${widgetCard('interviews', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','interviews')">Interviews</div>
         ${(r.interviews || []).length ? r.interviews.map(i => `
           <div class="interview-item">
             <div class="interview-round">Round ${i.round}</div>
@@ -105,16 +247,16 @@ function renderJobRecord(r, area) {
             ${i.link ? `<a class="interview-link" href="${i.link}" target="_blank">Join meeting →</a>` : ''}
             ${i.notes ? `<div class="interview-meta" style="margin-top:6px">${i.notes}</div>` : ''}
           </div>`).join('') : '<div class="empty">No interviews recorded.</div>'}
-      </div>
-${renderNotesSection(r)}
-      <div class="section-card">
-        <div class="section-title">Job description</div>
+      </div>`, r)}
+      ${widgetCard('notes', renderNotesSection(r), r)}
+      ${widgetCard('job-description', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','job-description')">Job description</div>
         <textarea class="field-edit" onblur="saveFieldText('${r.id}','jobDescription',this.value)" style="width:100%;min-height:80px" placeholder="Paste job description here...">${r.fields.jobDescription || ''}</textarea>
-      </div>
+      </div>`, r)}
     </div>
     <div class="record-sidebar">
-      <div class="section-card">
-        <div class="section-title">Status</div>
+      ${widgetCard('status-urgency', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','status-urgency')">Status</div>
         <div class="status-widget">
           ${statusOrder.map(s => {
             const cur = r.status || 'active';
@@ -131,22 +273,22 @@ ${renderNotesSection(r)}
             return '<span class="urgency-pill'+(cur===u?' u-active-'+u:'')+'" onclick="setUrgency(\''+r.id+'\',\''+u+'\')">'+labels[u]+'</span>';
           }).join('')}
         </div>
-      </div>
-      <div class="section-card">
-        <div class="section-title">Contacts</div>
+      </div>`, r)}
+      ${widgetCard('contacts', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','contacts')">Contacts</div>
         ${contacts.map(ct => `<div class="contact-chip" data-record-link data-area-id="${ct.areaId}" data-record-id="${ct.id}">
   <span>👤</span>
   <span class="contact-chip-name">${ct.title}</span>
   ${ct.fields.role ? `<span class="contact-chip-role">· ${ct.fields.role}</span>` : ''}
 </div>`).join('')}
         <div style="margin-top:8px"><button class="btn btn-xs" onclick="linkContact('${r.id}')">+ Link contact</button></div>
-      </div>
-      <div class="section-card">
-        <div class="section-title">Documents</div>
+      </div>`, r)}
+      ${widgetCard('documents', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','documents')">Documents</div>
         ${renderJobDocSection(r, 'resume', 'Resume')}
         ${renderJobDocSection(r, 'coverLetter', 'Cover letter')}
         ${renderJobDocSection(r, 'other', 'Other')}
-      </div>
+      </div>`, r)}
       ${linkedEvents.length ? `<div class="section-card">
         <div class="section-title">Linked events</div>
         ${linkedEvents.map(ev => `<div class="record-card" data-record-link data-area-id="${ev.areaId}" data-record-id="${ev.id}" style="margin-bottom:6px">
@@ -157,10 +299,10 @@ ${renderNotesSection(r)}
           </div>
         </div>`).join('')}
       </div>` : ''}
-      <div class="section-card">
-        <div class="section-title">Timeline</div>
+      ${widgetCard('timeline', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','timeline')">Timeline</div>
         ${renderTimeline(r)}
-      </div>
+      </div>`, r)}
     </div>
   </div>`;
 }
@@ -175,8 +317,8 @@ function renderContactRecord(r, area) {
   </div>
   <div class="record-sections">
     <div class="record-main">
-      <div class="section-card">
-        <div class="section-title">Contact info</div>
+      ${widgetCard('contact-info', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','contact-info')">Contact info</div>
         ${editableField(r, 'role', 'Role')}
         <div class="field-row">
           <div class="field-label">Company</div>
@@ -203,14 +345,14 @@ function renderContactRecord(r, area) {
             </select>
           </div>
         </div>
-      </div>
-${renderNotesSection(r)}
+      </div>`, r)}
+      ${widgetCard('notes', renderNotesSection(r), r)}
     </div>
     <div class="record-sidebar">
-      <div class="section-card">
-        <div class="section-title">Timeline</div>
+      ${widgetCard('timeline', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','timeline')">Timeline</div>
         ${renderTimeline(r)}
-      </div>
+      </div>`, r)}
     </div>
   </div>`;
 }
@@ -267,21 +409,22 @@ function renderCompanyRecord(r, area) {
       <select class="field-edit" style="font-size:11px" onchange="moveRecordArea('${r.id}',this.value)">
         ${DB.areas.map(a=>`<option value="${a.id}" ${a.id===r.areaId?'selected':''}>${a.title}</option>`).join('')}
       </select>
+      <button class="btn btn-sm" style="font-size:11px" onclick="openEditTypeSchema('company')" title="Edit field definitions">Fields ⚙</button>
     </div>
   </div>
   <div class="record-sections">
     <div class="record-main">
-      <div class="section-card">
-        <div class="section-title">Details</div>
+      ${widgetCard('company-details', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','company-details')">Details</div>
         ${editableField(r,'industry','Industry')}
         ${editableField(r,'website','Website')}
         ${editableField(r,'location','Location')}
-      </div>
-      ${renderNotesSection(r)}
+      </div>`, r)}
+      ${widgetCard('notes', renderNotesSection(r), r)}
     </div>
     <div class="record-sidebar">
-      <div class="section-card">
-        <div class="section-title">Contacts (${contacts.length})</div>
+      ${widgetCard('contacts', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','contacts')">Contacts (${contacts.length})</div>
         ${contacts.map(ct=>`<div class="contact-chip" data-record-link data-area-id="${ct.areaId}" data-record-id="${ct.id}">
   <span>👤</span>
   <span class="contact-chip-name">${ct.title}</span>
@@ -292,18 +435,18 @@ function renderCompanyRecord(r, area) {
           <button class="btn btn-xs" onclick="linkContactToCompany('${r.id}')">+ Link contact</button>
           <button class="btn btn-xs" onclick="promptAddRecord('contact')">+ New contact</button>
         </div>
-      </div>
-      ${jobs.length?`<div class="section-card">
-        <div class="section-title">Applications (${jobs.length})</div>
+      </div>`, r)}
+      ${widgetCard('applications', jobs.length?`<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','applications')">Applications (${jobs.length})</div>
         ${jobs.map(j=>`<div class="record-card" data-record-link data-area-id="${j.areaId}" data-record-id="${j.id}" style="margin-bottom:6px">
           <div class="record-card-icon">💼</div>
           <div class="record-card-body"><div class="record-card-title">${j.fields.role||j.title}</div><div class="record-card-sub">${j.status}</div></div>
         </div>`).join('')}
-      </div>`:''}
-      <div class="section-card">
-        <div class="section-title">Timeline</div>
+      </div>`:'', r)}
+      ${widgetCard('timeline', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','timeline')">Timeline</div>
         ${renderTimeline(r)}
-      </div>
+      </div>`, r)}
     </div>
   </div>`;
 }
@@ -362,8 +505,6 @@ function renderAccountRecord(r, area) {
   const bal = r.fields.balance !== undefined && r.fields.balance !== '' ? Number(r.fields.balance) : null;
   const balFormatted = bal !== null ? '$' + bal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
   const balDate = r.fields.balanceDate ? `Updated ${formatDate(r.fields.balanceDate)}` : 'Balance not set';
-  const ownerOpts = ['Aaron','Ale','Joint'];
-  const typeOpts = ['Checking','Savings','Roth IRA','Traditional IRA','Taxable','401k','HYSA','Money Market','Credit Card','Other'];
   const instDefaults = getInstitutionDefaults(r.fields.institution);
   const domain = r.fields.institutionDomain || (instDefaults?.domain) || null;
   const loginUrl = r.fields.institutionUrl || (instDefaults?.url) || null;
@@ -484,48 +625,46 @@ function renderAccountRecord(r, area) {
       </div>
     </div>
     <div class="record-view-actions">
-      <div style="text-align:right">
-        <div style="font-size:28px;font-weight:700;color:var(--text);cursor:pointer;line-height:1.2" onclick="editAccountBalance('${r.id}')" title="Click to update balance">${balFormatted}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">${balDate}</div>
-        <button class="btn-s" style="margin-top:8px;font-size:11px" onclick="parseStatementUpload('${r.id}')">⬆ Import statement</button>
-        <div style="font-size:10px;color:var(--muted);margin-top:4px">or paste a screenshot</div>
-        <input type="file" id="stmt-input-${r.id}" accept="image/*,application/pdf" style="display:none" onchange="handleStatementFile('${r.id}',this)">
-      </div>
+      <button class="btn btn-sm" style="font-size:11px" onclick="openEditTypeSchema('account')" title="Edit field definitions">Fields ⚙</button>
     </div>
   </div>
-  <div id="${chartId}" style="padding:0 0 4px 0"></div>
   <div class="record-sections">
     <div class="record-main">
-      <div class="section-card collapsible-section">
-        <div class="section-title section-toggle" onclick="toggleSection(this)"><span class="section-chevron">▾</span> Monthly history</div>
-        <div class="section-body">${historyHTML}</div>
-      </div>
-      <div class="section-card collapsible-section">
-        <div class="section-title section-toggle" onclick="toggleSection(this)"><span class="section-chevron">▾</span> Account details</div>
-        <div class="section-body">
-        ${editableField(r, 'institution', 'Institution')}
-        <div class="field-row"><div class="field-label">Type</div><div class="field-value">
-          <select class="field-edit" onchange="saveFieldText('${r.id}','accountType',this.value)">
-            <option value="">—</option>
-            ${typeOpts.map(t => `<option value="${t}" ${r.fields.accountType===t?'selected':''}>${t}</option>`).join('')}
-          </select>
-        </div></div>
-        <div class="field-row"><div class="field-label">Owner</div><div class="field-value">
-          <select class="field-edit" onchange="saveFieldText('${r.id}','owner',this.value)">
-            <option value="">—</option>
-            ${ownerOpts.map(o => `<option value="${o}" ${r.fields.owner===o?'selected':''}>${o}</option>`).join('')}
-          </select>
-        </div></div>
-        ${editableField(r, 'last4', 'Last 4 digits')}
-        ${editableField(r, 'institutionUrl', 'Login URL')}
-        ${editableField(r, 'institutionDomain', 'Logo domain')}
+      ${widgetCard('balance', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','balance')">Balance</div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+          <div>
+            <div style="font-size:28px;font-weight:700;color:var(--text);cursor:pointer;line-height:1.2" onclick="editAccountBalance('${r.id}')" title="Click to update balance">${balFormatted}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${balDate}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <button class="btn-s" style="font-size:11px" onclick="parseStatementUpload('${r.id}')">⬆ Import statement</button>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px">or paste a screenshot</div>
+            <input type="file" id="stmt-input-${r.id}" accept="image/*,application/pdf" style="display:none" onchange="handleStatementFile('${r.id}',this)">
+          </div>
         </div>
-      </div>
-      ${renderNotesSection(r)}
+      </div>`, r)}
+      ${widgetCard('balance-chart', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','balance-chart')">Balance over time</div>
+        <div id="${chartId}"></div>
+      </div>`, r)}
+      ${widgetCard('history', `<div class="section-card collapsible-section">
+        <div class="section-title section-toggle" onclick="toggleSection(this)" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','history')"><span class="section-chevron">▾</span> Monthly history</div>
+        <div class="section-body">${historyHTML}</div>
+      </div>`, r)}
+      ${widgetCard('account-details', `<div class="section-card collapsible-section">
+        <div class="section-title section-toggle" onclick="toggleSection(this)" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','account-details')"><span class="section-chevron">▾</span> Account details</div>
+        <div class="section-body">
+        ${(TYPE_SCHEMAS.find(s => s.id === 'account')?.fields || [])
+          .slice().sort((a,b) => (a.order||0)-(b.order||0))
+          .map(f => editableField(r, f.key, f.label, f.type)).join('')}
+        </div>
+      </div>`, r)}
+      ${widgetCard('notes', renderNotesSection(r), r)}
     </div>
     <div class="record-sidebar">
-      ${isIRA ? `<div class="section-card" style="margin-bottom:12px">
-        <div class="section-title" style="margin-bottom:10px">IRA Contributions</div>
+      ${widgetCard('ira-progress', isIRA ? `<div class="section-card" style="margin-bottom:12px">
+        <div class="section-title" style="margin-bottom:10px" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','ira-progress')">IRA Contributions</div>
         ${(()=>{
           const currentYear = new Date().getFullYear();
           const years = Object.keys(IRA_LIMITS).map(Number).filter(y => y <= currentYear).sort((a,b) => b-a);
@@ -570,11 +709,11 @@ function renderAccountRecord(r, area) {
             </div>`;
           }).join('');
         })()}
-      </div>` : ''}
-      <div class="section-card">
-        <div class="section-title">Activity</div>
+      </div>` : '', r)}
+      ${widgetCard('activity', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','activity')">Activity</div>
         ${renderTimeline(r)}
-      </div>
+      </div>`, r)}
     </div>
   </div>`;
 }
@@ -866,20 +1005,20 @@ function renderSchemaRecord(r, area) {
   </div>
   <div class="record-sections">
     <div class="record-main">
-      ${mainFields.length ? `<div class="section-card">
-        <div class="section-title">Details</div>
+      ${widgetCard('fields', mainFields.length ? `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','fields')">Details</div>
         ${mainFields.map(f => `<div class="field-row">
           <div class="field-label">${f.label}</div>
           <div class="field-value">${renderFieldInput(f)}</div>
         </div>`).join('')}
-      </div>` : ''}
-      ${notesField ? renderNotesSection(r) : ''}
+      </div>` : '', r)}
+      ${widgetCard('notes', notesField ? renderNotesSection(r) : '', r)}
     </div>
     <div class="record-sidebar">
-      <div class="section-card">
-        <div class="section-title">Timeline</div>
+      ${widgetCard('timeline', `<div class="section-card">
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','timeline')">Timeline</div>
         ${renderTimeline(r)}
-      </div>
+      </div>`, r)}
     </div>
   </div>`;
 }
@@ -893,6 +1032,7 @@ function renderGenericRecord(r, area) {
 function openEditTypeSchema(typeId) {
   const schema = TYPE_SCHEMAS.find(s => s.id === typeId);
   if (!schema) return;
+  tourNotify('schema-opened');
   const fields = [...schema.fields].sort((a,b) => a.order - b.order);
 
   function fieldRow(f, i) {

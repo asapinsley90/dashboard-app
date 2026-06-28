@@ -107,6 +107,7 @@ function updatePlanningSubitems() {
 
 window.addEventListener('popstate', e => {
   if (!e.state) return;
+  tourNotify('browser-nav');
   const s = e.state;
   // Restore calendar mode if this was a cal mode change
   if (s.calMode && s.calCid) {

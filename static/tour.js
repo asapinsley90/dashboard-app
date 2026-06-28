@@ -14,18 +14,6 @@ const TOUR_STEPS = [
     modalText: 'Give it a name, pick a color, and click <b>Create</b>.',
   },
   {
-    id: 'collapse-area',
-    target: () => {
-      const areas = document.querySelectorAll('#sidebar-areas [data-area]');
-      return areas.length ? areas[0] : null;
-    },
-    heading: 'Expand & collapse',
-    text: 'Click your area name to expand or collapse it in the sidebar.',
-    advance: 'manual',
-    cta: 'Got it',
-    position: 'right',
-  },
-  {
     id: 'add-record',
     target: () => document.querySelector('.new-record-btn'),
     heading: 'Add your first record',
@@ -43,20 +31,39 @@ const TOUR_STEPS = [
   },
   {
     id: 'fields-intro',
-    heading: 'What lives in a record',
-    text: '',
-    advance: 'manual',
-    cta: 'Got it',
+    heading: 'Records have widgets',
+    text: 'Click <b>⚡ Widgets</b> in the top bar, then toggle one on or off to continue.',
+    advance: 'widget-toggled',
+    position: 'bottom',
+    target: () => document.querySelector('button[onclick*="openWidgetsModal"]'),
+    onShow: () => {
+      const rec = DB.records.find(r => !r.deletedAt);
+      if (rec) navigate('record', rec.areaId, rec.id);
+    },
+  },
+  {
+    id: 'widget-rightclick',
+    target: () => document.querySelector('.section-title[oncontextmenu]'),
+    heading: 'Right-click any widget title',
+    text: 'Right-click a widget title to edit its fields or hide the widget from this record.',
+    advance: 'widget-title-rightclicked',
     position: 'bottom',
     onShow: () => {
       const rec = DB.records.find(r => !r.deletedAt);
       if (rec) navigate('record', rec.areaId, rec.id);
     },
-    _cycleTargets: [
-      { sel: 'button[title*="Copy context"]', label: '<b>📋 Copy for Claude</b> — paste into Claude for help with any record', scroll: true },
-      { sel: 'button[onclick*="linkContact"]', label: '<b>👤 Link contact</b> — connect people across your areas', scroll: true },
-      { sel: 'div[ondrop*="recordDocDrop"]', label: '<b>📎 Upload docs</b> — files attached directly to this record', scroll: true },
-    ],
+  },
+  {
+    id: 'widget-custom',
+    heading: 'Fields are yours to define',
+    text: 'Every record has a <b>Fields ⚙</b> button — add, rename, or remove fields to match exactly how you work. Nothing is fixed. Click it to try.',
+    advance: 'schema-opened',
+    position: 'bottom',
+    target: () => document.querySelector('button[onclick*="openEditTypeSchema"]'),
+    onShow: () => {
+      const rec = DB.records.find(r => !r.deletedAt && r.type !== 'job');
+      if (rec) navigate('record', rec.areaId, rec.id);
+    },
   },
   {
     id: 'delete-record',
@@ -81,9 +88,8 @@ const TOUR_STEPS = [
   {
     id: 'back-forward',
     heading: 'Navigate like a browser',
-    text: 'Use the arrows below to go back to your area, then forward to return.',
-    advance: 'manual',
-    cta: 'Got it',
+    text: 'Use your browser\'s back and forward buttons — or the arrows below — to move between views. Try pressing back now.',
+    advance: 'browser-nav',
     position: 'bottom',
     _backForward: true,
     onShow: () => {
@@ -95,11 +101,20 @@ const TOUR_STEPS = [
     id: 'calendar',
     target: () => document.querySelector('[data-view="calendar"]'),
     heading: 'Your calendar',
-    text: 'Events from all your areas appear here automatically. Click to explore.',
+    text: 'Events from all your areas show up here. Click to explore.',
     advance: 'manual',
     cta: 'Got it',
     position: 'right',
     requireClick: true,
+  },
+  {
+    id: 'calendar-views',
+    target: () => document.querySelector('.cal-mode-btn'),
+    heading: 'Day, week, or month',
+    text: 'This calendar pulls in events from <b>every area</b> — color coded to the area they belong to. <b>Click any day</b> to jump to it and add an event. Try switching views now.',
+    advance: 'calendar-view-changed',
+    position: 'bottom',
+    onShow: () => { if (currentView !== 'calendar') navigate('calendar'); },
   },
   {
     id: 'contacts',
@@ -125,18 +140,67 @@ const TOUR_STEPS = [
     id: 'dashboard',
     target: () => document.querySelector('[data-view="dashboard"]'),
     heading: 'Your home base',
-    text: 'The dashboard updates live as you add records. Click to go home.',
+    text: 'The dashboard brings everything together. Click to take a look.',
     advance: 'manual',
-    cta: "Let's go!",
+    cta: 'Got it',
     position: 'right',
     requireClick: true,
     onShow: () => {},
   },
   {
+    id: 'dash-areas',
+    target: () => document.querySelector('[data-widget-id="areas"]'),
+    heading: 'Life areas',
+    text: 'All your areas at a glance — click any card to jump straight in.',
+    advance: 'manual',
+    cta: 'Got it',
+    position: 'bottom',
+    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
+  },
+  {
+    id: 'dash-week',
+    target: () => document.querySelector('[data-widget-id="week"]'),
+    heading: 'This week',
+    text: 'Events and deadlines coming up in the next 7 days, pulled from every area automatically.',
+    advance: 'manual',
+    cta: 'Got it',
+    position: 'bottom',
+    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
+  },
+  {
+    id: 'dash-today',
+    target: () => document.querySelector('[data-widget-id="today"]'),
+    heading: 'Today',
+    text: "Events scheduled for today across all your areas — your daily starting point.",
+    advance: 'manual',
+    cta: 'Got it',
+    position: 'bottom',
+    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
+  },
+  {
+    id: 'dash-cal',
+    target: () => document.getElementById('dash-cal'),
+    heading: 'Global calendar',
+    text: "You've already seen this one — your calendar lives here on the dashboard too, always in view.",
+    advance: 'manual',
+    cta: 'Got it',
+    position: 'left',
+    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
+  },
+  {
+    id: 'dash-attention-explain',
+    target: () => document.querySelector('[data-widget-id="attention"]'),
+    heading: 'Needs attention',
+    text: 'Flagged records surface here so you always know what to act on. <b>🔴 Urgent</b> at the top, then <b>🟣 Priority</b>, <b>🟡 Follow up</b> — each with its own color. Try it: right-click any record card in the sidebar and set an urgency.',
+    advance: 'urgency-changed',
+    position: 'bottom',
+    onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
+  },
+  {
     id: 'finish',
     target: () => document.querySelector('#sidebar-assistant-btn'),
     heading: "You're all set!",
-    text: "Your space is ready. <b>Ask me anything</b> is always here — it knows your data and can help you find, add, or make sense of anything.",
+    text: '',
     advance: 'manual',
     position: 'right',
     _finish: true,
@@ -239,9 +303,13 @@ function _renderTourStep(step, index) {
     const stepCount = `<div class="tour-step-count">${index + 1} of ${TOUR_STEPS.length}</div>`;
     const heading = `<div class="tour-heading">${step.heading}</div>`;
     const text = `<div class="tour-text">${step.text}</div>`;
-    const navArrows = `<div id="tour-nav-arrows" style="display:flex;gap:20px;justify-content:center;margin:10px 0 14px">
-      <button id="tour-back-arrow" class="tour-nav-arrow" onclick="tourNavBack()" title="Go back" style="font-size:28px;background:var(--bg3);border:2px solid var(--accent);border-radius:50%;width:52px;height:52px;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center">◀</button>
-      <button id="tour-fwd-arrow" class="tour-nav-arrow" onclick="tourNavForward()" title="Go forward" style="font-size:28px;background:var(--bg3);border:2px solid var(--border2);border-radius:50%;width:52px;height:52px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;opacity:0.4;pointer-events:none">▶</button>
+    const navArrows = `<div id="tour-nav-arrows" style="display:flex;gap:6px;justify-content:center;margin:12px 0 16px">
+      <button id="tour-back-arrow" onclick="tourNavBack()" title="Go back" style="width:36px;height:36px;border-radius:50%;border:none;background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);transition:background .15s" onmouseover="this.style.background='var(--bg4,var(--border))'" onmouseout="this.style.background='var(--bg3)'">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button id="tour-fwd-arrow" onclick="tourNavForward()" title="Go forward" style="width:36px;height:36px;border-radius:50%;border:none;background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);opacity:0.35;pointer-events:none;transition:background .15s" onmouseover="this.style.background='var(--bg4,var(--border))'" onmouseout="this.style.background='var(--bg3)'">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
     </div>`;
     const skip = `<button class="tour-skip" onclick="dismissTour()">Skip tour</button>`;
     const actions = `<div class="tour-actions"><button class="tour-cta" id="tour-bf-got-it" onclick="advanceTour()" style="opacity:0.35;pointer-events:none">Got it</button>${skip}</div>`;
@@ -263,14 +331,10 @@ function _renderTourStep(step, index) {
     }
     const bubble = document.createElement('div');
     bubble.id = 'tour-bubble';
-    const stepCount = `<div class="tour-step-count">${index + 1} of ${TOUR_STEPS.length}</div>`;
     const heading = `<div class="tour-heading">${step.heading}</div>`;
-    const text = `<div class="tour-text">${step.text}</div>`;
-    const wipeBtn = tourCreated.areaIds.length
-      ? `<button class="btn btn-sm" style="width:100%;margin-top:8px;font-size:12px;color:var(--muted);background:var(--bg3);border:1px solid var(--border2)" onclick="wipeTourData()">Clear practice area &amp; start fresh</button>`
-      : '';
+    const wipeBtn = `<button style="width:100%;margin-top:8px;padding:8px;font-size:12px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline" onclick="wipeTourData()">Starting fresh and clearing tutorial data</button>`;
     const actions = `<div class="tour-actions" style="flex-direction:column;align-items:stretch"><button class="tour-cta" style="width:100%" onclick="endTour()">Let's go!</button>${wipeBtn}</div>`;
-    bubble.innerHTML = `${stepCount}${heading}${text}${actions}`;
+    bubble.innerHTML = `${heading}${actions}`;
     document.body.appendChild(bubble);
     _positionBubble(bubble, target, step.position);
     return;
