@@ -227,6 +227,10 @@ function startTour() {
   tourCreated.areaIds = [];
   tourCreated.recordIds = [];
   _saveTourCreated();
+  // Ensure rename/recolor tip always shows during tour
+  const prefs = currentUser.dashboardPrefs || {};
+  prefs.dismissedTourTips = (prefs.dismissedTourTips || []).filter(k => k !== 'area-rename');
+  currentUser.dashboardPrefs = prefs;
   showTourStep(0);
 }
 
@@ -587,16 +591,10 @@ function tourNotify(event, data) {
     clearTourOverlay();
     closeModal?.();
     if (event === 'area-created') {
-      // Wait for the rename/recolor tip's Got it before showing step 2
-      tour._pendingAdvance = tour.step + 1;
-      // Fallback: advance after 4s in case tip was already dismissed or doesn't appear
-      setTimeout(() => {
-        if (tour._pendingAdvance !== undefined) {
-          const next = tour._pendingAdvance;
-          tour._pendingAdvance = undefined;
-          showTourStep(next);
-        }
-      }, 4000);
+      // Advance step counter now so the modal MutationObserver won't re-show step 1
+      const next = tour.step + 1;
+      tour.step = next;
+      tour._pendingAdvance = next;
     } else {
       setTimeout(() => showTourStep(tour.step + 1), 500);
     }

@@ -111,6 +111,10 @@ function updatePlanningSubitems() {
 }
 
 window.addEventListener('popstate', e => {
+  if (typeof tour !== 'undefined' && tour?.active && !TOUR_STEPS[tour.step]?._backForward) {
+    history.forward();
+    return;
+  }
   if (!e.state) return;
   const s = e.state;
   // Restore calendar mode if this was a cal mode change
