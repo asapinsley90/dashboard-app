@@ -60,6 +60,7 @@ const TOUR_STEPS = [
     advance: 'schema-saved',
     position: 'bottom',
     target: () => document.querySelector('button[onclick*="openEditTypeSchema"]'),
+    modalInteractive: true,
     onShow: () => {
       const rec = DB.records.find(r => !r.deletedAt && r.type !== 'job');
       if (rec) navigate('record', rec.areaId, rec.id);
@@ -96,25 +97,6 @@ const TOUR_STEPS = [
       const rec = DB.records.find(r => !r.deletedAt);
       if (rec) navigate('record', rec.areaId, rec.id);
     },
-  },
-  {
-    id: 'calendar',
-    target: () => document.querySelector('[data-view="calendar"]'),
-    heading: 'Your calendar',
-    text: 'Events from all your areas show up here. Click to explore.',
-    advance: 'manual',
-    cta: 'Got it',
-    position: 'right',
-    requireClick: true,
-  },
-  {
-    id: 'calendar-views',
-    target: () => document.querySelector('.cal-mode-btn'),
-    heading: 'Day, week, or month',
-    text: 'Events from <b>every area</b> — color coded to the area they belong to. Switch between Day, Week, and Month views. Try one now.',
-    advance: 'calendar-view-changed',
-    position: 'bottom',
-    onShow: () => { if (currentView !== 'calendar') navigate('calendar'); },
   },
   {
     id: 'contacts',
@@ -184,6 +166,15 @@ const TOUR_STEPS = [
     onShow: () => { if (currentView !== 'dashboard') navigate('dashboard'); },
   },
   {
+    id: 'calendar',
+    target: () => document.querySelector('[data-view="calendar"]'),
+    heading: 'Full calendar view',
+    text: 'Click to open the full calendar — Day, Week, and Month views, all your events color-coded by area.',
+    advance: 'navigate-calendar',
+    position: 'right',
+    requireClick: true,
+  },
+  {
     id: 'dash-attention-explain',
     target: () => document.querySelector('[data-widget-id="attention"] .record-card') || document.querySelector('[data-widget-id="attention"]'),
     heading: 'Needs attention',
@@ -248,6 +239,7 @@ function _renderTourStep(step, index) {
 
   const overlay = document.createElement('div');
   overlay.id = 'tour-overlay';
+  if (step.modalInteractive) overlay.style.pointerEvents = 'none';
   document.body.appendChild(overlay);
 
   // ── fields-intro: manual step-through with Got it ──

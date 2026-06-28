@@ -72,7 +72,7 @@ function openWidgetsModal(recordId) {
         <span class="widget-toggle-dot"></span>
       </div>`).join('')}
     </div>
-  `);
+  `, [{ label: 'Done', onclick: closeModal }]);
 }
 
 function toggleWidgetActive(recordId, widgetId, el) {
@@ -100,18 +100,44 @@ function toggleWidgetActive(recordId, widgetId, el) {
   else content.innerHTML = renderGenericRecord(r, area);
 }
 
-function openWidgetTitleMenu(e, recordId, widgetId) {
+function getWidgetLabel(r, widgetId, defaultLabel) {
+  return r.fields._widgetLabels?.[widgetId] || defaultLabel;
+}
+
+function openWidgetTitleMenu(e, recordId, widgetId, defaultLabel) {
   e.preventDefault();
   e.stopPropagation();
   document.querySelectorAll('.widget-ctx-menu').forEach(m => m.remove());
   const r = getRecord(recordId);
   if (!r) return;
   const def = getWidgetDefs(r).find(d => d.id === widgetId);
+  const currentLabel = getWidgetLabel(r, widgetId, defaultLabel || def?.label || widgetId);
   const menu = document.createElement('div');
   menu.className = 'ctx-menu widget-ctx-menu';
-  menu.style.cssText = `left:${Math.min(e.clientX, window.innerWidth - 180)}px;top:${Math.min(e.clientY, window.innerHeight - 80)}px`;
+  menu.style.cssText = `left:${Math.min(e.clientX, window.innerWidth - 180)}px;top:${Math.min(e.clientY, window.innerHeight - 120)}px`;
   const h = document.createElement('div'); h.className = 'ctx-header';
-  h.textContent = (def?.icon || '') + ' ' + (def?.label || widgetId);
+  h.textContent = (def?.icon || '') + ' ' + currentLabel;
+
+  const rename = document.createElement('div'); rename.className = 'ctx-item';
+  rename.textContent = 'Rename widget';
+  rename.onclick = () => {
+    menu.remove();
+    const val = prompt('Rename widget:', currentLabel);
+    if (!val || !val.trim()) return;
+    if (!r.fields._widgetLabels) r.fields._widgetLabels = {};
+    r.fields._widgetLabels[widgetId] = val.trim();
+    api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+    const content = document.getElementById('record-view-content');
+    const area2 = DB.areas.find(a => a.id === r.areaId);
+    if (content) {
+      if (r.type === 'job') content.innerHTML = renderJobRecord(r, area2);
+      else if (r.type === 'account') { content.innerHTML = renderAccountRecord(r, area2); requestAnimationFrame(() => renderAccountCharts(`acct-charts-${r.id}`, (r.fields.history||[]).slice().sort((a,b)=>a.month.localeCompare(b.month)))); }
+      else if (r.type === 'company') content.innerHTML = renderCompanyRecord(r, area2);
+      else if (r.type === 'contact') content.innerHTML = renderContactRecord(r, area2);
+      else content.innerHTML = renderSchemaRecord(r, area2);
+    }
+  };
+
   const hide = document.createElement('div'); hide.className = 'ctx-item';
   hide.textContent = 'Hide widget';
   hide.onclick = () => {
@@ -133,7 +159,7 @@ function openWidgetTitleMenu(e, recordId, widgetId) {
     else if (r.type === 'contact') content.innerHTML = renderContactRecord(r, area2);
     else content.innerHTML = renderSchemaRecord(r, area2);
   };
-  menu.appendChild(h); menu.appendChild(hide);
+  menu.appendChild(h); menu.appendChild(rename); menu.appendChild(hide);
   document.body.appendChild(menu);
   const close = ev => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('mousedown', close); } };
   setTimeout(() => document.addEventListener('mousedown', close), 0);
@@ -201,7 +227,7 @@ function renderJobRecord(r, area) {
   <div class="record-sections">
     <div class="record-main">
       ${widgetCard('role-details', `<div class="section-card">
-        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','role-details')">Role details</div>
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','role-details')">${getWidgetLabel(r,'role-details','Role details')}</div>
         <div class="field-row">
           <div class="field-label">Company</div>
           <div class="field-value">
@@ -299,7 +325,7 @@ function renderJobRecord(r, area) {
         </div>`).join('')}
       </div>` : ''}
       ${widgetCard('timeline', `<div class="section-card">
-        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','timeline')">Timeline</div>
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','timeline')">${getWidgetLabel(r,'timeline','Timeline')}</div>
         ${renderTimeline(r)}
       </div>`, r)}
     </div>
@@ -349,7 +375,7 @@ function renderContactRecord(r, area) {
     </div>
     <div class="record-sidebar">
       ${widgetCard('timeline', `<div class="section-card">
-        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','timeline')">Timeline</div>
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','timeline')">${getWidgetLabel(r,'timeline','Timeline')}</div>
         ${renderTimeline(r)}
       </div>`, r)}
     </div>
@@ -444,7 +470,7 @@ function renderCompanyRecord(r, area) {
         </div>`).join('')}
       </div>`:'', r)}
       ${widgetCard('timeline', `<div class="section-card">
-        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','timeline')">Timeline</div>
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','timeline')">${getWidgetLabel(r,'timeline','Timeline')}</div>
         ${renderTimeline(r)}
       </div>`, r)}
     </div>
@@ -1008,7 +1034,7 @@ function renderSchemaRecord(r, area) {
   <div class="record-sections">
     <div class="record-main">
       ${widgetCard('fields', mainFields.length ? `<div class="section-card">
-        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','fields')">Details</div>
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','fields')">${getWidgetLabel(r,'fields','Details')}</div>
         ${mainFields.map(f => `<div class="field-row">
           <div class="field-label">${f.label}</div>
           <div class="field-value">${renderFieldInput(f)}</div>
@@ -1018,7 +1044,7 @@ function renderSchemaRecord(r, area) {
     </div>
     <div class="record-sidebar">
       ${widgetCard('timeline', `<div class="section-card">
-        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','timeline')">Timeline</div>
+        <div class="section-title" oncontextmenu="openWidgetTitleMenu(event,'${r.id}','timeline')">${getWidgetLabel(r,'timeline','Timeline')}</div>
         ${renderTimeline(r)}
       </div>`, r)}
     </div>

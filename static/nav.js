@@ -49,6 +49,7 @@ function navigate(view, areaId, recordId, push = true) {
     if (safeView === 'contacts') tourNotify('navigate-contacts');
     else if (safeView === 'documents') tourNotify('navigate-documents');
     else if (safeView === 'dashboard') tourNotify('navigate-dashboard');
+    else if (safeView === 'calendar') tourNotify('navigate-calendar');
   }
 
   // Render
