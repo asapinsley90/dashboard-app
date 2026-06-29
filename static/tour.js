@@ -660,6 +660,7 @@ function tourNotify(event, data) {
   if (!step) return;
   if (step.advance === event) {
     console.log('[tour] advancing on event=' + event + ' step=' + tour.step);
+    tour._advanceReady = false;
     if (event === 'area-created' && data?.id) {
       tour.lastAreaId = data.id;
       tourCreated.areaIds.push(data.id);
