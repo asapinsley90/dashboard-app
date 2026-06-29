@@ -484,14 +484,14 @@ function _renderTourStep(step, index) {
   const isEventDriven = step.advance && step.advance !== 'manual';
   let actions;
   if (isEventDriven && !step.allowManualAdvance) {
-    actions = `<div class="tour-actions"><button class="tour-skip" style="opacity:0.5" onclick="advanceTour()">Got it</button><button class="tour-skip" onclick="dismissTour()">Skip tour</button></div>`;
+    actions = `<div class="tour-actions"><button class="tour-skip" onclick="dismissTour()">Skip tour</button></div>`;
   } else {
     const ctaLabel = step.cta || (step.requireClick && target ? 'Got it' : 'Next');
     const ctaOnclick = (step.requireClick && target && step.advance !== 'manual')
       ? `document.getElementById('tour-click-zone')?.click()`
       : `advanceTour()`;
     const skip = `<button class="tour-skip" onclick="dismissTour()">Skip tour</button>`;
-    const skipStep = isEventDriven ? `<button class="tour-skip" style="opacity:0.5" onclick="advanceTour()">Got it</button>` : '';
+    const skipStep = '';
     actions = `<div class="tour-actions"><button class="tour-cta" onclick="${ctaOnclick}">${ctaLabel}</button>${skipStep}${skip}</div>`;
   }
 

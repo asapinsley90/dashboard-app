@@ -948,7 +948,6 @@ function openEditTypeSchema(typeId) {
       closeModal();
       tourNotify('schema-saved');
       renderRecordView(currentRecordId);
-      setTimeout(() => highlightDetailsSection(typeId), 80);
     }},
     { label: 'Cancel', onclick: closeModal }]);
 }
