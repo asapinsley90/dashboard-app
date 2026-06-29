@@ -46,7 +46,7 @@ const TOUR_STEPS = [
     id: 'widget-rightclick',
     target: () => document.querySelector('.section-title[oncontextmenu]'),
     heading: 'Right-click any widget title',
-    text: 'Right-click a widget title to hide it from this record.',
+    text: 'Right-click a widget title to rename it or hide it from this record — hidden widgets can always be re-added from the <b>⚡ Widgets</b> menu.',
     advance: 'widget-hidden',
     position: 'bottom',
     onShow: () => {
@@ -160,12 +160,16 @@ const TOUR_STEPS = [
     id: 'dash-cal',
     target: () => document.getElementById('dash-cal')?.parentElement,
     heading: 'Calendar on your dashboard',
-    text: "Your calendar lives here — click <b>+ New event</b> or tap any time slot to create an event. Try it now.",
+    text: "Your calendar lives here — tap the highlighted noon slot or click <b>+ New event</b> to create an event.",
     advance: 'event-created',
-    allowManualAdvance: true,
-    cta: 'Got it',
-    position: 'bottom',
+    position: 'top',
     spotlight: true,
+    onShow: () => {
+      setTimeout(() => {
+        document.querySelectorAll('.tour-noon-highlight').forEach(el => el.classList.remove('tour-noon-highlight'));
+        document.querySelectorAll('#dash-cal .cal-week-cell[onclick*="\'12:00\'"], #dash-cal .cal-week-cell[onclick*="12:00"]').forEach(el => el.classList.add('tour-noon-highlight'));
+      }, 150);
+    },
   },
   {
     id: 'dash-cal-week',
@@ -173,9 +177,7 @@ const TOUR_STEPS = [
     heading: 'Switch to week view',
     text: 'Click <b>Week</b> to see your whole week at a glance.',
     advance: 'calendar-view-week',
-    allowManualAdvance: true,
-    cta: 'Got it',
-    position: 'bottom',
+    position: 'top',
     spotlight: true,
   },
   {
@@ -184,9 +186,7 @@ const TOUR_STEPS = [
     heading: 'Now try month view',
     text: 'Click <b>Month</b> to see the full month.',
     advance: 'calendar-view-month',
-    allowManualAdvance: true,
-    cta: 'Got it',
-    position: 'bottom',
+    position: 'top',
     spotlight: true,
   },
   {
@@ -195,9 +195,7 @@ const TOUR_STEPS = [
     heading: 'Reset with Today',
     text: 'Click <b>Today</b> to jump back to the current date from any view.',
     advance: 'calendar-today',
-    allowManualAdvance: true,
-    cta: 'Got it',
-    position: 'bottom',
+    position: 'top',
     spotlight: true,
   },
   {
@@ -604,6 +602,7 @@ function clearTourOverlay() {
   document.getElementById('tour-halo')?.remove();
   document.getElementById('tour-click-zone')?.remove();
   document.querySelectorAll('.tour-spotlight').forEach(el => el.classList.remove('tour-spotlight'));
+  document.querySelectorAll('.tour-noon-highlight').forEach(el => el.classList.remove('tour-noon-highlight'));
 }
 
 function showTourTip(key, targetSelector, heading, text, position) {

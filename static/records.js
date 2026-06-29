@@ -113,6 +113,7 @@ function widgetCard(id, html, r) {
 function openWidgetsModal(recordId) {
   const r = getRecord(recordId);
   if (!r) return;
+  tourNotify('widget-opened');
   const defs = getWidgetDefs(r);
   const active = getActiveWidgets(r);
   openModal('Widgets', `
