@@ -37,7 +37,7 @@ function navigate(view, areaId, recordId, push = true) {
   if (safeView === 'dashboard') document.querySelector('[data-view="dashboard"]')?.classList.add('active');
   else if (safeView === 'area' && areaId) document.querySelector(`[data-area="${areaId}"]`)?.classList.add('active');
   else if (safeView === 'record' && currentAreaId) document.querySelector(`[data-area="${currentAreaId}"]`)?.classList.add('active');
-  else if (['calendar','contacts','companies','documents','history','weekly'].includes(safeView)) document.querySelector(`[data-view="${safeView}"]`)?.classList.add('active');
+  else if (['calendar','contacts','companies','documents','history','weekly','admin'].includes(safeView)) document.querySelector(`[data-view="${safeView}"]`)?.classList.add('active');
   if (safeView === 'companies') {
     document.querySelector('[data-view="contacts"]')?.classList.add('active');
     document.querySelector('[data-view="companies"]')?.classList.add('active');
@@ -63,6 +63,7 @@ function navigate(view, areaId, recordId, push = true) {
   else if (safeView === 'history') { historyTab = ['archived','deleted'].includes(areaId) ? areaId : 'completed'; renderHistoryView(); }
   else if (safeView === 'weekly') renderWeekly();
   else if (safeView === 'templates') renderTemplatesView();
+  else if (safeView === 'admin') renderAdminView();
 
   updatePlanningSubitems();
 

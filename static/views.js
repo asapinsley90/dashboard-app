@@ -1470,9 +1470,9 @@ async function confirmMoveRecord(recordId, btn) {
 }
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
-function openAdminPanel() {
+function navigateAdmin() {
   const saved = localStorage.getItem('admin_token');
-  if (saved) { window.open('/admin?token=' + encodeURIComponent(saved), '_blank'); return; }
+  if (saved) { navigate('admin'); return; }
   openModal('Admin panel', `
     <div class="modal-field">
       <div class="modal-label">Admin token</div>
@@ -1483,11 +1483,208 @@ function openAdminPanel() {
       const token = document.getElementById('admin-token-input').value.trim();
       if (!token) return;
       localStorage.setItem('admin_token', token);
-      window.open('/admin?token=' + encodeURIComponent(token), '_blank');
       closeModal();
+      navigate('admin');
     }},
     { label: 'Cancel', onclick: closeModal }]);
   setTimeout(() => document.getElementById('admin-token-input')?.focus(), 50);
+}
+
+function _adminH() {
+  return { 'Content-Type': 'application/json', 'x-admin-token': localStorage.getItem('admin_token') || '' };
+}
+
+async function renderAdminView() {
+  const el = document.getElementById('admin-view-content');
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px">
+      <div style="font-size:18px;font-weight:600">Admin</div>
+      <button class="btn" style="font-size:12px" onclick="localStorage.removeItem('admin_token');navigate('dashboard')">Clear token</button>
+    </div>
+    <div style="font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">Instance stats</div>
+    <div id="adm-stats" style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:24px;color:var(--muted);font-size:13px">Loading...</div>
+
+    <div style="font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">Waitlist</div>
+    <div id="adm-waitlist" style="margin-bottom:24px;color:var(--muted);font-size:13px">Loading...</div>
+
+    <div style="font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">Tenants</div>
+    <div id="adm-tenants" style="margin-bottom:24px;color:var(--muted);font-size:13px">Loading...</div>
+
+    <div style="font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">Provision new tenant</div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:24px">
+      <div class="modal-field"><div class="modal-label">Customer name</div><input class="modal-input" id="adm-p-name" placeholder="Jane Smith"></div>
+      <div class="modal-field"><div class="modal-label">Customer email</div><input class="modal-input" id="adm-p-email" type="email" placeholder="jane@example.com"></div>
+      <div class="modal-field"><div class="modal-label">Service name (Render, must be unique)</div><input class="modal-input" id="adm-p-svc" placeholder="dashboard-jane" value="dashboard-"></div>
+      <button class="btn btn-p" onclick="admProvision()">Provision instance</button>
+      <div id="adm-p-status" style="font-size:12px;margin-top:10px;color:var(--muted)"></div>
+    </div>
+
+    <div style="font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">Pending template submissions</div>
+    <div id="adm-pending" style="margin-bottom:24px;color:var(--muted);font-size:13px">Loading...</div>
+
+    <div style="font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">Schema changes</div>
+    <div id="adm-schema" style="margin-bottom:24px;color:var(--muted);font-size:13px">Loading...</div>`;
+
+  admLoadStats();
+  admLoadWaitlist();
+  admLoadTenants();
+  admLoadPending();
+  admLoadSchema();
+}
+
+async function admLoadStats() {
+  const res = await fetch('/admin/api/stats', { headers: _adminH() });
+  const d = await res.json();
+  const el = document.getElementById('adm-stats'); if (!el) return;
+  if (d.error) { el.innerHTML = `<span style="color:var(--red)">${d.error}</span>`; return; }
+  el.innerHTML = `<table style="width:100%;border-collapse:collapse">
+    ${[['Areas',d.areas],['Records',d.records],['Reviews',d.reviews],['Documents',d.documents],['User name',d.userName||'—'],['Onboarding step',d.onboardingStep||'—']].map(([k,v])=>`
+    <tr><td style="padding:5px 0;color:var(--muted);font-size:13px;width:160px">${k}</td><td style="padding:5px 0;font-size:13px">${v}</td></tr>`).join('')}
+  </table>`;
+}
+
+async function admLoadWaitlist() {
+  const res = await fetch('/admin/api/waitlist', { headers: _adminH() });
+  const list = await res.json();
+  const el = document.getElementById('adm-waitlist'); if (!el) return;
+  if (!list.length) { el.innerHTML = '<div style="color:var(--dim);font-size:13px">No waitlist requests yet.</div>'; return; }
+  el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>${['Name','Email','Status','Requested',''].map(h=>`<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--border)">${h}</th>`).join('')}</tr></thead>
+      <tbody>${list.map(w=>`<tr>
+        <td style="padding:8px 12px;font-size:13px">${escapeHtml(w.name)}</td>
+        <td style="padding:8px 12px;font-size:13px;color:var(--muted)">${escapeHtml(w.email)}</td>
+        <td style="padding:8px 12px"><span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:${w.status==='approved'?'rgba(76,175,125,.15)':w.status==='denied'?'rgba(224,85,85,.15)':'rgba(212,148,58,.15)'};color:${w.status==='approved'?'#4caf7d':w.status==='denied'?'#e05555':'#d4943a'}">${w.status}</span></td>
+        <td style="padding:8px 12px;font-size:12px;color:var(--dim)">${w.createdAt?.slice(0,10)||'—'}</td>
+        <td style="padding:8px 12px;white-space:nowrap">
+          ${w.status==='pending'?`<button class="btn btn-p" style="font-size:12px;padding:4px 10px;margin-right:6px" onclick="admApproveWaitlist('${w.id}',this)">Approve</button><button class="btn btn-danger" style="font-size:12px;padding:4px 10px;margin-right:6px" onclick="admDenyWaitlist('${w.id}')">Deny</button>`:''}
+          <button class="btn btn-danger" style="font-size:12px;padding:4px 8px;opacity:.5" onclick="admDeleteWaitlist('${w.id}')">✕</button>
+        </td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
+async function admApproveWaitlist(id, btn) {
+  btn.disabled = true; btn.textContent = 'Provisioning...';
+  const token = localStorage.getItem('admin_token') || '';
+  try {
+    const res = await fetch(`/api/waitlist/${id}/approve?token=${token}`);
+    if (!res.ok) { alert('Provisioning failed:\n\n' + (await res.text()).replace(/<[^>]+>/g,'')); btn.disabled=false; btn.textContent='Approve'; return; }
+    admLoadWaitlist(); admLoadTenants();
+  } catch(e) { alert('Error: ' + e.message); btn.disabled=false; btn.textContent='Approve'; }
+}
+
+async function admDenyWaitlist(id) {
+  await fetch(`/admin/api/waitlist/${id}`, { method:'PATCH', headers:_adminH(), body:JSON.stringify({status:'denied'}) });
+  admLoadWaitlist();
+}
+
+async function admDeleteWaitlist(id) {
+  if (!confirm('Delete this waitlist request?')) return;
+  await fetch(`/admin/api/waitlist/${id}`, { method:'DELETE', headers:_adminH() });
+  admLoadWaitlist();
+}
+
+async function admLoadTenants() {
+  const res = await fetch('/admin/api/tenants', { headers: _adminH() });
+  const list = await res.json();
+  const el = document.getElementById('adm-tenants'); if (!el) return;
+  if (!list.length) { el.innerHTML = '<div style="color:var(--dim);font-size:13px">No tenants yet.</div>'; return; }
+  el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>${['Name','Email','URL','Status','Created',''].map(h=>`<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--border)">${h}</th>`).join('')}</tr></thead>
+      <tbody>${list.map(t=>`<tr>
+        <td style="padding:8px 12px;font-size:13px">${escapeHtml(t.name)}</td>
+        <td style="padding:8px 12px;font-size:13px;color:var(--muted)">${escapeHtml(t.email)}</td>
+        <td style="padding:8px 12px;font-size:13px">${t.serviceUrl?`<a href="${t.serviceUrl}" target="_blank" style="color:var(--accent)">${t.serviceUrl.replace('https://','')}</a>`:'<span style="color:var(--dim)">pending</span>'}</td>
+        <td style="padding:8px 12px"><span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:${t.status==='active'?'rgba(76,175,125,.15)':t.status==='suspended'?'rgba(224,85,85,.15)':'rgba(212,148,58,.15)'};color:${t.status==='active'?'#4caf7d':t.status==='suspended'?'#e05555':'#d4943a'}">${t.status}</span></td>
+        <td style="padding:8px 12px;font-size:12px;color:var(--dim)">${t.createdAt?.slice(0,10)||'—'}</td>
+        <td style="padding:8px 12px;white-space:nowrap">
+          ${t.status==='active'?`<button class="btn" style="font-size:12px;padding:4px 10px;margin-right:6px" onclick="admSetTenantStatus('${t.id}','suspended')">Suspend</button>`:''}
+          ${t.status==='suspended'?`<button class="btn btn-p" style="font-size:12px;padding:4px 10px;margin-right:6px" onclick="admSetTenantStatus('${t.id}','active')">Reactivate</button>`:''}
+          <button class="btn btn-danger" style="font-size:12px;padding:4px 8px;opacity:.5" onclick="admDeleteTenant('${t.id}')">✕</button>
+        </td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
+async function admSetTenantStatus(id, status) {
+  await fetch(`/admin/api/tenants/${id}`, { method:'PATCH', headers:_adminH(), body:JSON.stringify({status}) });
+  admLoadTenants();
+}
+
+async function admDeleteTenant(id) {
+  if (!confirm('Delete this tenant record? This does not stop the Render service.')) return;
+  await fetch(`/admin/api/tenants/${id}`, { method:'DELETE', headers:_adminH() });
+  admLoadTenants();
+}
+
+async function admProvision() {
+  const name = document.getElementById('adm-p-name').value.trim();
+  const email = document.getElementById('adm-p-email').value.trim();
+  const svc = document.getElementById('adm-p-svc').value.trim();
+  const status = document.getElementById('adm-p-status');
+  if (!name || !email || !svc) { status.style.color='var(--red)'; status.textContent='All fields required'; return; }
+  status.style.color='var(--muted)'; status.textContent='Provisioning — this takes 30–60 seconds...';
+  const res = await fetch('/admin/api/provision', { method:'POST', headers:_adminH(), body:JSON.stringify({name,email,serviceName:svc}) });
+  const data = await res.json();
+  if (data.error) { status.style.color='var(--red)'; status.textContent=data.error; }
+  else {
+    status.style.color='#4caf7d';
+    status.textContent='Done! URL: ' + (data.url||'check Render dashboard') + ' — welcome email sent.';
+    admLoadTenants();
+    document.getElementById('adm-p-name').value='';
+    document.getElementById('adm-p-email').value='';
+    document.getElementById('adm-p-svc').value='dashboard-';
+  }
+}
+
+async function admLoadPending() {
+  const res = await fetch('/admin/api/pending-templates', { headers: _adminH() });
+  const list = await res.json();
+  const el = document.getElementById('adm-pending'); if (!el) return;
+  if (!list.length) { el.innerHTML = '<div style="color:var(--dim);font-size:13px">No pending submissions.</div>'; return; }
+  el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>${['Name','Description','Submitted','Status',''].map(h=>`<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--border)">${h}</th>`).join('')}</tr></thead>
+      <tbody>${list.map(t=>`<tr>
+        <td style="padding:8px 12px;font-size:13px">${escapeHtml(t.name)} <span style="font-size:11px;color:var(--dim)">${t.icon||''}</span></td>
+        <td style="padding:8px 12px;font-size:13px;color:var(--muted)">${escapeHtml(t.description||'—')}</td>
+        <td style="padding:8px 12px;font-size:12px;color:var(--dim)">${t.submitted_at?.slice(0,10)||'—'}</td>
+        <td style="padding:8px 12px"><span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:${t.status==='approved'?'rgba(76,175,125,.15)':t.status==='denied'?'rgba(224,85,85,.15)':'rgba(212,148,58,.15)'};color:${t.status==='approved'?'#4caf7d':t.status==='denied'?'#e05555':'#d4943a'}">${t.status}</span></td>
+        <td style="padding:8px 12px;white-space:nowrap">
+          ${t.status==='pending'?`<button class="btn btn-p" style="font-size:12px;padding:4px 10px;margin-right:6px" onclick="admSetTemplateStatus('${t.id}','approved')">Approve</button><button class="btn btn-danger" style="font-size:12px;padding:4px 10px" onclick="admSetTemplateStatus('${t.id}','denied')">Deny</button>`:''}
+        </td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
+async function admSetTemplateStatus(id, status) {
+  await fetch(`/admin/api/pending-templates/${id}`, { method:'PATCH', headers:_adminH(), body:JSON.stringify({status}) });
+  admLoadPending();
+}
+
+async function admLoadSchema() {
+  const res = await fetch('/admin/api/schema-changes', { headers: _adminH() });
+  const list = await res.json();
+  const el = document.getElementById('adm-schema'); if (!el) return;
+  if (!list.length) { el.innerHTML = '<div style="color:var(--dim);font-size:13px">No schema changes yet.</div>'; return; }
+  el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>${['Schema','Action','Fields','Date',''].map(h=>`<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--border)">${h}</th>`).join('')}</tr></thead>
+      <tbody>${list.map(c=>`<tr style="opacity:${c.reviewed?.5:1}">
+        <td style="padding:8px 12px;font-size:13px">${escapeHtml(c.schemaName)} <span style="font-size:11px;color:var(--dim)">(${c.schemaId})</span></td>
+        <td style="padding:8px 12px"><span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:${c.action==='created'?'rgba(76,175,125,.15)':'rgba(212,148,58,.15)'};color:${c.action==='created'?'#4caf7d':'#d4943a'}">${c.action}</span></td>
+        <td style="padding:8px 12px;font-size:12px;color:var(--muted)">${JSON.parse(typeof c.fields==='string'?c.fields:'[]').map(f=>f.label).join(', ')||'—'}</td>
+        <td style="padding:8px 12px;font-size:12px;color:var(--dim)">${c.createdAt?.slice(0,10)||'—'}</td>
+        <td style="padding:8px 12px">${!c.reviewed?`<button class="btn" style="font-size:12px;padding:4px 10px" onclick="admMarkReviewed('${c.id}')">Mark reviewed</button>`:'<span style="color:#4caf7d;font-size:13px">✓</span>'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
+async function admMarkReviewed(id) {
+  await fetch(`/admin/api/schema-changes/${id}/reviewed`, { method:'PATCH', headers:_adminH() });
+  admLoadSchema();
 }
 
 // ── ACCOUNT SETTINGS ─────────────────────────────────────────────────────────
