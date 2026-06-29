@@ -206,6 +206,18 @@ const TOUR_STEPS = [
     advance: 'urgency-set-urgent',
     position: 'bottom',
     spotlight: true,
+    onShow: () => {
+      // Keep only one 'new' urgency record visible — clear extras so attention widget isn't cluttered
+      let kept = false;
+      for (const id of tourCreated.recordIds) {
+        const r = DB.records.find(r => r.id === id && !r.deletedAt && r.urgency === 'new');
+        if (!r) continue;
+        if (!kept) { kept = true; continue; }
+        r.urgency = 'normal';
+        api('PUT', `/api/records/${id}`, { urgency: 'normal' }).catch(() => {});
+      }
+      if (currentView === 'dashboard') renderDashboard();
+    },
   },
   {
     id: 'urgency-clear',
@@ -529,11 +541,13 @@ async function wipeTourData() {
   // Delete tour-created records and areas
   for (const id of tourCreated.recordIds) {
     const r = DB.records.find(r => r.id === id);
-    if (r) { r.deletedAt = new Date().toISOString(); api('DELETE', `/api/records/${id}`).catch(() => {}); }
+    if (r) r.deletedAt = new Date().toISOString();
+    api('DELETE', `/api/records/${id}`).catch(() => {});
   }
   for (const id of tourCreated.areaIds) {
     const a = DB.areas.find(a => a.id === id);
-    if (a) { a.deletedAt = new Date().toISOString(); api('DELETE', `/api/areas/${id}`).catch(() => {}); }
+    if (a) a.deletedAt = new Date().toISOString();
+    api('DELETE', `/api/areas/${id}`).catch(() => {});
   }
   renderSidebar();
   navigate('dashboard');
