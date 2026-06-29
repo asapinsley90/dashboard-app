@@ -290,6 +290,7 @@ function startTour() {
 }
 
 function showTourStep(index) {
+  console.log('[tour] showTourStep ' + index + ' id=' + (TOUR_STEPS[index]?.id));
   clearTourOverlay();
   if (index >= TOUR_STEPS.length) { endTour(); return; }
   tour.step = index;
@@ -309,7 +310,7 @@ function showTourStep(index) {
 }
 
 function _renderTourStep(step, index) {
-  if (tour.step !== index) return;
+  if (tour.step !== index) { console.warn('[tour] stale render blocked: step=' + tour.step + ' index=' + index); return; }
   const target = step.target?.();
 
   clearTourOverlay();
@@ -499,6 +500,7 @@ function _renderTourStep(step, index) {
   bubble.innerHTML = `${stepCount}${heading}${text}${actions}`;
   document.body.appendChild(bubble);
   _positionBubble(bubble, target, step.position);
+  console.log('[tour] _advanceReady=true step=' + index + ' id=' + step.id);
   tour._advanceReady = true;
 }
 
@@ -652,10 +654,12 @@ function dismissTourTip(key) {
 }
 
 function tourNotify(event, data) {
-  if (!tour.active || !tour._advanceReady) return;
+  if (!tour.active) return;
+  if (!tour._advanceReady) { console.warn('[tour] notify blocked (not ready): event=' + event + ' step=' + tour.step); return; }
   const step = TOUR_STEPS[tour.step];
   if (!step) return;
   if (step.advance === event) {
+    console.log('[tour] advancing on event=' + event + ' step=' + tour.step);
     if (event === 'area-created' && data?.id) {
       tour.lastAreaId = data.id;
       tourCreated.areaIds.push(data.id);
