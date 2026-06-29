@@ -240,7 +240,7 @@ const _savedTourCreated = (() => { try { return JSON.parse(localStorage.getItem(
 const tourCreated = { areaIds: _savedTourCreated.areaIds || [], recordIds: _savedTourCreated.recordIds || [] };
 function _saveTourCreated() { try { localStorage.setItem('tourCreated', JSON.stringify(tourCreated)); } catch {} }
 
-const _TOUR_BUILTIN = ['job'];
+const _TOUR_BUILTIN = [];
 
 function _tourSchemaRecord() {
   // Prefer a schema-typed record created during this tour session

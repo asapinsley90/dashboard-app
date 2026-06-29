@@ -583,7 +583,7 @@ async function confirmQAdd() {
   const area = DB.areas.find(a=>a.id===areaId);
   const category = area?.id === 'area-jobs' ? 'job' : area?.id === 'area-health' ? 'health' : 'other';
   const ev = await api('POST', '/api/records', {
-    type:'event', areaId, title, status:'upcoming', urgency:'normal', priority:2,
+    type:'event', areaId, title, status:'upcoming', priority:2,
     fields:{ date:qAddDate, time, endTime, location:'', link:'', category, notes:'' },
     links:[]
   });
