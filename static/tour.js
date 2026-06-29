@@ -162,7 +162,7 @@ const TOUR_STEPS = [
     heading: 'Calendar on your dashboard',
     text: "Your calendar lives here — tap the highlighted noon slot or click <b>+ New event</b> to create an event.",
     advance: 'event-created',
-    position: 'top',
+    position: 'left',
     spotlight: true,
     onShow: () => {
       setTimeout(() => {
@@ -555,6 +555,9 @@ function _positionBubble(bubble, target, pos) {
     const r = target.getBoundingClientRect();
     if (pos === 'right') {
       left = r.right + gap;
+      top = r.top;
+    } else if (pos === 'left') {
+      left = r.left - bw - gap;
       top = r.top;
     } else if (pos === 'top') {
       left = r.left;

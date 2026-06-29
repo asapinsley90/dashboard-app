@@ -588,6 +588,7 @@ async function confirmQAdd() {
   });
   DB.records.push(ev);
   closeQAdd();
+  tourNotify('event-created');
   if (document.getElementById('page-dashboard')?.classList.contains('active') || currentView==='dashboard') renderCalWidget('dash-cal',true);
   if (currentView==='calendar') renderCalFull();
 }
