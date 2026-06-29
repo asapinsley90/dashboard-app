@@ -441,8 +441,9 @@ function triCalDayClick(ds, dayPanelId) {
 }
 function calNav(dir, cid, mini) {
   calOffset = dir===0?0:calOffset+dir;
+  if (dir === 0) calMode = 'day';
   renderCalWidget(cid,mini);
-  if (dir === 0) { console.log('[tour-cal] calNav today: active=' + window.tour?.active + ' ready=' + window.tour?._advanceReady + ' step=' + window.tour?.step); tourNotify('calendar-today'); }
+  if (dir === 0) { tourNotify('calendar-today'); }
   // Update dash section label if present
   const _lbl = document.getElementById('dash-cal-label');
   if (_lbl) {
