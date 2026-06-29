@@ -588,8 +588,8 @@ async function confirmQAdd() {
     links:[]
   });
   DB.records.push(ev);
+  if (tour?.active) { tourCreated.recordIds.push(ev.id); _saveTourCreated(); }
   closeQAdd();
-  console.log('[tour-cal] confirmQAdd: about to fire event-created, active=' + window.tour?.active + ' ready=' + window.tour?._advanceReady + ' step=' + window.tour?.step);
   tourNotify('event-created');
   if (document.getElementById('page-dashboard')?.classList.contains('active') || currentView==='dashboard') renderCalWidget('dash-cal',true);
   if (currentView==='calendar') renderCalFull();
