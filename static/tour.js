@@ -240,7 +240,7 @@ const _savedTourCreated = (() => { try { return JSON.parse(localStorage.getItem(
 const tourCreated = { areaIds: _savedTourCreated.areaIds || [], recordIds: _savedTourCreated.recordIds || [] };
 function _saveTourCreated() { try { localStorage.setItem('tourCreated', JSON.stringify(tourCreated)); } catch {} }
 
-const _TOUR_BUILTIN = ['job','account','company','contact','event'];
+const _TOUR_BUILTIN = ['job'];
 
 function _tourSchemaRecord() {
   // Prefer a schema-typed record created during this tour session
@@ -523,6 +523,7 @@ function tourNavForward() {
 }
 
 async function wipeTourData() {
+  console.log('[tour] wipeTourData: areaIds=' + JSON.stringify(tourCreated.areaIds) + ' recordIds=' + JSON.stringify(tourCreated.recordIds));
   clearTourOverlay();
   localStorage.removeItem('tourCreated');
   // Delete tour-created records and areas
