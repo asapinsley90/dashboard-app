@@ -167,7 +167,7 @@ const TOUR_STEPS = [
     onShow: () => {
       setTimeout(() => {
         document.querySelectorAll('.tour-noon-highlight').forEach(el => el.classList.remove('tour-noon-highlight'));
-        document.querySelectorAll('#dash-cal .cal-week-cell[onclick*="\'12:00\'"], #dash-cal .cal-week-cell[onclick*="12:00"]').forEach(el => el.classList.add('tour-noon-highlight'));
+        document.querySelectorAll('#dash-cal .cal-week-cell[onclick*="12:00"], #dash-cal .cal-day-slot[onclick*="12:00"]').forEach(el => el.classList.add('tour-noon-highlight'));
       }, 150);
     },
   },
@@ -556,6 +556,9 @@ function _positionBubble(bubble, target, pos) {
     if (pos === 'right') {
       left = r.right + gap;
       top = r.top;
+    } else if (pos === 'top') {
+      left = r.left;
+      top = r.top - bh - gap;
     } else {
       left = r.left;
       top = r.bottom + gap;
