@@ -119,6 +119,7 @@ const LOGIN_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dash
 <button class="btn" type="submit">Sign in</button>
 </form>
 <a class="link" href="/forgot-password">Forgot password?</a>
+<a class="link" href="/join">Request access</a>
 <div class="err">{{ERROR}}</div></div></body></html>`;
 
 const VERIFY_PENDING_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Check your email</title><style>${PAGE_STYLE}</style></head>
