@@ -197,6 +197,7 @@ const TOUR_STEPS = [
     advance: 'calendar-today',
     position: 'bottom',
     spotlight: true,
+    onShow: () => { calOffset = 1; renderCalWidget('dash-cal', true); },
   },
   {
     id: 'dash-attention-explain',
