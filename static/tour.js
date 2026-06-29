@@ -299,7 +299,9 @@ function showTourStep(index) {
   if (step.onShow) {
     const result = step.onShow();
     if (result && typeof result.then === 'function') {
-      result.then(() => setTimeout(() => _renderTourStep(step, index), delay));
+      result
+        .then(() => { if (tour.step === index) setTimeout(() => _renderTourStep(step, index), delay); })
+        .catch(() => { if (tour.step === index) setTimeout(() => _renderTourStep(step, index), delay); });
       return;
     }
   }
@@ -307,6 +309,7 @@ function showTourStep(index) {
 }
 
 function _renderTourStep(step, index) {
+  if (tour.step !== index) return;
   const target = step.target?.();
 
   clearTourOverlay();
