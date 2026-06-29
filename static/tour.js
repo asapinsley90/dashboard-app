@@ -177,7 +177,7 @@ const TOUR_STEPS = [
     heading: 'Switch to week view',
     text: 'Click <b>Week</b> to see your whole week at a glance.',
     advance: 'calendar-view-week',
-    position: 'top',
+    position: 'bottom',
     spotlight: true,
   },
   {
@@ -186,7 +186,7 @@ const TOUR_STEPS = [
     heading: 'Now try month view',
     text: 'Click <b>Month</b> to see the full month.',
     advance: 'calendar-view-month',
-    position: 'top',
+    position: 'bottom',
     spotlight: true,
   },
   {
@@ -195,7 +195,7 @@ const TOUR_STEPS = [
     heading: 'Reset with Today',
     text: 'Click <b>Today</b> to jump back to the current date from any view.',
     advance: 'calendar-today',
-    position: 'top',
+    position: 'bottom',
     spotlight: true,
   },
   {

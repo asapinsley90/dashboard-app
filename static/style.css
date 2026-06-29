@@ -217,9 +217,9 @@ textarea.field-edit{resize:vertical;min-height:60px}
 .ev-completed-past{background:rgba(76,175,125,.08);color:rgba(76,175,125,.5)}
 .ev-archived{background:rgba(100,100,100,.1);color:var(--dim);text-decoration:line-through}
 /* Quick-add */
-.qadd-overlay{position:fixed;inset:0;z-index:150;display:none}
+.qadd-overlay{position:fixed;inset:0;z-index:400;display:none}
 .qadd-overlay.open{display:block}
-.qadd-box{position:fixed;z-index:151;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;width:260px;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.qadd-box{position:fixed;z-index:401;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;width:260px;box-shadow:0 8px 32px rgba(0,0,0,.5)}
 .qadd-label{font-size:12px;font-weight:500;color:var(--text);margin-bottom:8px}
 .qadd-close{position:absolute;top:8px;right:10px;background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px;line-height:1}
 .qadd-close:hover{color:var(--text)}
