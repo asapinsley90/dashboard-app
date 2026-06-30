@@ -2059,7 +2059,8 @@ const AREA_WIDGET_DEFS = [
 function openAreaWidgetsModal(areaId) {
   const area = DB.areas.find(a => a.id === areaId);
   if (!area) return;
-  const active = new Set(area.widgets || []);
+  const allIds = AREA_WIDGET_DEFS.map(d => d.id);
+  const active = new Set(area.widgets || allIds);
   openModal('Area widgets', `
     <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Toggle widgets for this area's side panel.</p>
     <div class="widget-toggle-grid">${AREA_WIDGET_DEFS.map(d => `
@@ -2075,7 +2076,7 @@ function openAreaWidgetsModal(areaId) {
 function toggleAreaWidget(areaId, widgetId, el) {
   const area = DB.areas.find(a => a.id === areaId);
   if (!area) return;
-  area.widgets = area.widgets || [];
+  area.widgets = area.widgets || AREA_WIDGET_DEFS.map(d => d.id);
   if (area.widgets.includes(widgetId)) {
     area.widgets = area.widgets.filter(w => w !== widgetId);
   } else {
