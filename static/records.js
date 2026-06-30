@@ -827,6 +827,7 @@ function renderSchemaRecord(r, area) {
       const isIRA = ['Roth IRA','Traditional IRA'].includes(r.fields.accountType);
       if (!isIRA) return '';
       const IRA_LIMITS = r.fields.iraLimits || {2025:7000,2026:7500,2027:7500};
+      const annualContribs = r.fields.annualContribs || {};
       const currentYear = new Date().getFullYear();
       const taxYearTotals = {};
       let taxYear = Math.min(...Object.keys(IRA_LIMITS).map(Number));
@@ -834,6 +835,8 @@ function renderSchemaRecord(r, area) {
         let rem = Number(entry.contributions)||0;
         while (rem>0&&taxYear<=currentYear+1){const lim=IRA_LIMITS[taxYear]||7000,sf=taxYearTotals[taxYear]||0,sp=lim-sf;if(sp<=0){taxYear++;continue;}const al=Math.min(rem,sp);taxYearTotals[taxYear]=(sf+al);rem-=al;if(taxYearTotals[taxYear]>=lim)taxYear++;}
       }
+      // annualContribs overrides history-computed totals per year
+      Object.entries(annualContribs).forEach(([yr,val])=>{ taxYearTotals[Number(yr)] = Number(val)||0; });
       const years = Object.keys(IRA_LIMITS).map(Number).filter(y=>y<=currentYear).sort((a,b)=>b-a);
       return `<div class="section-card">
         <div class="section-title" oncontextmenu="${ctx}">${label}</div>
@@ -846,7 +849,7 @@ function renderSchemaRecord(r, area) {
           </div>
           <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div></div>
           <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--muted)">
-            <span>$${contrib.toFixed(0)} contributed</span><span>$${lim.toLocaleString()} limit</span>
+            <span class="ira-annual-val" style="cursor:pointer;border-radius:3px;padding:1px 3px" title="Click to edit" onclick="editAnnualContrib('${r.id}',${yr},this)">$${contrib.toLocaleString()} contributed</span><span>$${lim.toLocaleString()} limit</span>
           </div>
         </div>`;}).join('')}
       </div>`;
