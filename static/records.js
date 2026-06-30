@@ -431,6 +431,9 @@ function parseStatementUpload(recordId) {
 async function handleStatementFile(recordId, file) {
   if (file && file.files) { file = file.files[0]; }
   if (!file) return;
+  if (file.name?.endsWith('.csv') || file.type === 'text/csv') {
+    return handleStatementCSV(recordId, file);
+  }
 
   const toast = document.createElement('div');
   toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 18px;font-size:13px;color:var(--text);z-index:9999;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.3)';
@@ -449,6 +452,94 @@ async function handleStatementFile(recordId, file) {
     toast.innerHTML = `<span style="color:var(--red)">✗</span><span>${err.message}</span>`;
     setTimeout(() => toast.remove(), 4000);
   }
+}
+
+async function handleStatementCSV(recordId, file) {
+  const text = await file.text();
+  const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) return alert('CSV must have a header row and at least one data row.');
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z0-9]/g,''));
+  const col = key => headers.findIndex(h => h.includes(key));
+  const iMonth = col('month') >= 0 ? col('month') : col('date') >= 0 ? col('date') : 0;
+  const iBegin = col('begin') >= 0 ? col('begin') : col('start') >= 0 ? col('start') : 1;
+  const iEnd = col('end') >= 0 ? col('end') : col('close') >= 0 ? col('close') : 2;
+  const iContrib = col('contrib') >= 0 ? col('contrib') : col('deposit') >= 0 ? col('deposit') : -1;
+  const iReturn = col('return') >= 0 ? col('return') : col('pct') >= 0 ? col('pct') : -1;
+  const clean = s => parseFloat((s||'').replace(/[$,%+\s]/g,'')) || 0;
+
+  const rows = lines.slice(1).map(line => {
+    const cols = line.split(',');
+    const month = (cols[iMonth]||'').trim().slice(0,7);
+    const beginBalance = clean(cols[iBegin]);
+    const endBalance = clean(cols[iEnd]);
+    const contributions = iContrib >= 0 ? clean(cols[iContrib]) : 0;
+    const base = beginBalance + contributions;
+    const returnPct = iReturn >= 0 ? clean(cols[iReturn]) : (base > 0 ? (endBalance - base) / base * 100 : 0);
+    return { month, beginBalance, endBalance, contributions, returnPct };
+  }).filter(r => r.month.match(/^\d{4}-\d{2}$/));
+
+  if (!rows.length) return alert('No valid rows found. Expected columns: month (YYYY-MM), beginBalance, endBalance, contributions (optional), returnPct (optional).');
+  showCSVImportModal(recordId, rows);
+}
+
+function showCSVImportModal(recordId, rows) {
+  const r = getRecord(recordId);
+  if (!r) return;
+  const fmt = n => '$' + Number(n).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+  const fmtPct = n => (n >= 0 ? '+' : '') + Number(n).toFixed(2) + '%';
+  const existing = new Set((r.fields.history||[]).map(h => h.month));
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:28px;width:560px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column">
+    <div style="font-size:16px;font-weight:600;margin-bottom:6px">Import CSV — ${rows.length} month${rows.length!==1?'s':''}</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Review and confirm. Months already in history are marked.</div>
+    <div style="overflow-y:auto;flex:1;margin-bottom:16px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="color:var(--muted);text-align:right">
+          <th style="text-align:left;padding:4px 8px">Month</th>
+          <th style="padding:4px 8px">Start</th>
+          <th style="padding:4px 8px">Contrib</th>
+          <th style="padding:4px 8px">End</th>
+          <th style="padding:4px 8px">Return</th>
+          <th style="padding:4px 8px">Status</th>
+        </tr></thead>
+        <tbody>${rows.map((row,i) => `<tr style="border-top:1px solid var(--border)">
+          <td style="padding:5px 8px;color:var(--text)">${row.month}</td>
+          <td style="padding:5px 8px;text-align:right;color:var(--muted)">${fmt(row.beginBalance)}</td>
+          <td style="padding:5px 8px;text-align:right;color:var(--muted)">${row.contributions > 0 ? fmt(row.contributions) : '—'}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:600;color:var(--text)">${fmt(row.endBalance)}</td>
+          <td style="padding:5px 8px;text-align:right;color:${row.returnPct>=0?'var(--green)':'var(--red)'}">${fmtPct(row.returnPct)}</td>
+          <td style="padding:5px 8px;text-align:right;color:${existing.has(row.month)?'var(--amber)':'var(--green)'}">
+            ${existing.has(row.month)?'⚠ overwrites':'✓ new'}
+          </td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-p" onclick="confirmCSVImport('${recordId}')">Import all</button>
+      <button class="btn" onclick="this.closest('[style*=fixed]').remove()">Cancel</button>
+    </div>
+  </div>`;
+  modal.dataset.csvRows = JSON.stringify(rows);
+  document.body.appendChild(modal);
+}
+
+async function confirmCSVImport(recordId) {
+  const modal = document.querySelector('[data-csv-rows]');
+  if (!modal) return;
+  const rows = JSON.parse(modal.dataset.csvRows);
+  const r = getRecord(recordId);
+  if (!r) return;
+  r.fields.history = r.fields.history || [];
+  rows.forEach(row => {
+    const idx = r.fields.history.findIndex(h => h.month === row.month);
+    if (idx >= 0) r.fields.history[idx] = row;
+    else r.fields.history.push(row);
+  });
+  modal.remove();
+  await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+  renderRecordView(recordId);
 }
 
 function showStatementConfirmModal(recordId, data) {
@@ -781,8 +872,10 @@ function renderSchemaRecord(r, area) {
           </div>
           <div style="text-align:right;flex-shrink:0">
             <button class="btn-s" style="font-size:11px" onclick="parseStatementUpload('${r.id}')">⬆ Import statement</button>
+            <button class="btn-s" style="font-size:11px;margin-left:4px" onclick="document.getElementById('csv-input-${r.id}').click()">⬆ Import CSV</button>
             <div style="font-size:10px;color:var(--muted);margin-top:4px">or paste a screenshot</div>
             <input type="file" id="stmt-input-${r.id}" accept="image/*,application/pdf" style="display:none" onchange="handleStatementFile('${r.id}',this)">
+            <input type="file" id="csv-input-${r.id}" accept=".csv,text/csv" style="display:none" onchange="handleStatementFile('${r.id}',this)">
           </div>
         </div>
       </div>`;
