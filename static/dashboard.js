@@ -823,7 +823,7 @@ function renderInvestmentWidgets(calPanel, accountRecs, area) {
     const bal = hist[0] ? Number(hist[0].endBalance) || 0 : Number(r.fields.balance) || 0;
     const pct = Math.round(bal / maxBal * 100);
     const name = r.title || r.fields.institution || 'Account';
-    return `<div style="margin-bottom:6px">
+    return `<div style="margin-bottom:6px;cursor:pointer" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:2px">
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px">${name}</span>
         <span style="color:var(--text)">${fmt(bal)}</span>
