@@ -831,16 +831,18 @@ function renderSchemaRecord(r, area) {
       const currentYear = new Date().getFullYear();
       const taxYearTotals = {};
       const minYear = Math.min(...Object.keys(IRA_LIMITS).map(Number));
+      // Seed each year with manually entered base (contributions not in monthly history)
+      Object.entries(annualContribs).forEach(([yr,val])=>{ taxYearTotals[Number(yr)] = Number(val)||0; });
+      // Jan–Apr history contributions apply to prior tax year first, then overflow to current year
+      // Same-year contributions are NOT auto-summed (they're captured in annualContribs by the user)
       for (const entry of (r.fields.history||[]).slice().sort((a,b)=>a.month.localeCompare(b.month))) {
         let rem = Number(entry.contributions)||0;
         if (!rem) continue;
-        // Jan–Apr contributions can apply to the prior tax year first
         const [entryYear, entryMonth] = entry.month.split('-').map(Number);
-        let taxYear = (entryMonth <= 4) ? Math.max(minYear, entryYear - 1) : entryYear;
+        if (entryMonth > 4) continue; // only Jan–Apr can roll to prior year; same-year handled via annualContribs
+        let taxYear = Math.max(minYear, entryYear - 1);
         while (rem>0&&taxYear<=currentYear+1){const lim=IRA_LIMITS[taxYear]||7000,sf=taxYearTotals[taxYear]||0,sp=lim-sf;if(sp<=0){taxYear++;continue;}const al=Math.min(rem,sp);taxYearTotals[taxYear]=(sf+al);rem-=al;if(taxYearTotals[taxYear]>=lim)taxYear++;}
       }
-      // annualContribs only applies for years with no history-computed contributions
-      Object.entries(annualContribs).forEach(([yr,val])=>{ const y=Number(yr); if (!taxYearTotals[y]) taxYearTotals[y] = Number(val)||0; });
       const years = Object.keys(IRA_LIMITS).map(Number).filter(y=>y<=currentYear).sort((a,b)=>b-a);
       return `<div class="section-card">
         <div class="section-title" oncontextmenu="${ctx}">${label}</div>
