@@ -569,41 +569,33 @@ function openAreaWidgetsModal(areaId) {
   const area = DB.areas.find(a => a.id === areaId);
   if (!area) return;
   const AREA_WIDGETS = [
-    { id: 'calendar', label: 'Calendar' },
-    { id: 'contacts', label: 'Contacts' },
-    { id: 'portfolio', label: 'Portfolio chart' },
-    { id: 'by-account', label: 'By account' },
+    { id: 'calendar', label: 'Calendar', icon: '📅' },
+    { id: 'contacts', label: 'Contacts', icon: '👤' },
+    { id: 'portfolio', label: 'Portfolio', icon: '📈' },
+    { id: 'by-account', label: 'By account', icon: '💳' },
   ];
   const current = area.widgets || AREA_WIDGETS.map(w => w.id);
-  const id = 'area-widgets-modal';
-  let el = document.getElementById(id);
-  if (el) el.remove();
-  el = document.createElement('div');
-  el.id = id;
-  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center';
-  el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px;min-width:280px">
-    <div style="font-size:15px;font-weight:600;margin-bottom:16px">Area widgets</div>
-    ${AREA_WIDGETS.map(w => `<label style="display:flex;align-items:center;gap:10px;margin-bottom:12px;cursor:pointer;font-size:14px">
-      <input type="checkbox" data-widget="${w.id}" ${current.includes(w.id)?'checked':''} style="width:16px;height:16px;accent-color:var(--accent)">
-      ${w.label}
-    </label>`).join('')}
-    <div style="display:flex;gap:8px;margin-top:16px">
-      <button class="btn btn-p" onclick="saveAreaWidgets('${areaId}')">Save</button>
-      <button class="btn" onclick="document.getElementById('${id}').remove()">Cancel</button>
+  openModal('Widgets', `
+    <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Active widgets appear in this area. Click any widget to toggle it on or off.</p>
+    <div class="widget-toggle-grid">${AREA_WIDGETS.map(w => `
+      <div class="widget-toggle${current.includes(w.id) ? ' active' : ''}" onclick="toggleAreaWidget('${areaId}','${w.id}',this)">
+        <span style="font-size:32px">${w.icon}</span>
+        <span class="widget-toggle-label">${w.label}</span>
+        <span class="widget-toggle-dot"></span>
+      </div>`).join('')}
     </div>
-  </div>`;
-  document.body.appendChild(el);
-  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+  `, [{ label: 'Done', onclick: () => { closeModal(); renderAreaView(areaId); } }]);
 }
 
-function saveAreaWidgets(areaId) {
+function toggleAreaWidget(areaId, widgetId, el) {
   const area = DB.areas.find(a => a.id === areaId);
   if (!area) return;
-  const checked = [...document.querySelectorAll('#area-widgets-modal input[data-widget]:checked')].map(i => i.dataset.widget);
-  area.widgets = checked;
-  api('PUT', `/api/areas/${areaId}`, { widgets: checked });
-  document.getElementById('area-widgets-modal')?.remove();
-  renderAreaView(areaId);
+  const AREA_WIDGETS = ['calendar','contacts','portfolio','by-account'];
+  if (!area.widgets) area.widgets = [...AREA_WIDGETS];
+  const idx = area.widgets.indexOf(widgetId);
+  if (idx >= 0) area.widgets.splice(idx, 1); else area.widgets.push(widgetId);
+  el.classList.toggle('active', area.widgets.includes(widgetId));
+  api('PUT', `/api/areas/${areaId}`, { widgets: area.widgets });
 }
 
 function renderJobList(records, filter) {
