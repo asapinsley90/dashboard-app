@@ -2069,7 +2069,7 @@ function openAreaWidgetsModal(areaId) {
         <span class="widget-toggle-dot"></span>
       </div>`).join('')}
     </div>
-  `);
+  `, [{ label: 'Done', onclick: () => { closeModal(); renderAreaView(areaId); } }]);
 }
 
 function toggleAreaWidget(areaId, widgetId, el) {

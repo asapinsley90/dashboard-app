@@ -565,38 +565,6 @@ function renderAreaView(areaId) {
   renderSidebar();
 }
 
-function openAreaWidgetsModal(areaId) {
-  const area = DB.areas.find(a => a.id === areaId);
-  if (!area) return;
-  const AREA_WIDGETS = [
-    { id: 'calendar', label: 'Calendar', icon: '📅' },
-    { id: 'contacts', label: 'Contacts', icon: '👤' },
-    { id: 'portfolio', label: 'Portfolio', icon: '📈' },
-    { id: 'by-account', label: 'By account', icon: '💳' },
-  ];
-  const current = area.widgets || AREA_WIDGETS.map(w => w.id);
-  openModal('Widgets', `
-    <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Active widgets appear in this area. Click any widget to toggle it on or off.</p>
-    <div class="widget-toggle-grid">${AREA_WIDGETS.map(w => `
-      <div class="widget-toggle${current.includes(w.id) ? ' active' : ''}" onclick="toggleAreaWidget('${areaId}','${w.id}',this)">
-        <span style="font-size:32px">${w.icon}</span>
-        <span class="widget-toggle-label">${w.label}</span>
-        <span class="widget-toggle-dot"></span>
-      </div>`).join('')}
-    </div>
-  `, [{ label: 'Done', onclick: () => { closeModal(); renderAreaView(areaId); } }]);
-}
-
-function toggleAreaWidget(areaId, widgetId, el) {
-  const area = DB.areas.find(a => a.id === areaId);
-  if (!area) return;
-  const AREA_WIDGETS = ['calendar','contacts','portfolio','by-account'];
-  if (!area.widgets) area.widgets = [...AREA_WIDGETS];
-  const idx = area.widgets.indexOf(widgetId);
-  if (idx >= 0) area.widgets.splice(idx, 1); else area.widgets.push(widgetId);
-  el.classList.toggle('active', area.widgets.includes(widgetId));
-  api('PUT', `/api/areas/${areaId}`, { widgets: area.widgets });
-}
 
 function renderJobList(records, filter) {
   // Filter-specific view
