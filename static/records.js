@@ -201,7 +201,7 @@ function renderRecordView(recordId) {
   const urgencyNext = { none: 'flagged', flagged: 'priority', priority: 'urgent', urgent: 'none' };
   document.getElementById('topbar-actions').innerHTML = `
     <button class="btn btn-sm" onclick="navigate('area','${r.areaId}')">← Back</button>
-    <button class="btn btn-sm" onclick="copyRecordContext('${r.id}')" title="Copy context to paste into Claude">📋 Copy for Claude</button>
+    <button class="btn btn-sm" onclick="copyRecordContext('${r.id}')" title="Export record context">📋 Export</button>
     <button class="btn btn-sm btn-danger" onclick="deleteRecord('${r.id}')">Delete</button>`;
 
   const el = document.getElementById('record-view-content');
