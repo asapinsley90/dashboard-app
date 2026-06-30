@@ -839,8 +839,8 @@ function renderSchemaRecord(r, area) {
         let taxYear = (entryMonth <= 4) ? Math.max(minYear, entryYear - 1) : entryYear;
         while (rem>0&&taxYear<=currentYear+1){const lim=IRA_LIMITS[taxYear]||7000,sf=taxYearTotals[taxYear]||0,sp=lim-sf;if(sp<=0){taxYear++;continue;}const al=Math.min(rem,sp);taxYearTotals[taxYear]=(sf+al);rem-=al;if(taxYearTotals[taxYear]>=lim)taxYear++;}
       }
-      // annualContribs overrides history-computed totals per year
-      Object.entries(annualContribs).forEach(([yr,val])=>{ taxYearTotals[Number(yr)] = Number(val)||0; });
+      // annualContribs only applies for years with no history-computed contributions
+      Object.entries(annualContribs).forEach(([yr,val])=>{ const y=Number(yr); if (!taxYearTotals[y]) taxYearTotals[y] = Number(val)||0; });
       const years = Object.keys(IRA_LIMITS).map(Number).filter(y=>y<=currentYear).sort((a,b)=>b-a);
       return `<div class="section-card">
         <div class="section-title" oncontextmenu="${ctx}">${label}</div>
