@@ -459,14 +459,17 @@ function renderAreaView(areaId) {
     }</div>`;
     const calEl = document.getElementById('area-cal');
     if (calEl) { window._calAreaFilter = areaId; renderAreaCalWidget('area-cal', areaId); }
-    // Net worth widget for parent areas with financial accounts
+    // Financial widgets for parent areas
     const calPanel = document.querySelector('.area-cal-panel');
     if (calPanel) {
-      const existing = document.getElementById('area-net-worth-widget');
-      if (existing) existing.remove();
+      document.getElementById('area-net-worth-widget')?.remove();
+      document.getElementById('area-cc-summary-widget')?.remove();
+      const areaWidgetOn = id => !area.widgets || area.widgets.includes(id);
       const descendantAreaIds = getDescendantAreaIds(areaId);
       const allAccounts = DB.records.filter(r => r.type === 'account' && !r.deletedAt && descendantAreaIds.includes(r.areaId));
-      if (allAccounts.length) renderNetWorthWidget(calPanel, allAccounts);
+      if (allAccounts.length && areaWidgetOn('net-worth')) renderNetWorthWidget(calPanel, allAccounts);
+      const ccAccounts = allAccounts.filter(r => r.fields.accountType === 'Credit Card');
+      if (ccAccounts.length && areaWidgetOn('credit-cards')) renderCreditCardSummaryWidget(calPanel, ccAccounts);
     }
     renderSidebar();
     return;
@@ -921,6 +924,53 @@ function renderNetWorthWidget(calPanel, allAccounts) {
         </div>`;
       }).join('')}
     </div>` : ''}`;
+
+  const calLabel = calPanel.querySelector('.dash-section-label');
+  if (calLabel) calPanel.insertBefore(wrapper, calLabel.parentElement || calLabel);
+  else calPanel.prepend(wrapper);
+}
+
+function renderCreditCardSummaryWidget(calPanel, ccAccounts) {
+  const fmt = n => '$' + Number(n).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+  const totalBal = ccAccounts.reduce((s, r) => s + (Number(r.fields.balance) || 0), 0);
+  const totalLimit = ccAccounts.reduce((s, r) => s + (Number(r.fields.creditLimit) || 0), 0);
+  const utilPct = totalLimit > 0 ? Math.min(100, Math.round(totalBal / totalLimit * 100)) : null;
+  const utilColor = utilPct === null ? 'var(--muted)' : utilPct >= 30 ? (utilPct >= 50 ? 'var(--red)' : '#f0b429') : 'var(--green)';
+
+  const wrapper = document.createElement('div');
+  wrapper.id = 'area-cc-summary-widget';
+  wrapper.style.cssText = 'margin-bottom:16px';
+  wrapper.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:2px">Credit cards</div>
+      <div style="font-size:20px;font-weight:700;color:var(--red)">-${fmt(totalBal)}</div>
+      ${utilPct !== null ? `<div style="margin-top:8px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+          <span>Overall utilization</span><span style="color:${utilColor};font-weight:600">${utilPct}%</span>
+        </div>
+        <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${utilPct}%;background:${utilColor};border-radius:3px"></div>
+        </div>
+      </div>` : ''}
+      <div style="margin-top:10px">
+        ${ccAccounts.map(r => {
+          const bal = Number(r.fields.balance) || 0;
+          const lim = Number(r.fields.creditLimit) || 0;
+          const pct = lim > 0 ? Math.min(100, Math.round(bal / lim * 100)) : null;
+          const col = pct === null ? 'var(--muted)' : pct >= 30 ? (pct >= 50 ? 'var(--red)' : '#f0b429') : 'var(--green)';
+          return `<div style="margin-bottom:8px;cursor:pointer" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:2px">
+              <span>${r.title}</span>
+              <span style="color:var(--text)">${fmt(bal)}${lim ? ` / ${fmt(lim)}` : ''}</span>
+            </div>
+            ${pct !== null ? `<div style="height:4px;background:var(--bg3);border-radius:2px">
+              <div style="height:4px;width:${pct}%;background:${col};border-radius:2px"></div>
+            </div>` : ''}
+            ${r.fields.dueDate ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">Due: ${r.fields.dueDate}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
 
   const calLabel = calPanel.querySelector('.dash-section-label');
   if (calLabel) calPanel.insertBefore(wrapper, calLabel.parentElement || calLabel);

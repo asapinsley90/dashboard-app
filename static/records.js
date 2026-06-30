@@ -3,6 +3,7 @@
 const RECORD_WIDGET_DEFS = {
   account: [
     { id: 'account-details', label: 'Account details', icon: '🏦', defaultOn: true },
+    { id: 'cc-details', label: 'Card details', icon: '💳', defaultOn: true },
     { id: 'history', label: 'Monthly history', icon: '📊', defaultOn: true },
     { id: 'balance-chart', label: 'Balance chart', icon: '📈', defaultOn: true },
     { id: 'ira-progress', label: 'IRA contributions', icon: '📋', defaultOn: true },
@@ -66,6 +67,10 @@ const DEFAULT_FIELD_SCHEMAS = {
     { key: 'last4',        label: 'Last 4',        type: 'text', order: 4 },
     { key: 'balance',      label: 'Balance',       type: 'text', order: 5 },
     { key: 'balanceDate',  label: 'Balance date',  type: 'date', order: 6 },
+    { key: 'creditLimit',  label: 'Credit limit',  type: 'text', order: 7 },
+    { key: 'minPayment',   label: 'Min payment',   type: 'text', order: 8 },
+    { key: 'dueDate',      label: 'Due date',      type: 'text', order: 9 },
+    { key: 'apr',          label: 'APR',           type: 'text', order: 10 },
   ]},
   company: { name: 'Company', icon: '🏢', fields: [
     { key: 'industry', label: 'Industry', type: 'text',     order: 1 },
@@ -91,8 +96,15 @@ function getEffectiveSchema(typeId) {
 function renderFieldsFromSchema(r) {
   const schema = getEffectiveSchema(r.type);
   if (!schema?.fields?.length) return '';
+  const CC_ONLY = ['creditLimit','minPayment','dueDate','apr'];
+  const isCC = r.type === 'account' && r.fields.accountType === 'Credit Card';
   return [...schema.fields]
     .sort((a, b) => (a.order || 0) - (b.order || 0))
+    .filter(f => {
+      if (r.type !== 'account') return true;
+      if (CC_ONLY.includes(f.key)) return isCC; // CC fields only on CC accounts
+      return true;
+    })
     .map(f => editableField(r, f.key, f.label, f.type))
     .join('');
 }
@@ -913,6 +925,33 @@ function renderSchemaRecord(r, area) {
       return `<div class="section-card collapsible-section">
         <div class="section-title section-toggle" onclick="toggleSection(this)" oncontextmenu="${ctx}"><span class="section-chevron">▾</span> ${label}</div>
         <div class="section-body">${tableHTML}</div>
+      </div>`;
+    }
+
+    if (id === 'cc-details') {
+      if (r.fields.accountType !== 'Credit Card') return '';
+      const bal = Number(r.fields.balance) || 0;
+      const limit = Number(r.fields.creditLimit) || 0;
+      const utilPct = limit > 0 ? Math.min(100, Math.round(bal / limit * 100)) : null;
+      const utilColor = utilPct === null ? 'var(--muted)' : utilPct >= 30 ? (utilPct >= 50 ? 'var(--red)' : '#f0b429') : 'var(--green)';
+      const fmt = n => '$' + Number(n).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        ${utilPct !== null ? `<div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+            <span style="color:var(--muted)">Utilization</span>
+            <span style="color:${utilColor};font-weight:600">${utilPct}%</span>
+          </div>
+          <div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${utilPct}%;background:${utilColor};border-radius:4px"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--muted)">
+            <span>Balance: ${fmt(bal)}</span><span>Limit: ${fmt(limit)}</span>
+          </div>
+        </div>` : ''}
+        ${r.fields.minPayment ? `<div class="field-row"><div class="field-label">Min payment</div><div class="field-value">${fmt(Number(r.fields.minPayment))}</div></div>` : ''}
+        ${r.fields.dueDate ? `<div class="field-row"><div class="field-label">Due date</div><div class="field-value">${r.fields.dueDate}</div></div>` : ''}
+        ${r.fields.apr ? `<div class="field-row"><div class="field-label">APR</div><div class="field-value">${r.fields.apr}%</div></div>` : ''}
       </div>`;
     }
 

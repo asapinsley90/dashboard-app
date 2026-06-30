@@ -2054,6 +2054,8 @@ const AREA_WIDGET_DEFS = [
   { id: 'documents', label: 'Documents', icon: '📎' },
   { id: 'portfolio', label: 'Portfolio chart', icon: '📈' },
   { id: 'by-account', label: 'By account bars', icon: '📊' },
+  { id: 'net-worth', label: 'Net worth', icon: '💰' },
+  { id: 'credit-cards', label: 'Credit cards', icon: '💳' },
 ];
 
 function openAreaWidgetsModal(areaId) {
