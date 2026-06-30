@@ -830,9 +830,13 @@ function renderSchemaRecord(r, area) {
       const annualContribs = r.fields.annualContribs || {};
       const currentYear = new Date().getFullYear();
       const taxYearTotals = {};
-      let taxYear = Math.min(...Object.keys(IRA_LIMITS).map(Number));
+      const minYear = Math.min(...Object.keys(IRA_LIMITS).map(Number));
       for (const entry of (r.fields.history||[]).slice().sort((a,b)=>a.month.localeCompare(b.month))) {
         let rem = Number(entry.contributions)||0;
+        if (!rem) continue;
+        // Jan–Apr contributions can apply to the prior tax year first
+        const [entryYear, entryMonth] = entry.month.split('-').map(Number);
+        let taxYear = (entryMonth <= 4) ? Math.max(minYear, entryYear - 1) : entryYear;
         while (rem>0&&taxYear<=currentYear+1){const lim=IRA_LIMITS[taxYear]||7000,sf=taxYearTotals[taxYear]||0,sp=lim-sf;if(sp<=0){taxYear++;continue;}const al=Math.min(rem,sp);taxYearTotals[taxYear]=(sf+al);rem-=al;if(taxYearTotals[taxYear]>=lim)taxYear++;}
       }
       // annualContribs overrides history-computed totals per year
@@ -1109,7 +1113,8 @@ function editAnnualContrib(recordId, year, el) {
       const r2 = getRecord(recordId);
       if (r2) { r2.fields.annualContribs = r2.fields.annualContribs||{}; r2.fields.annualContribs[year] = num; await api('PUT', `/api/records/${recordId}`, { fields: r2.fields }); renderRecordView(recordId); }
     });
-    api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+    await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+    renderRecordView(recordId);
   };
   input.addEventListener('blur', commit);
   input.addEventListener('keydown', e => { if (e.key==='Enter') input.blur(); if (e.key==='Escape'){done=true;input.replaceWith(el);} });
