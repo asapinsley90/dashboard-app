@@ -1,5 +1,5 @@
 ﻿// â"€â"€ NAVIGATION â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-const NAV_VIEWS = new Set(['dashboard', 'area', 'record', 'calendar', 'contacts', 'companies', 'documents', 'history', 'completed', 'archived', 'weekly', 'templates']);
+const NAV_VIEWS = new Set(['dashboard', 'area', 'record', 'calendar', 'contacts', 'companies', 'documents', 'history', 'completed', 'archived', 'weekly', 'templates', 'admin']);
 
 function normalizeView(view) {
   return NAV_VIEWS.has(view) ? view : 'dashboard';
