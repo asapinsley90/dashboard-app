@@ -459,6 +459,15 @@ function renderAreaView(areaId) {
     }</div>`;
     const calEl = document.getElementById('area-cal');
     if (calEl) { window._calAreaFilter = areaId; renderAreaCalWidget('area-cal', areaId); }
+    // Net worth widget for parent areas with financial accounts
+    const calPanel = document.querySelector('.area-cal-panel');
+    if (calPanel) {
+      const existing = document.getElementById('area-net-worth-widget');
+      if (existing) existing.remove();
+      const descendantAreaIds = getDescendantAreaIds(areaId);
+      const allAccounts = DB.records.filter(r => r.type === 'account' && !r.deletedAt && descendantAreaIds.includes(r.areaId));
+      if (allAccounts.length) renderNetWorthWidget(calPanel, allAccounts);
+    }
     renderSidebar();
     return;
   }
@@ -848,6 +857,71 @@ function renderInvestmentWidgets(calPanel, accountRecs, area) {
     </div>`;
 
   // Insert before the calendar label
+  const calLabel = calPanel.querySelector('.dash-section-label');
+  if (calLabel) calPanel.insertBefore(wrapper, calLabel.parentElement || calLabel);
+  else calPanel.prepend(wrapper);
+}
+
+function getDescendantAreaIds(areaId) {
+  const ids = [];
+  const queue = [areaId];
+  while (queue.length) {
+    const id = queue.shift();
+    ids.push(id);
+    DB.areas.filter(a => a.parentId === id).forEach(a => queue.push(a.id));
+  }
+  return ids;
+}
+
+function renderNetWorthWidget(calPanel, allAccounts) {
+  const fmt = n => '$' + Math.round(Math.abs(n)).toLocaleString();
+  const getBalance = r => {
+    const hist = (r.fields.history || []).slice().sort((a,b) => b.month.localeCompare(a.month));
+    return hist[0] ? Number(hist[0].endBalance) || 0 : Number(r.fields.balance) || 0;
+  };
+  const isLiability = r => ['Credit Card','Loan','Mortgage'].includes(r.fields.accountType);
+  const assets = allAccounts.filter(r => !isLiability(r));
+  const liabilities = allAccounts.filter(r => isLiability(r));
+  const totalAssets = assets.reduce((s, r) => s + getBalance(r), 0);
+  const totalLiabilities = liabilities.reduce((s, r) => s + getBalance(r), 0);
+  const netWorth = totalAssets - totalLiabilities;
+  const color = netWorth >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // Group assets by sub-area
+  const byArea = {};
+  assets.forEach(r => {
+    const aName = DB.areas.find(a => a.id === r.areaId)?.title || 'Other';
+    if (!byArea[aName]) byArea[aName] = 0;
+    byArea[aName] += getBalance(r);
+  });
+
+  const wrapper = document.createElement('div');
+  wrapper.id = 'area-net-worth-widget';
+  wrapper.style.cssText = 'margin-bottom:16px';
+  wrapper.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:2px">Net worth</div>
+      <div style="font-size:22px;font-weight:700;color:${color}">${netWorth < 0 ? '-' : ''}${fmt(netWorth)}</div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--muted)">
+        <span>Assets: <span style="color:var(--green)">${fmt(totalAssets)}</span></span>
+        ${liabilities.length ? `<span>Liabilities: <span style="color:var(--red)">-${fmt(totalLiabilities)}</span></span>` : ''}
+      </div>
+    </div>
+    ${Object.keys(byArea).length > 1 ? `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">By area</div>
+      ${Object.entries(byArea).map(([name, bal]) => {
+        const pct = Math.round(bal / totalAssets * 100);
+        return `<div style="margin-bottom:6px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:2px">
+            <span>${name}</span><span style="color:var(--text)">${fmt(bal)}</span>
+          </div>
+          <div style="height:4px;background:var(--bg3);border-radius:2px">
+            <div style="height:4px;width:${pct}%;background:var(--accent);border-radius:2px"></div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}`;
+
   const calLabel = calPanel.querySelector('.dash-section-label');
   if (calLabel) calPanel.insertBefore(wrapper, calLabel.parentElement || calLabel);
   else calPanel.prepend(wrapper);
