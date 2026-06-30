@@ -721,7 +721,7 @@ function renderNotesSection(r) {
 }
 
 function escapeHtml(text) {
-  return (text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return (text==null?'':String(text)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function notesKeydown(e, recordId) {
