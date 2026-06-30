@@ -7,6 +7,8 @@ const RECORD_WIDGET_DEFS = {
     { id: 'history', label: 'Monthly history', icon: '📊', defaultOn: true },
     { id: 'balance-chart', label: 'Balance chart', icon: '📈', defaultOn: true },
     { id: 'ira-progress', label: 'IRA contributions', icon: '📋', defaultOn: true },
+    { id: '401k-progress', label: '401k contributions', icon: '🏢', defaultOn: true },
+    { id: 'hsa-progress', label: 'HSA contributions', icon: '🏥', defaultOn: true },
     { id: 'activity', label: 'Activity', icon: '⏱', defaultOn: true },
     { id: 'notes', label: 'Notes', icon: '📝', defaultOn: true },
     { id: 'contacts', label: 'Contacts', icon: '👤', defaultOn: false },
@@ -67,10 +69,12 @@ const DEFAULT_FIELD_SCHEMAS = {
     { key: 'last4',        label: 'Last 4',        type: 'text', order: 4 },
     { key: 'balance',      label: 'Balance',       type: 'text', order: 5 },
     { key: 'balanceDate',  label: 'Balance date',  type: 'date', order: 6 },
-    { key: 'creditLimit',  label: 'Credit limit',  type: 'text', order: 7 },
-    { key: 'minPayment',   label: 'Min payment',   type: 'text', order: 8 },
-    { key: 'dueDate',      label: 'Due date',      type: 'text', order: 9 },
-    { key: 'apr',          label: 'APR',           type: 'text', order: 10 },
+    { key: 'creditLimit',    label: 'Credit limit',    type: 'text', order: 7 },
+    { key: 'minPayment',     label: 'Min payment',     type: 'text', order: 8 },
+    { key: 'dueDate',        label: 'Due date',        type: 'text', order: 9 },
+    { key: 'apr',            label: 'APR',             type: 'text', order: 10 },
+    { key: 'employerMatch',  label: 'Employer match',  type: 'text', order: 11 },
+    { key: 'hsaCoverage',    label: 'HSA coverage',    type: 'text', order: 12 },
   ]},
   company: { name: 'Company', icon: '🏢', fields: [
     { key: 'industry', label: 'Industry', type: 'text',     order: 1 },
@@ -97,12 +101,18 @@ function renderFieldsFromSchema(r) {
   const schema = getEffectiveSchema(r.type);
   if (!schema?.fields?.length) return '';
   const CC_ONLY = ['creditLimit','minPayment','dueDate','apr'];
+  const K401_ONLY = ['employerMatch'];
+  const HSA_ONLY = ['hsaCoverage'];
   const isCC = r.type === 'account' && r.fields.accountType === 'Credit Card';
+  const is401k = r.type === 'account' && r.fields.accountType === '401k';
+  const isHSA = r.type === 'account' && r.fields.accountType === 'HSA';
   return [...schema.fields]
     .sort((a, b) => (a.order || 0) - (b.order || 0))
     .filter(f => {
       if (r.type !== 'account') return true;
-      if (CC_ONLY.includes(f.key)) return isCC; // CC fields only on CC accounts
+      if (CC_ONLY.includes(f.key)) return isCC;
+      if (K401_ONLY.includes(f.key)) return is401k;
+      if (HSA_ONLY.includes(f.key)) return isHSA;
       return true;
     })
     .map(f => editableField(r, f.key, f.label, f.type))
@@ -952,6 +962,79 @@ function renderSchemaRecord(r, area) {
         ${r.fields.minPayment ? `<div class="field-row"><div class="field-label">Min payment</div><div class="field-value">${fmt(Number(r.fields.minPayment))}</div></div>` : ''}
         ${r.fields.dueDate ? `<div class="field-row"><div class="field-label">Due date</div><div class="field-value">${r.fields.dueDate}</div></div>` : ''}
         ${r.fields.apr ? `<div class="field-row"><div class="field-label">APR</div><div class="field-value">${r.fields.apr}%</div></div>` : ''}
+      </div>`;
+    }
+
+    if (id === '401k-progress') {
+      if (r.fields.accountType !== '401k') return '';
+      const currentYear = new Date().getFullYear();
+      const LIMITS = r.fields.k401Limits || {2025:23500,2026:23500,2027:23500};
+      const annualContribs = r.fields.annualContribs || {};
+      const matchPct = parseFloat(r.fields.employerMatch) || 0;
+      const years = Object.keys(LIMITS).map(Number).filter(y => y <= currentYear).sort((a,b) => b-a);
+      if (!years.length) return '';
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        ${years.map((yr,i) => {
+          const lim = LIMITS[yr] || 23500;
+          const contrib = Number(annualContribs[yr]) || 0;
+          const match = Math.round(contrib * matchPct / 100);
+          const total = contrib + match;
+          const pct = Math.min(100, Math.round(contrib / lim * 100));
+          const done = contrib >= lim;
+          const color = done ? 'var(--green)' : pct >= 75 ? '#f0b429' : 'var(--accent)';
+          const isCurrent = yr === currentYear;
+          return `<div style="margin-bottom:${i < years.length-1 ? 14 : 0}px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
+              <span style="font-size:12px;color:var(--text);font-weight:500">${yr}</span>
+              <span style="font-size:12px;color:${done?'var(--green)':isCurrent?'var(--text)':'var(--muted)'}">
+                ${done ? '✓ Maxed out' : isCurrent ? `$${Math.max(0,lim-contrib).toLocaleString()} remaining` : contrib > 0 ? `$${contrib.toLocaleString()} / $${lim.toLocaleString()}` : '—'}
+              </span>
+            </div>
+            <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--muted)">
+              <span class="ira-annual-val" style="cursor:pointer;border-radius:3px;padding:1px 3px" title="Click to edit employee contribution" onclick="editAnnualContrib('${r.id}',${yr},this)">$${contrib.toLocaleString()} employee</span>
+              ${matchPct > 0 ? `<span style="color:var(--green)">+$${match.toLocaleString()} match</span>` : `<span>$${lim.toLocaleString()} limit</span>`}
+            </div>
+            ${matchPct > 0 ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">Total with match: $${total.toLocaleString()}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+
+    if (id === 'hsa-progress') {
+      if (r.fields.accountType !== 'HSA') return '';
+      const currentYear = new Date().getFullYear();
+      const coverage = r.fields.hsaCoverage === 'family' ? 'family' : 'individual';
+      const HSA_LIMITS = coverage === 'family'
+        ? (r.fields.hsaLimits || {2025:8550,2026:8550,2027:8550})
+        : (r.fields.hsaLimits || {2025:4300,2026:4300,2027:4300});
+      const annualContribs = r.fields.annualContribs || {};
+      const years = Object.keys(HSA_LIMITS).map(Number).filter(y => y <= currentYear).sort((a,b) => b-a);
+      if (!years.length) return '';
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        ${years.map((yr,i) => {
+          const lim = HSA_LIMITS[yr];
+          const contrib = Number(annualContribs[yr]) || 0;
+          const pct = Math.min(100, Math.round(contrib / lim * 100));
+          const done = contrib >= lim;
+          const color = done ? 'var(--green)' : pct >= 75 ? '#f0b429' : 'var(--accent)';
+          const isCurrent = yr === currentYear;
+          return `<div style="margin-bottom:${i < years.length-1 ? 14 : 0}px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
+              <span style="font-size:12px;color:var(--text);font-weight:500">${yr}</span>
+              <span style="font-size:12px;color:${done?'var(--green)':isCurrent?'var(--text)':'var(--muted)'}">
+                ${done ? '✓ Maxed out' : isCurrent ? `$${Math.max(0,lim-contrib).toLocaleString()} remaining` : contrib > 0 ? `$${contrib.toLocaleString()} / $${lim.toLocaleString()}` : '—'}
+              </span>
+            </div>
+            <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--muted)">
+              <span class="ira-annual-val" style="cursor:pointer;border-radius:3px;padding:1px 3px" title="Click to edit" onclick="editAnnualContrib('${r.id}',${yr},this)">$${contrib.toLocaleString()} contributed</span>
+              <span>$${lim.toLocaleString()} limit (${coverage})</span>
+            </div>
+          </div>`;
+        }).join('')}
       </div>`;
     }
 
