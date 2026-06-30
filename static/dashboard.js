@@ -433,10 +433,15 @@ function renderAreaView(areaId) {
       b.onclick = () => promptAddRecord(null, areaId);
       btnEl.appendChild(b);
       const b2 = document.createElement('button');
-      if (area.parentId) { b2.className = 'record-header-tile'; b2.textContent = '⚡ Widgets'; }
-      else { b2.className = 'btn btn-sm btn-p'; b2.style.marginLeft = '6px'; b2.textContent = '+ Add sub-area'; }
-      b2.onclick = area.parentId ? () => openAreaWidgetsModal(areaId) : () => promptAddArea(areaId);
+      b2.className = 'record-header-tile'; b2.textContent = '⚡ Widgets';
+      b2.onclick = () => openAreaWidgetsModal(areaId);
       btnEl.appendChild(b2);
+      if (!area.parentId) {
+        const bSub = document.createElement('button');
+        bSub.className = 'btn btn-sm btn-p'; bSub.style.marginLeft = '6px'; bSub.textContent = '+ Add sub-area';
+        bSub.onclick = () => promptAddArea(areaId);
+        btnEl.appendChild(bSub);
+      }
       const b3 = document.createElement('button');
       b3.className = 'btn btn-sm'; b3.style.marginLeft = '6px';
       b3.textContent = 'Save as template';
@@ -494,10 +499,15 @@ function renderAreaView(areaId) {
       b.onclick = () => promptAddRecord();
       btnEl.appendChild(b);
       const b2 = document.createElement('button');
-      if (area.parentId) { b2.className = 'record-header-tile'; b2.textContent = '⚡ Widgets'; }
-      else { b2.className = 'btn btn-sm btn-p'; b2.style.marginLeft = '6px'; b2.textContent = '+ Add sub-area'; }
-      b2.onclick = area.parentId ? () => openAreaWidgetsModal(areaId) : () => promptAddArea(areaId);
+      b2.className = 'record-header-tile'; b2.textContent = '⚡ Widgets';
+      b2.onclick = () => openAreaWidgetsModal(areaId);
       btnEl.appendChild(b2);
+      if (!area.parentId) {
+        const bSub = document.createElement('button');
+        bSub.className = 'btn btn-sm btn-p'; bSub.style.marginLeft = '6px'; bSub.textContent = '+ Add sub-area';
+        bSub.onclick = () => promptAddArea(areaId);
+        btnEl.appendChild(bSub);
+      }
       const b3 = document.createElement('button');
       b3.className = 'btn btn-sm'; b3.style.marginLeft='6px';
       b3.textContent = 'Save as template';

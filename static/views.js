@@ -2050,7 +2050,8 @@ async function installTemplate(templateId, triggerEl) {
 function openAreaWidgetsModal(areaId) {
   const area = DB.areas.find(a => a.id === areaId);
   if (!area) return;
-  const libDefs = WIDGET_LIBRARY.filter(w => w.contexts.includes('subarea'));
+  const ctx = area.parentId ? 'subarea' : 'area';
+  const libDefs = WIDGET_LIBRARY.filter(w => w.contexts.includes(ctx));
   const allIds = libDefs.map(d => d.id);
   const active = new Set(area.widgets || allIds);
   const categories = [...new Set(libDefs.map(w => w.category))];
@@ -2076,7 +2077,8 @@ function openAreaWidgetsModal(areaId) {
 function toggleAreaWidget(areaId, widgetId, el) {
   const area = DB.areas.find(a => a.id === areaId);
   if (!area) return;
-  const allIds = WIDGET_LIBRARY.filter(w => w.contexts.includes('subarea')).map(d => d.id);
+  const ctx = area.parentId ? 'subarea' : 'area';
+  const allIds = WIDGET_LIBRARY.filter(w => w.contexts.includes(ctx)).map(d => d.id);
   area.widgets = area.widgets || allIds;
   if (area.widgets.includes(widgetId)) {
     area.widgets = area.widgets.filter(w => w !== widgetId);
