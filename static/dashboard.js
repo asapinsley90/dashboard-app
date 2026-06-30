@@ -433,8 +433,8 @@ function renderAreaView(areaId) {
       b.onclick = () => promptAddRecord(null, areaId);
       btnEl.appendChild(b);
       const b2 = document.createElement('button');
-      b2.className = 'btn btn-sm btn-p'; b2.style.marginLeft = '6px';
-      b2.textContent = area.parentId ? '+ Add widget' : '+ Add sub-area';
+      if (area.parentId) { b2.className = 'record-header-tile'; b2.textContent = '⚡ Widgets'; }
+      else { b2.className = 'btn btn-sm btn-p'; b2.style.marginLeft = '6px'; b2.textContent = '+ Add sub-area'; }
       b2.onclick = area.parentId ? () => openAreaWidgetsModal(areaId) : () => promptAddArea(areaId);
       btnEl.appendChild(b2);
       const b3 = document.createElement('button');
@@ -482,8 +482,8 @@ function renderAreaView(areaId) {
       b.onclick = () => promptAddRecord();
       btnEl.appendChild(b);
       const b2 = document.createElement('button');
-      b2.className = 'btn btn-sm btn-p'; b2.style.marginLeft='6px';
-      b2.textContent = area.parentId ? '+ Add widget' : '+ Add sub-area';
+      if (area.parentId) { b2.className = 'record-header-tile'; b2.textContent = '⚡ Widgets'; }
+      else { b2.className = 'btn btn-sm btn-p'; b2.style.marginLeft = '6px'; b2.textContent = '+ Add sub-area'; }
       b2.onclick = area.parentId ? () => openAreaWidgetsModal(areaId) : () => promptAddArea(areaId);
       btnEl.appendChild(b2);
       const b3 = document.createElement('button');
