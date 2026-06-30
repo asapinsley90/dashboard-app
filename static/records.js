@@ -9,6 +9,7 @@ const RECORD_WIDGET_DEFS = {
     { id: 'ira-progress', label: 'IRA contributions', icon: '📋', defaultOn: true },
     { id: '401k-progress', label: '401k contributions', icon: '🏢', defaultOn: true },
     { id: 'hsa-progress', label: 'HSA contributions', icon: '🏥', defaultOn: true },
+    { id: 'tax-docs', label: 'Tax documents', icon: '📄', defaultOn: true },
     { id: 'activity', label: 'Activity', icon: '⏱', defaultOn: true },
     { id: 'notes', label: 'Notes', icon: '📝', defaultOn: true },
     { id: 'contacts', label: 'Contacts', icon: '👤', defaultOn: false },
@@ -1038,6 +1039,37 @@ function renderSchemaRecord(r, area) {
       </div>`;
     }
 
+    if (id === 'tax-docs') {
+      const taxDocs = r.fields.taxDocs || [];
+      const TAX_TYPES = ['1099-R','1099-DIV','1099-INT','1099-B','1099-Q','W-2','5498','Other'];
+      const currentYear = new Date().getFullYear();
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        ${taxDocs.length ? `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px">
+          <thead><tr style="color:var(--muted)">
+            <th style="text-align:left;padding:3px 6px">Form</th>
+            <th style="text-align:left;padding:3px 6px">Year</th>
+            <th style="text-align:left;padding:3px 6px">Status</th>
+            <th style="padding:3px 6px"></th>
+          </tr></thead>
+          <tbody>${taxDocs.map((d,i) => `<tr style="border-top:1px solid var(--border)">
+            <td style="padding:4px 6px;color:var(--text)">${d.form}</td>
+            <td style="padding:4px 6px;color:var(--muted)">${d.year}</td>
+            <td style="padding:4px 6px">
+              <span style="color:${d.status==='received'?'var(--green)':d.status==='filed'?'var(--accent)':'var(--muted)'}">${d.status||'pending'}</span>
+            </td>
+            <td style="padding:4px 6px;text-align:right">
+              <button onclick="cycleTaxDocStatus('${r.id}',${i})" style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--muted);padding:0" title="Cycle status">↻</button>
+              <button onclick="deleteTaxDoc('${r.id}',${i})" style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--muted);padding:0 0 0 6px" title="Remove">✕</button>
+            </td>
+          </tr>`).join('')}</tbody>
+        </table>` : '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">No tax documents yet.</div>'}
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${TAX_TYPES.map(t => `<button class="btn btn-sm" style="font-size:11px" onclick="addTaxDoc('${r.id}','${t}',${currentYear-1})">${t}</button>`).join('')}
+        </div>
+      </div>`;
+    }
+
     if (id === 'ira-progress') {
       const isIRA = ['Roth IRA','Traditional IRA'].includes(r.fields.accountType);
       if (!isIRA) return '';
@@ -1299,6 +1331,34 @@ async function moveRecordArea(recordId, newAreaId) {
   renderSidebar();
 }
 
+
+async function addTaxDoc(recordId, form, year) {
+  const r = getRecord(recordId);
+  if (!r) return;
+  r.fields.taxDocs = r.fields.taxDocs || [];
+  r.fields.taxDocs.push({ form, year, status: 'pending' });
+  await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+  renderRecordView(recordId);
+}
+
+async function cycleTaxDocStatus(recordId, idx) {
+  const r = getRecord(recordId);
+  if (!r) return;
+  const statuses = ['pending','received','filed'];
+  const doc = r.fields.taxDocs?.[idx];
+  if (!doc) return;
+  doc.status = statuses[(statuses.indexOf(doc.status) + 1) % statuses.length];
+  await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+  renderRecordView(recordId);
+}
+
+async function deleteTaxDoc(recordId, idx) {
+  const r = getRecord(recordId);
+  if (!r) return;
+  r.fields.taxDocs?.splice(idx, 1);
+  await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+  renderRecordView(recordId);
+}
 
 function editAnnualContrib(recordId, year, el) {
   const r = getRecord(recordId);
