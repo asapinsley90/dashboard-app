@@ -2047,38 +2047,37 @@ async function installTemplate(templateId, triggerEl) {
   }
 }
 
-const AREA_WIDGET_DEFS = [
-  { id: 'calendar', label: 'Calendar', icon: '📅' },
-  { id: 'contacts', label: 'Contacts', icon: '👤' },
-  { id: 'notes', label: 'Notes', icon: '📝' },
-  { id: 'documents', label: 'Documents', icon: '📎' },
-  { id: 'portfolio', label: 'Portfolio chart', icon: '📈' },
-  { id: 'by-account', label: 'By account bars', icon: '📊' },
-  { id: 'net-worth', label: 'Net worth', icon: '💰' },
-  { id: 'credit-cards', label: 'Credit cards', icon: '💳' },
-];
-
 function openAreaWidgetsModal(areaId) {
   const area = DB.areas.find(a => a.id === areaId);
   if (!area) return;
-  const allIds = AREA_WIDGET_DEFS.map(d => d.id);
+  const libDefs = WIDGET_LIBRARY.filter(w => w.contexts.includes('subarea'));
+  const allIds = libDefs.map(d => d.id);
   const active = new Set(area.widgets || allIds);
-  openModal('Area widgets', `
-    <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Toggle widgets for this area's side panel.</p>
-    <div class="widget-toggle-grid">${AREA_WIDGET_DEFS.map(d => `
-      <div class="widget-toggle${active.has(d.id) ? ' active' : ''}" onclick="toggleAreaWidget('${areaId}','${d.id}',this)">
-        <span style="font-size:22px">${d.icon}</span>
-        <span class="widget-toggle-label">${d.label}</span>
-        <span class="widget-toggle-dot"></span>
-      </div>`).join('')}
-    </div>
+  const categories = [...new Set(libDefs.map(w => w.category))];
+  const grouped = categories.map(cat => {
+    const widgets = libDefs.filter(w => w.category === cat);
+    return `<div style="margin-bottom:18px">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">${cat}</div>
+      <div class="widget-toggle-grid">${widgets.map(d => `
+        <div class="widget-toggle${active.has(d.id) ? ' active' : ''}" onclick="toggleAreaWidget('${areaId}','${d.id}',this)">
+          <span style="font-size:28px">${d.icon}</span>
+          <span class="widget-toggle-label">${d.label}</span>
+          <span class="widget-toggle-dot"></span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  openModal('Widget library', `
+    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">Toggle widgets for this area's side panel.</p>
+    ${grouped}
   `, [{ label: 'Done', onclick: () => { closeModal(); renderAreaView(areaId); } }]);
 }
 
 function toggleAreaWidget(areaId, widgetId, el) {
   const area = DB.areas.find(a => a.id === areaId);
   if (!area) return;
-  area.widgets = area.widgets || AREA_WIDGET_DEFS.map(d => d.id);
+  const allIds = WIDGET_LIBRARY.filter(w => w.contexts.includes('subarea')).map(d => d.id);
+  area.widgets = area.widgets || allIds;
   if (area.widgets.includes(widgetId)) {
     area.widgets = area.widgets.filter(w => w !== widgetId);
   } else {

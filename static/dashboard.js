@@ -572,6 +572,18 @@ function renderAreaView(areaId) {
     if (accountRecs.length && (areaWidgetOn('portfolio') || areaWidgetOn('by-account'))) {
       renderInvestmentWidgets(calPanel, accountRecs, area);
     }
+
+    // Finance aggregate widgets for subareas
+    ['area-ira-widget','area-401k-widget','area-hsa-widget','area-tax-docs-widget',
+     'area-history-widget','area-balance-chart-widget'].forEach(id => {
+      document.getElementById(id)?.remove();
+    });
+    if (accountRecs.length) {
+      if (areaWidgetOn('ira-progress')) renderAreaIRAWidget(calPanel, accountRecs);
+      if (areaWidgetOn('401k-progress')) renderArea401kWidget(calPanel, accountRecs);
+      if (areaWidgetOn('hsa-progress')) renderAreaHSAWidget(calPanel, accountRecs);
+      if (areaWidgetOn('tax-docs')) renderAreaTaxDocsWidget(calPanel, accountRecs);
+    }
   }
 
   renderSidebar();
@@ -975,4 +987,105 @@ function renderCreditCardSummaryWidget(calPanel, ccAccounts) {
   const calLabel = calPanel.querySelector('.dash-section-label');
   if (calLabel) calPanel.insertBefore(wrapper, calLabel.parentElement || calLabel);
   else calPanel.prepend(wrapper);
+}
+
+function renderAreaIRAWidget(calPanel, accounts) {
+  const iraAccts = accounts.filter(r => ['Roth IRA','Traditional IRA'].includes(r.fields.accountType));
+  if (!iraAccts.length) return;
+  const yr = new Date().getFullYear();
+  const wrapper = document.createElement('div');
+  wrapper.id = 'area-ira-widget';
+  wrapper.style.cssText = 'margin-bottom:10px';
+  wrapper.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">IRA Contributions ${yr}</div>
+    ${iraAccts.map(r => {
+      const lim = (r.fields.iraLimits || {})[yr] || 7000;
+      const contrib = Number((r.fields.annualContribs || {})[yr]) || 0;
+      const pct = Math.min(100, contrib / lim * 100);
+      const done = contrib >= lim;
+      const color = done ? 'var(--green)' : pct >= 75 ? '#f0b429' : 'var(--accent)';
+      return `<div style="margin-bottom:8px;cursor:pointer" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+          <span style="color:var(--text)">${r.title}</span>
+          <span style="color:${done?'var(--green)':'var(--muted)'}">${done?'✓':'$'+contrib.toLocaleString()+' / $'+lim.toLocaleString()}</span>
+        </div>
+        <div style="height:4px;background:var(--bg3);border-radius:2px"><div style="height:4px;width:${pct}%;background:${color};border-radius:2px"></div></div>
+      </div>`;
+    }).join('')}
+  </div>`;
+  calPanel.appendChild(wrapper);
+}
+
+function renderArea401kWidget(calPanel, accounts) {
+  const accts = accounts.filter(r => r.fields.accountType === '401k');
+  if (!accts.length) return;
+  const yr = new Date().getFullYear();
+  const wrapper = document.createElement('div');
+  wrapper.id = 'area-401k-widget';
+  wrapper.style.cssText = 'margin-bottom:10px';
+  wrapper.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">401k Contributions ${yr}</div>
+    ${accts.map(r => {
+      const lim = (r.fields.k401Limits || {})[yr] || 23500;
+      const contrib = Number((r.fields.annualContribs || {})[yr]) || 0;
+      const pct = Math.min(100, contrib / lim * 100);
+      const done = contrib >= lim;
+      const color = done ? 'var(--green)' : pct >= 75 ? '#f0b429' : 'var(--accent)';
+      return `<div style="margin-bottom:8px;cursor:pointer" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+          <span style="color:var(--text)">${r.title}</span>
+          <span style="color:${done?'var(--green)':'var(--muted)'}">${done?'✓':'$'+contrib.toLocaleString()+' / $'+lim.toLocaleString()}</span>
+        </div>
+        <div style="height:4px;background:var(--bg3);border-radius:2px"><div style="height:4px;width:${pct}%;background:${color};border-radius:2px"></div></div>
+      </div>`;
+    }).join('')}
+  </div>`;
+  calPanel.appendChild(wrapper);
+}
+
+function renderAreaHSAWidget(calPanel, accounts) {
+  const accts = accounts.filter(r => r.fields.accountType === 'HSA');
+  if (!accts.length) return;
+  const yr = new Date().getFullYear();
+  const wrapper = document.createElement('div');
+  wrapper.id = 'area-hsa-widget';
+  wrapper.style.cssText = 'margin-bottom:10px';
+  wrapper.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">HSA Contributions ${yr}</div>
+    ${accts.map(r => {
+      const coverage = r.fields.hsaCoverage === 'family' ? 'family' : 'individual';
+      const lim = (r.fields.hsaLimits || {})[yr] || (coverage === 'family' ? 8550 : 4300);
+      const contrib = Number((r.fields.annualContribs || {})[yr]) || 0;
+      const pct = Math.min(100, contrib / lim * 100);
+      const done = contrib >= lim;
+      const color = done ? 'var(--green)' : pct >= 75 ? '#f0b429' : 'var(--accent)';
+      return `<div style="margin-bottom:8px;cursor:pointer" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+          <span style="color:var(--text)">${r.title}</span>
+          <span style="color:${done?'var(--green)':'var(--muted)'}">${done?'✓':'$'+contrib.toLocaleString()+' / $'+lim.toLocaleString()}</span>
+        </div>
+        <div style="height:4px;background:var(--bg3);border-radius:2px"><div style="height:4px;width:${pct}%;background:${color};border-radius:2px"></div></div>
+      </div>`;
+    }).join('')}
+  </div>`;
+  calPanel.appendChild(wrapper);
+}
+
+function renderAreaTaxDocsWidget(calPanel, accounts) {
+  const yr = new Date().getFullYear() - 1;
+  const allDocs = accounts.flatMap(r => (r.fields.taxDocs || []).map(d => ({ ...d, acctTitle: r.title, areaId: r.areaId, recordId: r.id })));
+  const recent = allDocs.filter(d => d.year >= yr);
+  if (!recent.length) return;
+  const wrapper = document.createElement('div');
+  wrapper.id = 'area-tax-docs-widget';
+  wrapper.style.cssText = 'margin-bottom:10px';
+  wrapper.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Tax Documents</div>
+    ${recent.map(d => `<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-top:1px solid var(--border1);cursor:pointer"
+        data-record-link data-area-id="${d.areaId}" data-record-id="${d.recordId}">
+      <span><span style="color:var(--text)">${d.form}</span> <span style="color:var(--muted)">${d.acctTitle}</span></span>
+      <span style="color:${d.status==='filed'?'var(--accent)':d.status==='received'?'var(--green)':'var(--muted)'}">${d.status||'pending'}</span>
+    </div>`).join('')}
+  </div>`;
+  calPanel.appendChild(wrapper);
 }

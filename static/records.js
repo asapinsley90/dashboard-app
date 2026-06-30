@@ -1,56 +1,97 @@
 ﻿// â"€â"€ RECORD VIEW â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-// ── WIDGET SYSTEM ──────────────────────────────────────────────────────────────
+// ── WIDGET LIBRARY ─────────────────────────────────────────────────────────────
+// Single source of truth for all available widgets.
+// contexts: 'record' = record widget picker, 'subarea' = area sidebar widget picker
+// category: used for grouping in the picker modal
+// defaultOn: used only when building defaults for RECORD_WIDGET_DEFS (not enforced by library itself)
+const WIDGET_LIBRARY = [
+  // Finance ───────────────────────────────────────────────────────────────────
+  { id: 'account-details', label: 'Account details',   icon: '🏦', category: 'Finance', contexts: ['record']            },
+  { id: 'cc-details',      label: 'Card details',       icon: '💳', category: 'Finance', contexts: ['record', 'subarea'] },
+  { id: 'history',         label: 'Monthly history',    icon: '📊', category: 'Finance', contexts: ['record', 'subarea'] },
+  { id: 'balance-chart',   label: 'Balance chart',      icon: '📈', category: 'Finance', contexts: ['record', 'subarea'] },
+  { id: 'ira-progress',    label: 'IRA contributions',  icon: '🏛', category: 'Finance', contexts: ['record', 'subarea'] },
+  { id: '401k-progress',   label: '401k contributions', icon: '💵', category: 'Finance', contexts: ['record', 'subarea'] },
+  { id: 'hsa-progress',    label: 'HSA contributions',  icon: '🏥', category: 'Finance', contexts: ['record', 'subarea'] },
+  { id: 'tax-docs',        label: 'Tax documents',      icon: '📄', category: 'Finance', contexts: ['record', 'subarea'] },
+  { id: 'net-worth',       label: 'Net worth',          icon: '💰', category: 'Finance', contexts: ['subarea']           },
+  { id: 'credit-cards',    label: 'Credit cards',       icon: '🃏', category: 'Finance', contexts: ['subarea']           },
+  { id: 'portfolio',       label: 'Portfolio chart',    icon: '📉', category: 'Finance', contexts: ['subarea']           },
+  { id: 'by-account',      label: 'By account',         icon: '📊', category: 'Finance', contexts: ['subarea']           },
+  // General ───────────────────────────────────────────────────────────────────
+  { id: 'notes',           label: 'Notes',              icon: '📝', category: 'General', contexts: ['record', 'subarea'] },
+  { id: 'activity',        label: 'Activity',           icon: '⏱',  category: 'General', contexts: ['record']            },
+  { id: 'timeline',        label: 'Timeline',           icon: '⏱',  category: 'General', contexts: ['record']            },
+  { id: 'contacts',        label: 'Contacts',           icon: '👥', category: 'General', contexts: ['record', 'subarea'] },
+  { id: 'documents',       label: 'Documents',          icon: '📎', category: 'General', contexts: ['record', 'subarea'] },
+  { id: 'calendar',        label: 'Calendar',           icon: '📅', category: 'General', contexts: ['subarea']           },
+  { id: 'import',          label: 'Import',             icon: '⬆',  category: 'General', contexts: ['record']            },
+  { id: 'paste',           label: 'Paste',              icon: '✏️', category: 'General', contexts: ['record']            },
+  // Record-specific (rendered only when record type matches) ──────────────────
+  { id: 'contact-info',    label: 'Contact info',       icon: '👤', category: 'General', contexts: ['record']            },
+  { id: 'company-details', label: 'Company details',    icon: '🏢', category: 'General', contexts: ['record']            },
+  { id: 'event-details',   label: 'Event details',      icon: '📅', category: 'General', contexts: ['record']            },
+  { id: 'applications',    label: 'Applications',       icon: '💼', category: 'General', contexts: ['record']            },
+  { id: 'links',           label: 'Linked records',     icon: '🔗', category: 'General', contexts: ['record']            },
+  { id: 'fields',          label: 'Fields',             icon: '📋', category: 'General', contexts: ['record']            },
+  { id: 'status-urgency',  label: 'Status & urgency',   icon: '🎯', category: 'General', contexts: ['record']            },
+];
+
+// Per-type defaults (used when a record has no saved _widgets).
+// Job is excluded from the library and keeps its own defs.
 const RECORD_WIDGET_DEFS = {
   account: [
-    { id: 'account-details', label: 'Account details', icon: '🏦', defaultOn: true },
-    { id: 'cc-details', label: 'Card details', icon: '💳', defaultOn: true },
-    { id: 'history', label: 'Monthly history', icon: '📊', defaultOn: true },
-    { id: 'balance-chart', label: 'Balance chart', icon: '📈', defaultOn: true },
-    { id: 'ira-progress', label: 'IRA contributions', icon: '📋', defaultOn: true },
-    { id: '401k-progress', label: '401k contributions', icon: '🏢', defaultOn: true },
-    { id: 'hsa-progress', label: 'HSA contributions', icon: '🏥', defaultOn: true },
-    { id: 'tax-docs', label: 'Tax documents', icon: '📄', defaultOn: true },
-    { id: 'activity', label: 'Activity', icon: '⏱', defaultOn: true },
-    { id: 'notes', label: 'Notes', icon: '📝', defaultOn: true },
-    { id: 'contacts', label: 'Contacts', icon: '👤', defaultOn: false },
-    { id: 'documents', label: 'Documents', icon: '📎', defaultOn: false },
+    { id: 'account-details', defaultOn: true  },
+    { id: 'cc-details',      defaultOn: true  },
+    { id: 'history',         defaultOn: true  },
+    { id: 'balance-chart',   defaultOn: true  },
+    { id: 'ira-progress',    defaultOn: true  },
+    { id: '401k-progress',   defaultOn: true  },
+    { id: 'hsa-progress',    defaultOn: true  },
+    { id: 'tax-docs',        defaultOn: true  },
+    { id: 'import',          defaultOn: true  },
+    { id: 'activity',        defaultOn: true  },
+    { id: 'notes',           defaultOn: true  },
+    { id: 'contacts',        defaultOn: false },
+    { id: 'documents',       defaultOn: false },
+    { id: 'paste',           defaultOn: false },
   ],
   job: [
-    { id: 'role-details', label: 'Role details', icon: '💼', defaultOn: true },
-    { id: 'interviews', label: 'Interviews', icon: '🗓', defaultOn: true },
-    { id: 'job-description', label: 'Job description', icon: '📄', defaultOn: true },
-    { id: 'status-urgency', label: 'Status & urgency', icon: '🎯', defaultOn: true },
-    { id: 'contacts', label: 'Contacts', icon: '👤', defaultOn: true },
-    { id: 'documents', label: 'Documents', icon: '📎', defaultOn: true },
-    { id: 'timeline', label: 'Timeline', icon: '⏱', defaultOn: true },
-    { id: 'notes', label: 'Notes', icon: '📝', defaultOn: true },
+    { id: 'role-details',    label: 'Role details',    icon: '💼', defaultOn: true  },
+    { id: 'interviews',      label: 'Interviews',      icon: '🗓', defaultOn: true  },
+    { id: 'job-description', label: 'Job description', icon: '📄', defaultOn: true  },
+    { id: 'status-urgency',  label: 'Status & urgency',icon: '🎯', defaultOn: true  },
+    { id: 'contacts',        label: 'Contacts',        icon: '👤', defaultOn: true  },
+    { id: 'documents',       label: 'Documents',       icon: '📎', defaultOn: true  },
+    { id: 'timeline',        label: 'Timeline',        icon: '⏱', defaultOn: true  },
+    { id: 'notes',           label: 'Notes',           icon: '📝', defaultOn: true  },
   ],
   contact: [
-    { id: 'contact-info', label: 'Contact info', icon: '👤', defaultOn: true },
-    { id: 'notes', label: 'Notes', icon: '📝', defaultOn: true },
-    { id: 'timeline', label: 'Timeline', icon: '⏱', defaultOn: true },
-    { id: 'documents', label: 'Documents', icon: '📎', defaultOn: false },
+    { id: 'contact-info', defaultOn: true  },
+    { id: 'notes',        defaultOn: true  },
+    { id: 'timeline',     defaultOn: true  },
+    { id: 'documents',    defaultOn: false },
   ],
   company: [
-    { id: 'company-details', label: 'Company details', icon: '🏢', defaultOn: true },
-    { id: 'contacts', label: 'Contacts', icon: '👤', defaultOn: true },
-    { id: 'applications', label: 'Applications', icon: '💼', defaultOn: true },
-    { id: 'notes', label: 'Notes', icon: '📝', defaultOn: true },
-    { id: 'timeline', label: 'Timeline', icon: '⏱', defaultOn: true },
-    { id: 'documents', label: 'Documents', icon: '📎', defaultOn: false },
+    { id: 'company-details', defaultOn: true  },
+    { id: 'contacts',        defaultOn: true  },
+    { id: 'applications',    defaultOn: true  },
+    { id: 'notes',           defaultOn: true  },
+    { id: 'timeline',        defaultOn: true  },
+    { id: 'documents',       defaultOn: false },
   ],
   event: [
-    { id: 'event-details', label: 'Event details', icon: '📅', defaultOn: true },
-    { id: 'links',    label: 'Linked records', icon: '🔗', defaultOn: true },
-    { id: 'timeline', label: 'Timeline',        icon: '⏱', defaultOn: true },
+    { id: 'event-details', defaultOn: true },
+    { id: 'links',         defaultOn: true },
+    { id: 'timeline',      defaultOn: true },
   ],
   _default: [
-    { id: 'fields', label: 'Fields', icon: '📋', defaultOn: true },
-    { id: 'status-urgency', label: 'Status & urgency', icon: '🎯', defaultOn: true },
-    { id: 'contacts', label: 'Contacts', icon: '👤', defaultOn: true },
-    { id: 'notes', label: 'Notes', icon: '📝', defaultOn: true },
-    { id: 'timeline', label: 'Timeline', icon: '⏱', defaultOn: true },
-    { id: 'documents', label: 'Documents', icon: '📎', defaultOn: false },
+    { id: 'fields',        defaultOn: true  },
+    { id: 'status-urgency',defaultOn: true  },
+    { id: 'contacts',      defaultOn: true  },
+    { id: 'notes',         defaultOn: true  },
+    { id: 'timeline',      defaultOn: true  },
+    { id: 'documents',     defaultOn: false },
   ],
 };
 
@@ -121,7 +162,13 @@ function renderFieldsFromSchema(r) {
 }
 
 function getWidgetDefs(r) {
-  return RECORD_WIDGET_DEFS[r.type] || RECORD_WIDGET_DEFS._default;
+  const defaults = RECORD_WIDGET_DEFS[r.type] || RECORD_WIDGET_DEFS._default;
+  // Merge defaults with WIDGET_LIBRARY to get label/icon (job keeps its own full defs)
+  if (r.type === 'job') return defaults;
+  return defaults.map(d => {
+    const lib = WIDGET_LIBRARY.find(w => w.id === d.id);
+    return lib ? { ...lib, ...d } : d;
+  });
 }
 
 function getActiveWidgets(r) {
@@ -137,17 +184,48 @@ function openWidgetsModal(recordId) {
   const r = getRecord(recordId);
   if (!r) return;
   tourNotify('widget-opened');
-  const defs = getWidgetDefs(r);
   const active = getActiveWidgets(r);
-  openModal('Widgets', `
-    <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Active widgets appear in this record. Click any widget to toggle it on or off.</p>
-    <div class="widget-toggle-grid">${defs.map(d => `
-      <div class="widget-toggle${active.has(d.id) ? ' active' : ''}" onclick="toggleWidgetActive('${recordId}','${d.id}',this)">
-        <span style="font-size:32px">${d.icon}</span>
-        <span class="widget-toggle-label">${d.label}</span>
-        <span class="widget-toggle-dot"></span>
-      </div>`).join('')}
-    </div>
+
+  // Job type uses its own defs (excluded from library)
+  if (r.type === 'job') {
+    const defs = getWidgetDefs(r);
+    openModal('Widgets', `
+      <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Active widgets appear in this record.</p>
+      <div class="widget-toggle-grid">${defs.map(d => `
+        <div class="widget-toggle${active.has(d.id) ? ' active' : ''}" onclick="toggleWidgetActive('${recordId}','${d.id}',this)">
+          <span style="font-size:32px">${d.icon}</span>
+          <span class="widget-toggle-label">${d.label}</span>
+          <span class="widget-toggle-dot"></span>
+        </div>`).join('')}
+      </div>
+    `, [{ label: 'Done', onclick: closeModal }]);
+    return;
+  }
+
+  // All other types: use WIDGET_LIBRARY grouped by category, filtered to 'record' context.
+  // Finance widgets are shown only for account records; General widgets shown for all.
+  const libDefs = WIDGET_LIBRARY.filter(w =>
+    w.contexts.includes('record') &&
+    (w.category !== 'Finance' || r.type === 'account')
+  );
+  const categories = [...new Set(libDefs.map(w => w.category))];
+  const grouped = categories.map(cat => {
+    const widgets = libDefs.filter(w => w.category === cat);
+    return `<div style="margin-bottom:18px">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">${cat}</div>
+      <div class="widget-toggle-grid">${widgets.map(d => `
+        <div class="widget-toggle${active.has(d.id) ? ' active' : ''}" onclick="toggleWidgetActive('${recordId}','${d.id}',this)">
+          <span style="font-size:28px">${d.icon}</span>
+          <span class="widget-toggle-label">${d.label}</span>
+          <span class="widget-toggle-dot"></span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  openModal('Widget library', `
+    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">Toggle widgets on or off for this record.</p>
+    ${grouped}
   `, [{ label: 'Done', onclick: closeModal }]);
 }
 
@@ -1108,11 +1186,34 @@ function renderSchemaRecord(r, area) {
       </div>`;
     }
 
+    if (id === 'import') {
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-sm" onclick="parseStatementUpload('${r.id}')">⬆ Upload file</button>
+          <button class="btn btn-sm" onclick="document.getElementById('csv-input-${r.id}').click()">⬆ Import CSV</button>
+          <span style="font-size:11px;color:var(--muted)">or paste a screenshot anywhere</span>
+        </div>
+        <input type="file" id="stmt-input-${r.id}" accept="image/*,application/pdf" style="display:none" onchange="handleStatementFile('${r.id}',this)">
+        <input type="file" id="csv-input-${r.id}" accept=".csv,text/csv" style="display:none" onchange="handleStatementFile('${r.id}',this)">
+      </div>`;
+    }
+
+    if (id === 'paste') {
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        <textarea class="field-edit" style="width:100%;min-height:80px;font-size:12px;resize:vertical;font-family:inherit"
+          placeholder="Paste any text here — statements, notes, data..."
+          onblur="savePasteContent('${r.id}',this.value)">${escapeHtml(r.fields._pasteContent || '')}</textarea>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Auto-saved on blur.</div>
+      </div>`;
+    }
+
     return '';
   }
 
   // Split active widgets into main vs sidebar
-  const SIDEBAR_WIDGETS = new Set(['timeline','activity','contacts','ira-progress','applications','documents','links']);
+  const SIDEBAR_WIDGETS = new Set(['timeline','activity','contacts','ira-progress','applications','documents','links','paste']);
   const active = getActiveWidgets(r);
   const mainDefs = defs.filter(d => active.has(d.id) && !SIDEBAR_WIDGETS.has(d.id));
   const sidebarDefs = defs.filter(d => active.has(d.id) && SIDEBAR_WIDGETS.has(d.id));
@@ -1323,6 +1424,13 @@ function editableField(r, key, label, type = 'text') {
 }
 
 // â"€â"€ FIELD SAVES â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+async function savePasteContent(recordId, value) {
+  const r = getRecord(recordId);
+  if (!r) return;
+  r.fields._pasteContent = value;
+  await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+}
+
 async function moveRecordArea(recordId, newAreaId) {
   const r = getRecord(recordId);
   if (!r || r.areaId === newAreaId) return;
