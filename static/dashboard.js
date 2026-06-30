@@ -565,6 +565,47 @@ function renderAreaView(areaId) {
   renderSidebar();
 }
 
+function openAreaWidgetsModal(areaId) {
+  const area = DB.areas.find(a => a.id === areaId);
+  if (!area) return;
+  const AREA_WIDGETS = [
+    { id: 'calendar', label: 'Calendar' },
+    { id: 'contacts', label: 'Contacts' },
+    { id: 'portfolio', label: 'Portfolio chart' },
+    { id: 'by-account', label: 'By account' },
+  ];
+  const current = area.widgets || AREA_WIDGETS.map(w => w.id);
+  const id = 'area-widgets-modal';
+  let el = document.getElementById(id);
+  if (el) el.remove();
+  el = document.createElement('div');
+  el.id = id;
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center';
+  el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px;min-width:280px">
+    <div style="font-size:15px;font-weight:600;margin-bottom:16px">Area widgets</div>
+    ${AREA_WIDGETS.map(w => `<label style="display:flex;align-items:center;gap:10px;margin-bottom:12px;cursor:pointer;font-size:14px">
+      <input type="checkbox" data-widget="${w.id}" ${current.includes(w.id)?'checked':''} style="width:16px;height:16px;accent-color:var(--accent)">
+      ${w.label}
+    </label>`).join('')}
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-p" onclick="saveAreaWidgets('${areaId}')">Save</button>
+      <button class="btn" onclick="document.getElementById('${id}').remove()">Cancel</button>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+}
+
+function saveAreaWidgets(areaId) {
+  const area = DB.areas.find(a => a.id === areaId);
+  if (!area) return;
+  const checked = [...document.querySelectorAll('#area-widgets-modal input[data-widget]:checked')].map(i => i.dataset.widget);
+  area.widgets = checked;
+  api('PUT', `/api/areas/${areaId}`, { widgets: checked });
+  document.getElementById('area-widgets-modal')?.remove();
+  renderAreaView(areaId);
+}
+
 function renderJobList(records, filter) {
   // Filter-specific view
   if (filter === 'applied') {
