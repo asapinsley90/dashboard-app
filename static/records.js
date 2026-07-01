@@ -97,35 +97,50 @@ const RECORD_WIDGET_DEFS = {
 
 // ── DEFAULT FIELD SCHEMAS for built-in types ──────────────────────────────────
 const FIELD_LIBRARY = [
-  // Finance
-  { key: 'balance',       label: 'Balance',        type: 'text',     category: 'Finance' },
-  { key: 'creditLimit',   label: 'Credit limit',   type: 'text',     category: 'Finance' },
-  { key: 'minPayment',    label: 'Min payment',     type: 'text',     category: 'Finance' },
-  { key: 'apr',           label: 'APR',            type: 'text',     category: 'Finance' },
-  { key: 'employerMatch', label: 'Employer match', type: 'text',     category: 'Finance' },
-  { key: 'hsaCoverage',   label: 'HSA coverage',   type: 'text',     category: 'Finance' },
+  // Finance — universal
+  { key: 'balance',              label: 'Balance',                  type: 'text', category: 'Finance' },
+  { key: 'creditLimit',          label: 'Credit limit',             type: 'text', category: 'Finance' },
+  { key: 'statementBalance',     label: 'Previous stmt balance',    type: 'text', category: 'Finance' },
+  { key: 'purchases',            label: 'Purchases this period',    type: 'text', category: 'Finance' },
+  { key: 'payments',             label: 'Payments this period',     type: 'text', category: 'Finance' },
+  { key: 'interestCharged',      label: 'Interest charged',         type: 'text', category: 'Finance' },
+  { key: 'minPayment',           label: 'Min payment',              type: 'text', category: 'Finance' },
+  { key: 'apr',                  label: 'Purchase APR',             type: 'text', category: 'Finance' },
+  { key: 'cashAdvanceApr',       label: 'Cash advance APR',         type: 'text', category: 'Finance' },
+  { key: 'annualFee',            label: 'Annual fee',               type: 'text', category: 'Finance' },
+  { key: 'employerMatch',        label: 'Employer match',           type: 'text', category: 'Finance' },
+  { key: 'hsaCoverage',          label: 'HSA coverage',             type: 'text', category: 'Finance' },
+  // Billing cycle
+  { key: 'statementOpen',        label: 'Statement opens (day)',    type: 'text', category: 'Billing' },
+  { key: 'statementClose',       label: 'Statement closes (day)',   type: 'text', category: 'Billing' },
+  { key: 'autopayDate',          label: 'Autopay date (day)',       type: 'text', category: 'Billing' },
+  { key: 'autopayType',          label: 'Autopay amount',           type: 'text', category: 'Billing' },
+  { key: 'autopayFixed',         label: 'Autopay fixed amount',     type: 'text', category: 'Billing' },
+  // Rewards
+  { key: 'rewardsType',          label: 'Rewards type',             type: 'text', category: 'Rewards' },
+  { key: 'rewardsRate',          label: 'Rewards rate',             type: 'text', category: 'Rewards' },
+  { key: 'pointsBalance',        label: 'Points balance',           type: 'text', category: 'Rewards' },
   // Account
-  { key: 'institution',   label: 'Institution',    type: 'text',     category: 'Account' },
-  { key: 'accountType',   label: 'Account type',   type: 'text',     category: 'Account' },
-  { key: 'owner',         label: 'Owner',          type: 'text',     category: 'Account' },
-  { key: 'last4',         label: 'Last 4',         type: 'text',     category: 'Account' },
-  { key: 'balanceDate',   label: 'Balance date',   type: 'date',     category: 'Account' },
-  { key: 'dueDate',       label: 'Due date',       type: 'date',     category: 'Account' },
+  { key: 'institution',          label: 'Institution',              type: 'text', category: 'Account' },
+  { key: 'accountType',          label: 'Account type',             type: 'text', category: 'Account' },
+  { key: 'owner',                label: 'Owner',                    type: 'text', category: 'Account' },
+  { key: 'last4',                label: 'Last 4',                   type: 'text', category: 'Account' },
+  { key: 'balanceDate',          label: 'Balance date',             type: 'date', category: 'Account' },
   // Contact
-  { key: 'role',          label: 'Role',           type: 'text',     category: 'Contact' },
-  { key: 'email',         label: 'Email',          type: 'email',    category: 'Contact' },
-  { key: 'phone',         label: 'Phone',          type: 'tel',      category: 'Contact' },
-  { key: 'linkedin',      label: 'LinkedIn',       type: 'url',      category: 'Contact' },
+  { key: 'role',                 label: 'Role',                     type: 'text',     category: 'Contact' },
+  { key: 'email',                label: 'Email',                    type: 'email',    category: 'Contact' },
+  { key: 'phone',                label: 'Phone',                    type: 'tel',      category: 'Contact' },
+  { key: 'linkedin',             label: 'LinkedIn',                 type: 'url',      category: 'Contact' },
   // Events
-  { key: 'date',          label: 'Date',           type: 'date',     category: 'Events' },
-  { key: 'time',          label: 'Start time',     type: 'time',     category: 'Events' },
-  { key: 'endTime',       label: 'End time',       type: 'time',     category: 'Events' },
+  { key: 'date',                 label: 'Date',                     type: 'date',     category: 'Events' },
+  { key: 'time',                 label: 'Start time',               type: 'time',     category: 'Events' },
+  { key: 'endTime',              label: 'End time',                 type: 'time',     category: 'Events' },
   // General
-  { key: 'notes',         label: 'Notes',          type: 'textarea', category: 'General' },
-  { key: 'location',      label: 'Location',       type: 'text',     category: 'General' },
-  { key: 'website',       label: 'Website',        type: 'url',      category: 'General' },
-  { key: 'industry',      label: 'Industry',       type: 'text',     category: 'General' },
-  { key: 'link',          label: 'Link',           type: 'url',      category: 'General' },
+  { key: 'notes',                label: 'Notes',                    type: 'textarea', category: 'General' },
+  { key: 'location',             label: 'Location',                 type: 'text',     category: 'General' },
+  { key: 'website',              label: 'Website',                  type: 'url',      category: 'General' },
+  { key: 'industry',             label: 'Industry',                 type: 'text',     category: 'General' },
+  { key: 'link',                 label: 'Link',                     type: 'url',      category: 'General' },
 ];
 
 const DEFAULT_FIELD_SCHEMAS = {
@@ -1059,9 +1074,33 @@ function renderSchemaRecord(r, area) {
             <span>Balance: ${fmt(bal)}</span><span>Limit: ${fmt(limit)}</span>
           </div>
         </div>` : ''}
+        ${r.fields.statementBalance ? `<div class="field-row"><div class="field-label">Prev stmt balance</div><div class="field-value">${fmt(Number(r.fields.statementBalance))}</div></div>` : ''}
+        ${r.fields.purchases ? `<div class="field-row"><div class="field-label">Purchases</div><div class="field-value">${fmt(Number(r.fields.purchases))}</div></div>` : ''}
+        ${r.fields.payments ? `<div class="field-row"><div class="field-label">Payments</div><div class="field-value">${fmt(Number(r.fields.payments))}</div></div>` : ''}
+        ${r.fields.interestCharged ? `<div class="field-row"><div class="field-label">Interest</div><div class="field-value">${fmt(Number(r.fields.interestCharged))}</div></div>` : ''}
         ${r.fields.minPayment ? `<div class="field-row"><div class="field-label">Min payment</div><div class="field-value">${fmt(Number(r.fields.minPayment))}</div></div>` : ''}
-        ${r.fields.dueDate ? `<div class="field-row"><div class="field-label">Due date</div><div class="field-value">${r.fields.dueDate}</div></div>` : ''}
-        ${r.fields.apr ? `<div class="field-row"><div class="field-label">APR</div><div class="field-value">${r.fields.apr}%</div></div>` : ''}
+        ${r.fields.apr ? `<div class="field-row"><div class="field-label">Purchase APR</div><div class="field-value">${r.fields.apr}%</div></div>` : ''}
+        ${r.fields.cashAdvanceApr ? `<div class="field-row"><div class="field-label">Cash advance APR</div><div class="field-value">${r.fields.cashAdvanceApr}%</div></div>` : ''}
+        ${r.fields.annualFee ? `<div class="field-row"><div class="field-label">Annual fee</div><div class="field-value">${fmt(Number(r.fields.annualFee))}</div></div>` : ''}
+        ${(r.fields.statementOpen || r.fields.statementClose) ? `<div class="field-row"><div class="field-label">Statement cycle</div><div class="field-value">${r.fields.statementOpen || '?'}–${r.fields.statementClose || '?'}</div></div>` : ''}
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border1)">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Autopay${r.fields.autopayDate ? ` · day ${r.fields.autopayDate}` : ''}</div>
+          <div style="display:flex;gap:6px;margin-bottom:6px">
+            ${['Minimum','Statement balance','Fixed'].map(opt => `
+              <button onclick="setCCAutopayType('${r.id}','${opt}',this)" style="flex:1;padding:5px 4px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid ${r.fields.autopayType===opt?'var(--accent)':'var(--border1)'};background:${r.fields.autopayType===opt?'var(--accent)':'var(--bg3)'};color:${r.fields.autopayType===opt?'#fff':'var(--text)'};transition:all .15s">${opt}</button>
+            `).join('')}
+          </div>
+          ${r.fields.autopayType === 'Fixed' ? `<div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px;color:var(--muted)">Amount</span>
+            <input id="cc-autopay-fixed-${r.id}" class="modal-input" style="width:100px;padding:4px 8px;font-size:12px" value="${r.fields.autopayFixed||''}" placeholder="0.00"
+              onblur="saveCCAutopayFixed('${r.id}',this.value)">
+          </div>` : ''}
+        </div>
+        ${r.fields.rewardsType || r.fields.pointsBalance ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border1)">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Rewards</div>
+          ${r.fields.rewardsType ? `<div class="field-row"><div class="field-label">Type</div><div class="field-value">${r.fields.rewardsType}${r.fields.rewardsRate ? ` · ${r.fields.rewardsRate}` : ''}</div></div>` : ''}
+          ${r.fields.pointsBalance ? `<div class="field-row"><div class="field-label">Balance</div><div class="field-value">${Number(r.fields.pointsBalance).toLocaleString()} pts</div></div>` : ''}
+        </div>` : ''}
       </div>`;
     }
 
@@ -1482,6 +1521,21 @@ function editableField(r, key, label, type = 'text') {
 }
 
 // â"€â"€ FIELD SAVES â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+async function setCCAutopayType(recordId, type, btn) {
+  const r = getRecord(recordId);
+  if (!r) return;
+  r.fields.autopayType = type;
+  await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+  renderRecordView(recordId);
+}
+
+async function saveCCAutopayFixed(recordId, value) {
+  const r = getRecord(recordId);
+  if (!r) return;
+  r.fields.autopayFixed = value;
+  await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+}
+
 async function savePasteContent(recordId, value) {
   const r = getRecord(recordId);
   if (!r) return;
