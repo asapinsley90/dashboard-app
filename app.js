@@ -1580,34 +1580,41 @@ app.post('/api/records/:id/parse-statement', upload.single('file'), async (req, 
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
+    const db = await dbLayer.readDB();
+    const record = db.records.find(r => r.id === req.params.id);
+    const accountType = record?.fields?.accountType || '';
+    const isCreditCard = accountType === 'Credit Card';
+
     const base64 = file.buffer.toString('base64');
     const mediaType = file.mimetype === 'application/pdf' ? 'application/pdf' : file.mimetype;
-
     const isPdf = mediaType === 'application/pdf';
     const contentBlock = isPdf
       ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
       : { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } };
 
+    const prompt = isCreditCard
+      ? 'Extract the following from this credit card statement: new/current balance, previous statement balance, purchases and charges this period, payments and credits this period, interest charged, minimum payment due, payment due date, and credit limit. Respond ONLY with valid JSON: {"balance": 1234.56, "previousBalance": 1000.00, "purchases": 500.00, "payments": 200.00, "interestCharged": 12.34, "minPayment": 25.00, "dueDate": "2026-07-15", "creditLimit": 5000.00, "date": "2026-06-30"}. Numbers only (no $ or commas). Dates in YYYY-MM-DD. Use 0 for any missing numeric values.'
+      : 'Extract the following from this financial statement: beginning account value, ending account value, contributions this period (0 if none), and the statement period end date. Respond ONLY with valid JSON: {"beginBalance": 12345.67, "endBalance": 12345.67, "contributions": 0, "date": "2026-05-31"}. Numbers only (no $ or commas). Date in YYYY-MM-DD.';
+
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 512,
-      messages: [{
-        role: 'user',
-        content: [
-          contentBlock,
-          { type: 'text', text: 'Extract the following from this financial statement summary: beginning account value, ending account value, contributions this period (0 if none or dashes), and the statement period end date. Respond ONLY with valid JSON: {"beginBalance": 12345.67, "endBalance": 12345.67, "contributions": 0, "date": "2026-05-31"}. Numbers only (no $ or commas). Date in YYYY-MM-DD.' }
-        ]
-      }]
+      messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: prompt }] }]
     });
 
     const text = message.content[0].text.trim();
     const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
-    const beginBalance = parsed.beginBalance || 0;
-    const endBalance = parsed.endBalance || 0;
-    const contributions = parsed.contributions || 0;
-    const investmentGain = endBalance - beginBalance - contributions;
-    const returnPct = beginBalance > 0 ? Math.round((investmentGain / beginBalance) * 10000) / 100 : 0;
-    res.json({ beginBalance, endBalance, contributions, returnPct, date: parsed.date });
+
+    if (isCreditCard) {
+      res.json({ _type: 'credit-card', balance: parsed.balance || 0, previousBalance: parsed.previousBalance || 0, purchases: parsed.purchases || 0, payments: parsed.payments || 0, interestCharged: parsed.interestCharged || 0, minPayment: parsed.minPayment || 0, dueDate: parsed.dueDate || '', creditLimit: parsed.creditLimit || 0, date: parsed.date });
+    } else {
+      const beginBalance = parsed.beginBalance || 0;
+      const endBalance = parsed.endBalance || 0;
+      const contributions = parsed.contributions || 0;
+      const gain = endBalance - beginBalance - contributions;
+      const returnPct = beginBalance > 0 ? Math.round(gain / beginBalance * 10000) / 100 : 0;
+      res.json({ _type: 'investment', beginBalance, endBalance, contributions, returnPct, date: parsed.date });
+    }
   } catch (err) {
     console.error('Parse statement error:', err);
     res.status(500).json({ error: err.message });

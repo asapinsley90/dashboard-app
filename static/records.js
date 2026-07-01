@@ -699,30 +699,53 @@ function showStatementConfirmModal(recordId, data) {
   const years = Array.from({length: 6}, (_, i) => year - 2 + i);
   const fmt = n => '$' + Number(n).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
   const fmtPct = n => (n >= 0 ? '+' : '') + Number(n).toFixed(2) + '%';
+  const isCreditCard = data._type === 'credit-card';
+
+  const periodRow = `
+    <div style="font-size:12px;color:var(--muted)">Period</div>
+    <div style="display:flex;gap:6px">
+      <select id="sc-month" style="flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:4px 6px;color:var(--text);font-size:13px">
+        ${months.map((m,i) => `<option value="${i}" ${i===month?'selected':''}>${m}</option>`).join('')}
+      </select>
+      <select id="sc-year" style="width:70px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:4px 6px;color:var(--text);font-size:13px">
+        ${years.map(y => `<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}
+      </select>
+    </div>`;
+
+  const rows = isCreditCard ? `
+    ${periodRow}
+    <div style="font-size:12px;color:var(--muted)">New balance</div>
+    <div style="font-size:13px;font-weight:500">${fmt(data.balance)}</div>
+    <div style="font-size:12px;color:var(--muted)">Previous balance</div>
+    <div style="font-size:13px;font-weight:500">${fmt(data.previousBalance)}</div>
+    <div style="font-size:12px;color:var(--muted)">Purchases</div>
+    <div style="font-size:13px;font-weight:500">${fmt(data.purchases)}</div>
+    <div style="font-size:12px;color:var(--muted)">Payments</div>
+    <div style="font-size:13px;font-weight:500;color:var(--green)">${fmt(data.payments)}</div>
+    <div style="font-size:12px;color:var(--muted)">Interest charged</div>
+    <div style="font-size:13px;font-weight:500;color:var(--red)">${fmt(data.interestCharged)}</div>
+    <div style="font-size:12px;color:var(--muted)">Min payment</div>
+    <div style="font-size:13px;font-weight:500">${fmt(data.minPayment)}</div>
+    <div style="font-size:12px;color:var(--muted)">Due date</div>
+    <div style="font-size:13px;font-weight:500">${data.dueDate || '—'}</div>
+    ${data.creditLimit ? `<div style="font-size:12px;color:var(--muted)">Credit limit</div><div style="font-size:13px;font-weight:500">${fmt(data.creditLimit)}</div>` : ''}
+  ` : `
+    ${periodRow}
+    <div style="font-size:12px;color:var(--muted)">Start balance</div>
+    <div style="font-size:13px;font-weight:500">${fmt(data.beginBalance)}</div>
+    <div style="font-size:12px;color:var(--muted)">End balance</div>
+    <div style="font-size:13px;font-weight:500">${fmt(data.endBalance)}</div>
+    <div style="font-size:12px;color:var(--muted)">Contributions</div>
+    <div style="font-size:13px;font-weight:500">${fmt(data.contributions)}</div>
+    <div style="font-size:12px;color:var(--muted)">Return</div>
+    <div style="font-size:13px;font-weight:500;color:${data.returnPct>=0?'var(--green)':'var(--red)'}">${fmtPct(data.returnPct)}</div>
+  `;
 
   const modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center';
   modal.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:28px;width:380px;max-width:90vw">
     <div style="font-size:16px;font-weight:600;margin-bottom:18px">Confirm statement data</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">
-      <div style="font-size:12px;color:var(--muted)">Period</div>
-      <div style="display:flex;gap:6px">
-        <select id="sc-month" style="flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:4px 6px;color:var(--text);font-size:13px">
-          ${months.map((m,i) => `<option value="${i}" ${i===month?'selected':''}>${m}</option>`).join('')}
-        </select>
-        <select id="sc-year" style="width:70px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:4px 6px;color:var(--text);font-size:13px">
-          ${years.map(y => `<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}
-        </select>
-      </div>
-      <div style="font-size:12px;color:var(--muted)">Start balance</div>
-      <div style="font-size:13px;font-weight:500">${fmt(data.beginBalance)}</div>
-      <div style="font-size:12px;color:var(--muted)">End balance</div>
-      <div style="font-size:13px;font-weight:500">${fmt(data.endBalance)}</div>
-      <div style="font-size:12px;color:var(--muted)">Contributions</div>
-      <div style="font-size:13px;font-weight:500">${fmt(data.contributions)}</div>
-      <div style="font-size:12px;color:var(--muted)">Return</div>
-      <div style="font-size:13px;font-weight:500;color:${data.returnPct>=0?'var(--green)':'var(--red)'}">${fmtPct(data.returnPct)}</div>
-    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">${rows}</div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button class="btn-s" onclick="this.closest('[style*=fixed]').remove()">Cancel</button>
       <button class="btn-p" onclick="confirmStatementImport('${recordId}', this)">Save</button>
@@ -741,23 +764,37 @@ async function confirmStatementImport(recordId, btn) {
   modal.remove();
 
   const r = getRecord(recordId);
-  r.fields.balance = data.endBalance;
-  r.fields.balanceDate = monthStr + '-01';
-  r.fields.history = r.fields.history || [];
-  const existing = r.fields.history.findIndex(h => h.month === monthStr);
-  const begin = Number(data.beginBalance) || 0;
-  const end = Number(data.endBalance) || 0;
-  const contrib = Number(data.contributions) || 0;
-  const base = begin + contrib;
-  const calcedReturn = base === 0 ? 0 : (end - base) / base * 100;
-  const entry = { month: monthStr, beginBalance: begin, endBalance: end, contributions: contrib, returnPct: calcedReturn };
-  if (existing >= 0) r.fields.history[existing] = entry; else r.fields.history.push(entry);
-  r.fields.history.sort((a,b) => a.month.localeCompare(b.month));
-
   const fmt = n => '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-  const fmtPct = n => (n>=0?'+':'') + Number(n).toFixed(2)+'%';
   const monthName = ['January','February','March','April','May','June','July','August','September','October','November','December'][monthIdx];
-  const timelineText = `${monthName} ${year} statement imported — End: ${fmt(data.endBalance)} | Start: ${fmt(data.beginBalance)}${data.contributions > 0 ? ` | Contributions: ${fmt(data.contributions)}` : ''} | Return: ${fmtPct(data.returnPct)}`;
+  let timelineText;
+
+  if (data._type === 'credit-card') {
+    r.fields.balance = data.balance;
+    r.fields.balanceDate = monthStr + '-01';
+    r.fields.statementBalance = data.previousBalance;
+    r.fields.purchases = data.purchases;
+    r.fields.payments = data.payments;
+    r.fields.interestCharged = data.interestCharged;
+    r.fields.minPayment = data.minPayment;
+    if (data.dueDate) r.fields.dueDate = data.dueDate;
+    if (data.creditLimit) r.fields.creditLimit = data.creditLimit;
+    timelineText = `${monthName} ${year} statement imported — Balance: ${fmt(data.balance)} | Purchases: ${fmt(data.purchases)} | Payments: ${fmt(data.payments)}${data.interestCharged > 0 ? ` | Interest: ${fmt(data.interestCharged)}` : ''}`;
+  } else {
+    r.fields.balance = data.endBalance;
+    r.fields.balanceDate = monthStr + '-01';
+    r.fields.history = r.fields.history || [];
+    const existing = r.fields.history.findIndex(h => h.month === monthStr);
+    const begin = Number(data.beginBalance) || 0;
+    const end = Number(data.endBalance) || 0;
+    const contrib = Number(data.contributions) || 0;
+    const base = begin + contrib;
+    const calcedReturn = base === 0 ? 0 : (end - base) / base * 100;
+    const entry = { month: monthStr, beginBalance: begin, endBalance: end, contributions: contrib, returnPct: calcedReturn };
+    if (existing >= 0) r.fields.history[existing] = entry; else r.fields.history.push(entry);
+    r.fields.history.sort((a,b) => a.month.localeCompare(b.month));
+    const fmtPct = n => (n>=0?'+':'') + Number(n).toFixed(2)+'%';
+    timelineText = `${monthName} ${year} statement imported — End: ${fmt(data.endBalance)} | Start: ${fmt(data.beginBalance)}${data.contributions > 0 ? ` | Contributions: ${fmt(data.contributions)}` : ''} | Return: ${fmtPct(data.returnPct)}`;
+  }
 
   await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
   await api('POST', `/api/records/${recordId}/timeline`, { text: timelineText });
