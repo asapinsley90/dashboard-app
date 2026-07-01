@@ -729,6 +729,7 @@ function showStatementConfirmModal(recordId, data) {
     <div style="font-size:12px;color:var(--muted)">Due date</div>
     <div style="font-size:13px;font-weight:500">${data.dueDate || '—'}</div>
     ${data.creditLimit ? `<div style="font-size:12px;color:var(--muted)">Credit limit</div><div style="font-size:13px;font-weight:500">${fmt(data.creditLimit)}</div>` : ''}
+    ${data.statementCloseDay ? `<div style="font-size:12px;color:var(--muted)">Statement cycle</div><div style="font-size:13px;font-weight:500">${data.statementOpenDay}–${data.statementCloseDay}</div>` : ''}
   ` : `
     ${periodRow}
     <div style="font-size:12px;color:var(--muted)">Start balance</div>
@@ -779,10 +780,12 @@ async function confirmStatementImport(recordId, btn) {
     r.fields.minPayment = data.minPayment;
     if (data.dueDate) r.fields.dueDate = data.dueDate;
     if (data.creditLimit) r.fields.creditLimit = data.creditLimit;
+    if (data.statementCloseDay) r.fields.statementClose = String(data.statementCloseDay);
+    if (data.statementOpenDay) r.fields.statementOpen = String(data.statementOpenDay);
 
     // Ensure CC fields are in the type schema so they render
     try {
-      const ccFieldKeys = ['balance','balanceDate','statementBalance','purchases','payments','interestCharged','minPayment','dueDate','creditLimit'];
+      const ccFieldKeys = ['balance','balanceDate','statementBalance','purchases','payments','interestCharged','minPayment','dueDate','creditLimit','statementOpen','statementClose'];
       const schema = getEffectiveSchema(r.type);
       if (schema) {
         const existingKeys = new Set(schema.fields.map(f => f.key));

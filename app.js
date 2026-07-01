@@ -1593,8 +1593,20 @@ app.post('/api/records/:id/parse-statement', upload.single('file'), async (req, 
 
     const prompt = `First identify whether this is a credit card statement or an investment/brokerage/savings statement by looking at the content.
 
-If it is a CREDIT CARD statement, extract: new/current balance, previous statement balance, purchases and charges this period, payments and credits this period, interest charged, minimum payment due, payment due date, credit limit, and statement date.
-Respond ONLY with valid JSON: {"statementType":"credit-card","balance":1234.56,"previousBalance":1000.00,"purchases":500.00,"payments":200.00,"interestCharged":12.34,"minPayment":25.00,"dueDate":"2026-07-15","creditLimit":5000.00,"date":"2026-06-30"}
+If it is a CREDIT CARD statement, extract these fields carefully:
+- balance: the new/current total balance owed
+- previousBalance: the previous statement balance (before this period's activity)
+- purchases: new charges or purchases this period (NOT the minimum payment — look for "New Charges", "New Pay Over Time Charges", or similar)
+- payments: total payments and credits received this period
+- interestCharged: interest or finance charges added this period (0 if none)
+- minPayment: the minimum payment due amount
+- dueDate: payment due date in YYYY-MM-DD
+- creditLimit: the total credit limit or spending limit (NOT the available amount — look for "Credit Limit", "Pay Over Time Limit", "Spending Limit"; prefer the higher/total limit over the available remaining)
+- statementCloseDay: day of month the statement closed (e.g. if closing date is 06/12/26, return 12)
+- statementOpenDay: day of month the next billing cycle opens (usually statementCloseDay + 1)
+- date: statement closing date in YYYY-MM-DD
+
+Respond ONLY with valid JSON: {"statementType":"credit-card","balance":1942.54,"previousBalance":939.69,"purchases":1397.72,"payments":1289.87,"interestCharged":0,"minPayment":40.00,"dueDate":"2026-07-08","creditLimit":45000.00,"statementCloseDay":12,"statementOpenDay":13,"date":"2026-06-12"}
 
 If it is an INVESTMENT/BROKERAGE/SAVINGS statement, extract: beginning account value, ending account value, contributions this period (0 if none), and statement period end date.
 Respond ONLY with valid JSON: {"statementType":"investment","beginBalance":12345.67,"endBalance":12345.67,"contributions":0,"date":"2026-05-31"}
@@ -1612,7 +1624,7 @@ Numbers only (no $ or commas). Dates in YYYY-MM-DD. Use 0 for missing numeric va
     const isCreditCard = parsed.statementType === 'credit-card' || storedType === 'Credit Card';
 
     if (isCreditCard) {
-      res.json({ _type: 'credit-card', balance: parsed.balance || 0, previousBalance: parsed.previousBalance || 0, purchases: parsed.purchases || 0, payments: parsed.payments || 0, interestCharged: parsed.interestCharged || 0, minPayment: parsed.minPayment || 0, dueDate: parsed.dueDate || '', creditLimit: parsed.creditLimit || 0, date: parsed.date });
+      res.json({ _type: 'credit-card', balance: parsed.balance || 0, previousBalance: parsed.previousBalance || 0, purchases: parsed.purchases || 0, payments: parsed.payments || 0, interestCharged: parsed.interestCharged || 0, minPayment: parsed.minPayment || 0, dueDate: parsed.dueDate || '', creditLimit: parsed.creditLimit || 0, statementCloseDay: parsed.statementCloseDay || null, statementOpenDay: parsed.statementOpenDay || null, date: parsed.date });
     } else {
       const beginBalance = parsed.beginBalance || 0;
       const endBalance = parsed.endBalance || 0;
