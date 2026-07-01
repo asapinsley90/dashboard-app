@@ -185,7 +185,7 @@ function getEffectiveSchema(typeId) {
 function renderFieldsFromSchema(r) {
   const schema = getEffectiveSchema(r.type);
   if (!schema?.fields?.length) return '';
-  const isCreditCard = r.fields.accountType === 'Credit Card';
+  const isCreditCard = (r.fields.accountType || '').toLowerCase().replace(/\s/g,'') === 'creditcard';
   return [...schema.fields]
     .filter(f => f.type !== 'company-link')
     .filter(f => !(isCreditCard && CC_STATEMENT_KEYS.has(f.key)))
@@ -1125,7 +1125,7 @@ function renderSchemaRecord(r, area) {
     }
 
     if (id === 'cc-details') {
-      if (r.fields.accountType !== 'Credit Card') return '';
+      if ((r.fields.accountType||'').toLowerCase().replace(/\s/g,'') !== 'creditcard') return '';
       // Current month data comes from latest statement entry; static info from fields
       const latest = (r.statements || []).length ? r.statements[0] : null;
       const bal = Number(latest?.balance ?? r.fields.balance) || 0;
@@ -1177,7 +1177,7 @@ function renderSchemaRecord(r, area) {
     }
 
     if (id === 'cc-statements') {
-      if (r.fields.accountType !== 'Credit Card') return '';
+      if ((r.fields.accountType||'').toLowerCase().replace(/\s/g,'') !== 'creditcard') return '';
       const stmts = (r.statements || []).slice().sort((a,b) => b.month.localeCompare(a.month));
       const fmt = n => '$' + Number(n).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
       const monthLabel = m => { const [y,mo] = m.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1] + ' ' + y; };
@@ -1212,7 +1212,7 @@ function renderSchemaRecord(r, area) {
     }
 
     if (id === 'cc-spending-chart') {
-      if (r.fields.accountType !== 'Credit Card') return '';
+      if ((r.fields.accountType||'').toLowerCase().replace(/\s/g,'') !== 'creditcard') return '';
       const stmts = (r.statements || []).slice().sort((a,b) => a.month.localeCompare(b.month)).slice(-12);
       if (!stmts.length) return `<div class="section-card"><div class="section-title" oncontextmenu="${ctx}">${label}</div><div class="empty">No statements yet.</div></div>`;
       const monthLabel = m => { const [,mo] = m.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1]; };
@@ -1439,7 +1439,7 @@ function renderSchemaRecord(r, area) {
   }
 
   function dropCol(col) {
-    return `ondragover="onWidgetDragOver(event)" ondragleave="onWidgetDragLeave(event)" ondrop="onWidgetDrop(event,'${r.id}','${col}')"`;
+    return `data-drop-col="${col}" data-record-id="${r.id}"`;
   }
 
   if (r.type === 'account') requestAnimationFrame(() => attachStatementPasteListener(r.id));
@@ -1474,35 +1474,44 @@ function renderSchemaRecord(r, area) {
 
 function toggleFieldLibPill(btn) {
   const key = btn.dataset.fkey;
+  if (!key) return;
   const PILL_ON  = 'background:var(--accent);color:#fff;border:1px solid var(--accent)';
   const PILL_OFF = 'background:transparent;color:var(--text);border:1px solid var(--border1)';
   const pillStyle = 'border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s';
-  const isOn = btn.style.background.includes('var(--accent)') || btn.style.cssText.includes('var(--accent)');
+  const isOn = btn.dataset.active === '1';
 
   // Toggle all pills with this key
   document.querySelectorAll(`[data-fkey="${key}"]`).forEach(el => {
+    const label = el.dataset.label || el.textContent.replace('×','').trim();
     if (isOn) {
       el.setAttribute('style', `${pillStyle};${PILL_OFF}`);
-      el.innerHTML = el.textContent.replace(/×$/, '').trim();
+      el.dataset.active = '0';
+      el.innerHTML = label;
     } else {
       el.setAttribute('style', `${pillStyle};${PILL_ON}`);
-      el.innerHTML = el.textContent.trim() + '<span style="opacity:0.6;font-size:10px">×</span>';
+      el.dataset.active = '1';
+      el.innerHTML = label + '<span style="opacity:0.6;font-size:10px">×</span>';
     }
   });
 
-  // Update active section
+  // Sync active section
   const activeSection = document.getElementById('field-active-section');
   const activePills = document.getElementById('field-active-pills');
   if (!activeSection || !activePills) return;
   if (isOn) {
-    // Remove from active section
     activePills.querySelectorAll(`[data-fkey="${key}"]`).forEach(el => el.remove());
   } else {
-    // Add to active section
-    const clone = btn.cloneNode(true);
-    clone.setAttribute('style', `${pillStyle};${PILL_ON}`);
-    clone.innerHTML = btn.textContent.trim() + '<span style="opacity:0.6;font-size:10px">×</span>';
-    activePills.appendChild(clone);
+    if (!activePills.querySelector(`[data-fkey="${key}"]`)) {
+      const label = btn.dataset.label || btn.textContent.replace('×','').trim();
+      const clone = document.createElement('button');
+      clone.setAttribute('data-fkey', key);
+      clone.setAttribute('data-label', label);
+      clone.setAttribute('data-active', '1');
+      clone.setAttribute('onclick', 'toggleFieldLibPill(this)');
+      clone.setAttribute('style', `${pillStyle};${PILL_ON}`);
+      clone.innerHTML = label + '<span style="opacity:0.6;font-size:10px">×</span>';
+      activePills.appendChild(clone);
+    }
   }
   activeSection.style.display = activePills.children.length ? '' : 'none';
 }
@@ -1565,7 +1574,7 @@ function openEditTypeSchema(typeId) {
   const pillStyle = 'border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s';
 
   function fieldPill(f, on) {
-    return `<button data-fkey="${f.key}" onclick="toggleFieldLibPill(this)" style="${pillStyle};${on ? PILL_ON : PILL_OFF}">${f.label}${on ? '<span style="opacity:0.6;font-size:10px">×</span>' : ''}</button>`;
+    return `<button data-fkey="${f.key}" data-label="${f.label}" data-active="${on?'1':'0'}" onclick="toggleFieldLibPill(this)" style="${pillStyle};${on ? PILL_ON : PILL_OFF}">${f.label}${on ? '<span style="opacity:0.6;font-size:10px">×</span>' : ''}</button>`;
   }
 
   const categories = [...new Set(FIELD_LIBRARY.map(f => f.category))];
@@ -1631,11 +1640,10 @@ function openEditTypeSchema(typeId) {
     [{ label: 'Save', primary: true, onclick: async () => {
       const newFields = [];
       let order = 1;
-      // Library fields that are toggled on (dedupe by key — active section + category may both have same key)
+      // Library fields that are toggled on (dedupe by key)
       const seenKeys = new Set();
       document.querySelectorAll('[data-fkey]').forEach(el => {
-        const on = el.style.cssText.includes('var(--accent)');
-        if (on && !seenKeys.has(el.dataset.fkey)) {
+        if (el.dataset.active === '1' && !seenKeys.has(el.dataset.fkey)) {
           seenKeys.add(el.dataset.fkey);
           const entry = FIELD_LIBRARY.find(f => f.key === el.dataset.fkey);
           if (entry) newFields.push({ key: entry.key, label: entry.label, type: entry.type, order: order++ });
@@ -1999,10 +2007,12 @@ async function saveFieldText(recordId, key, value) {
 
 // ── Widget drag-and-drop between columns ──────────────────────────────────────
 let _dragWidgetId = null;
+let _dragRecordId = null;
 let _dragPlaceholder = null;
 
 function onWidgetDragStart(e, recordId, widgetId) {
   _dragWidgetId = widgetId;
+  _dragRecordId = recordId;
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', widgetId);
   const wrap = e.currentTarget.closest('.widget-drag-wrap');
@@ -2016,48 +2026,55 @@ function onWidgetDragEnd(e) {
   _dragPlaceholder?.remove();
   _dragPlaceholder = null;
   _dragWidgetId = null;
+  _dragRecordId = null;
   document.querySelectorAll('.drag-col-over').forEach(el => el.classList.remove('drag-col-over'));
 }
 
-function onWidgetDragOver(e) {
+function _getDropCol(target) {
+  return target.closest('[data-drop-col]');
+}
+
+document.addEventListener('dragover', e => {
+  const col = _getDropCol(e.target);
+  if (!col || !_dragWidgetId) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
-  const col = e.currentTarget;
   col.classList.add('drag-col-over');
-  // Insert placeholder before the element the cursor is nearest to
-  const afterEl = getDragAfterElement(col, e.clientY);
-  if (afterEl) col.insertBefore(_dragPlaceholder, afterEl);
-  else col.appendChild(_dragPlaceholder);
-}
-
-function onWidgetDragLeave(e) {
-  if (!e.currentTarget.contains(e.relatedTarget)) {
-    e.currentTarget.classList.remove('drag-col-over');
+  if (_dragPlaceholder) {
+    const els = [...col.querySelectorAll('.widget-drag-wrap:not(.dragging)')];
+    const after = els.find(el => {
+      const box = el.getBoundingClientRect();
+      return e.clientY < box.top + box.height / 2;
+    });
+    if (after) col.insertBefore(_dragPlaceholder, after);
+    else col.appendChild(_dragPlaceholder);
   }
-}
+});
 
-async function onWidgetDrop(e, recordId, col) {
+document.addEventListener('dragleave', e => {
+  const col = e.target.closest('[data-drop-col]');
+  if (col && !col.contains(e.relatedTarget)) col.classList.remove('drag-col-over');
+});
+
+document.addEventListener('drop', async e => {
+  const col = _getDropCol(e.target);
+  if (!col || !_dragWidgetId) return;
   e.preventDefault();
-  e.currentTarget.classList.remove('drag-col-over');
+  col.classList.remove('drag-col-over');
   _dragPlaceholder?.remove();
-  const widgetId = _dragWidgetId || e.dataTransfer.getData('text/plain');
-  if (!widgetId) return;
+  const widgetId = _dragWidgetId;
+  const recordId = _dragRecordId || col.dataset.recordId;
+  const colName = col.dataset.dropCol;
+  _dragWidgetId = null;
+  _dragRecordId = null;
+  if (!widgetId || !recordId || !colName) return;
   const r = getRecord(recordId);
   if (!r) return;
   r.fields._widgetColumns = r.fields._widgetColumns || {};
-  r.fields._widgetColumns[widgetId] = col;
+  r.fields._widgetColumns[widgetId] = colName;
   await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
   renderRecordView(recordId);
-}
-
-function getDragAfterElement(container, y) {
-  const els = [...container.querySelectorAll('.widget-drag-wrap:not(.dragging)')];
-  return els.reduce((closest, el) => {
-    const box = el.getBoundingClientRect();
-    const offset = y - box.top - box.height / 2;
-    return offset < 0 && offset > closest.offset ? { offset, el } : closest;
-  }, { offset: -Infinity }).el || null;
-}
+});
 
 
 async function addTimelineEntry(recordId) {
