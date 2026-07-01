@@ -7,8 +7,10 @@
 const WIDGET_LIBRARY = [
   // Finance ───────────────────────────────────────────────────────────────────
   { id: 'account-details', label: 'Account details',   icon: '🏦', category: 'Finance', contexts: ['record']            },
-  { id: 'cc-details',      label: 'Card details',       icon: '💳', category: 'Finance', contexts: ['record', 'subarea'] },
-  { id: 'history',         label: 'Monthly history',    icon: '📊', category: 'Finance', contexts: ['record', 'subarea'] },
+  { id: 'cc-details',         label: 'Card details',        icon: '💳', category: 'Finance', contexts: ['record', 'subarea'] },
+  { id: 'cc-statements',      label: 'Statement history',   icon: '🧾', category: 'Finance', contexts: ['record']            },
+  { id: 'cc-spending-chart',  label: 'Spending chart',      icon: '📊', category: 'Finance', contexts: ['record']            },
+  { id: 'history',            label: 'Monthly history',     icon: '📊', category: 'Finance', contexts: ['record', 'subarea'] },
   { id: 'balance-chart',   label: 'Balance chart',      icon: '📈', category: 'Finance', contexts: ['record', 'subarea'] },
   { id: 'ira-progress',    label: 'IRA contributions',  icon: '🏛', category: 'Finance', contexts: ['record', 'subarea'] },
   { id: '401k-progress',   label: '401k contributions', icon: '💵', category: 'Finance', contexts: ['record', 'subarea'] },
@@ -42,9 +44,11 @@ const WIDGET_LIBRARY = [
 const RECORD_WIDGET_DEFS = {
   account: [
     { id: 'account-details', defaultOn: true  },
-    { id: 'cc-details',      defaultOn: true  },
-    { id: 'history',         defaultOn: true  },
-    { id: 'balance-chart',   defaultOn: true  },
+    { id: 'cc-details',         defaultOn: true  },
+    { id: 'cc-statements',      defaultOn: true  },
+    { id: 'cc-spending-chart',  defaultOn: true  },
+    { id: 'history',            defaultOn: true  },
+    { id: 'balance-chart',      defaultOn: true  },
     { id: 'ira-progress',    defaultOn: true  },
     { id: '401k-progress',   defaultOn: true  },
     { id: 'hsa-progress',    defaultOn: true  },
@@ -771,35 +775,26 @@ async function confirmStatementImport(recordId, btn) {
   let timelineText;
 
   if (data._type === 'credit-card') {
-    r.fields.balance = data.balance;
-    r.fields.balanceDate = monthStr + '-01';
-    r.fields.statementBalance = data.previousBalance;
-    r.fields.purchases = data.purchases;
-    r.fields.payments = data.payments;
-    r.fields.interestCharged = data.interestCharged;
-    r.fields.minPayment = data.minPayment;
-    if (data.dueDate) r.fields.dueDate = data.dueDate;
+    // Push monthly data into r.statements array (not flat fields)
+    r.statements = r.statements || [];
+    const stmtEntry = {
+      month: monthStr,
+      balance: data.balance,
+      previousBalance: data.previousBalance,
+      purchases: data.purchases,
+      payments: data.payments,
+      interestCharged: data.interestCharged,
+      minPayment: data.minPayment,
+      dueDate: data.dueDate || null,
+    };
+    const existingIdx = r.statements.findIndex(s => s.month === monthStr);
+    if (existingIdx >= 0) r.statements[existingIdx] = stmtEntry; else r.statements.push(stmtEntry);
+    r.statements.sort((a,b) => b.month.localeCompare(a.month));
+
+    // Static fields: update only if provided (these don't change per-statement)
     if (data.creditLimit) r.fields.creditLimit = data.creditLimit;
     if (data.statementCloseDay) r.fields.statementClose = String(data.statementCloseDay);
     if (data.statementOpenDay) r.fields.statementOpen = String(data.statementOpenDay);
-
-    // Ensure CC fields are in the type schema so they render
-    try {
-      const ccFieldKeys = ['balance','balanceDate','statementBalance','purchases','payments','interestCharged','minPayment','dueDate','creditLimit','statementOpen','statementClose'];
-      const schema = getEffectiveSchema(r.type);
-      if (schema) {
-        const existingKeys = new Set(schema.fields.map(f => f.key));
-        const toAdd = ccFieldKeys.filter(k => !existingKeys.has(k)).map(k => {
-          const lib = FIELD_LIBRARY.find(f => f.key === k);
-          return lib ? { key: lib.key, label: lib.label, type: lib.type, order: (schema.fields.length || 0) + ccFieldKeys.indexOf(k) + 1 } : null;
-        }).filter(Boolean);
-        if (toAdd.length) {
-          const allFields = [...schema.fields, ...toAdd];
-          await api('PUT', `/api/type-schemas/${r.type}`, { name: schema.name, icon: schema.icon, fields: allFields });
-          TYPE_SCHEMAS = await api('GET', '/api/type-schemas');
-        }
-      }
-    } catch(e) { console.warn('Schema auto-update failed:', e); }
 
     timelineText = `${monthName} ${year} statement imported — Balance: ${fmt(data.balance)} | Purchases: ${fmt(data.purchases)} | Payments: ${fmt(data.payments)}${data.interestCharged > 0 ? ` | Interest: ${fmt(data.interestCharged)}` : ''}`;
   } else {
@@ -819,7 +814,7 @@ async function confirmStatementImport(recordId, btn) {
     timelineText = `${monthName} ${year} statement imported — End: ${fmt(data.endBalance)} | Start: ${fmt(data.beginBalance)}${data.contributions > 0 ? ` | Contributions: ${fmt(data.contributions)}` : ''} | Return: ${fmtPct(data.returnPct)}`;
   }
 
-  await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+  await api('PUT', `/api/records/${recordId}`, { fields: r.fields, statements: r.statements });
   await api('POST', `/api/records/${recordId}/timeline`, { text: timelineText });
   r.timeline = r.timeline || [];
   r.timeline.push({ id: Date.now().toString(36), date: new Date().toISOString(), text: timelineText, author: 'aaron' });
@@ -1131,11 +1126,15 @@ function renderSchemaRecord(r, area) {
 
     if (id === 'cc-details') {
       if (r.fields.accountType !== 'Credit Card') return '';
-      const bal = Number(r.fields.balance) || 0;
+      // Current month data comes from latest statement entry; static info from fields
+      const latest = (r.statements || []).length ? r.statements[0] : null;
+      const bal = Number(latest?.balance ?? r.fields.balance) || 0;
       const limit = Number(r.fields.creditLimit) || 0;
       const utilPct = limit > 0 ? Math.min(100, Math.round(bal / limit * 100)) : null;
       const utilColor = utilPct === null ? 'var(--muted)' : utilPct >= 30 ? (utilPct >= 50 ? 'var(--red)' : '#f0b429') : 'var(--green)';
       const fmt = n => '$' + Number(n).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+      const minPmt = latest?.minPayment ?? r.fields.minPayment;
+      const dueDate = latest?.dueDate ?? r.fields.dueDate;
       return `<div class="section-card">
         <div class="section-title" oncontextmenu="${ctx}">${label}</div>
         ${utilPct !== null ? `<div style="margin-bottom:14px">
@@ -1150,11 +1149,8 @@ function renderSchemaRecord(r, area) {
             <span>Balance: ${fmt(bal)}</span><span>Limit: ${fmt(limit)}</span>
           </div>
         </div>` : ''}
-        ${r.fields.statementBalance ? `<div class="field-row"><div class="field-label">Prev stmt balance</div><div class="field-value">${fmt(Number(r.fields.statementBalance))}</div></div>` : ''}
-        ${r.fields.purchases ? `<div class="field-row"><div class="field-label">Purchases</div><div class="field-value">${fmt(Number(r.fields.purchases))}</div></div>` : ''}
-        ${r.fields.payments ? `<div class="field-row"><div class="field-label">Payments</div><div class="field-value">${fmt(Number(r.fields.payments))}</div></div>` : ''}
-        ${r.fields.interestCharged ? `<div class="field-row"><div class="field-label">Interest</div><div class="field-value">${fmt(Number(r.fields.interestCharged))}</div></div>` : ''}
-        ${r.fields.minPayment ? `<div class="field-row"><div class="field-label">Min payment</div><div class="field-value">${fmt(Number(r.fields.minPayment))}</div></div>` : ''}
+        ${minPmt ? `<div class="field-row"><div class="field-label">Min payment</div><div class="field-value">${fmt(Number(minPmt))}</div></div>` : ''}
+        ${dueDate ? `<div class="field-row"><div class="field-label">Due date</div><div class="field-value">${dueDate}</div></div>` : ''}
         ${r.fields.apr ? `<div class="field-row"><div class="field-label">Purchase APR</div><div class="field-value">${r.fields.apr}%</div></div>` : ''}
         ${r.fields.cashAdvanceApr ? `<div class="field-row"><div class="field-label">Cash advance APR</div><div class="field-value">${r.fields.cashAdvanceApr}%</div></div>` : ''}
         ${r.fields.annualFee ? `<div class="field-row"><div class="field-label">Annual fee</div><div class="field-value">${fmt(Number(r.fields.annualFee))}</div></div>` : ''}
@@ -1177,6 +1173,74 @@ function renderSchemaRecord(r, area) {
           ${r.fields.rewardsType ? `<div class="field-row"><div class="field-label">Type</div><div class="field-value">${r.fields.rewardsType}${r.fields.rewardsRate ? ` · ${r.fields.rewardsRate}` : ''}</div></div>` : ''}
           ${r.fields.pointsBalance ? `<div class="field-row"><div class="field-label">Balance</div><div class="field-value">${Number(r.fields.pointsBalance).toLocaleString()} pts</div></div>` : ''}
         </div>` : ''}
+      </div>`;
+    }
+
+    if (id === 'cc-statements') {
+      if (r.fields.accountType !== 'Credit Card') return '';
+      const stmts = (r.statements || []).slice().sort((a,b) => b.month.localeCompare(a.month));
+      const fmt = n => '$' + Number(n).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+      const monthLabel = m => { const [y,mo] = m.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1] + ' ' + y; };
+      if (!stmts.length) return `<div class="section-card"><div class="section-title" oncontextmenu="${ctx}">${label}</div><div class="empty">No statements yet. Import a statement to get started.</div></div>`;
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="color:var(--muted);border-bottom:1px solid var(--border1)">
+                <th style="text-align:left;padding:4px 8px 6px 0;font-weight:500">Period</th>
+                <th style="text-align:right;padding:4px 8px 6px;font-weight:500">Balance</th>
+                <th style="text-align:right;padding:4px 8px 6px;font-weight:500">Purchases</th>
+                <th style="text-align:right;padding:4px 8px 6px;font-weight:500">Payments</th>
+                <th style="text-align:right;padding:4px 8px 6px;font-weight:500">Interest</th>
+                <th style="text-align:right;padding:4px 0 6px 8px;font-weight:500">Min pmt</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${stmts.map((s,i) => `<tr style="border-bottom:${i < stmts.length-1 ? '1px solid var(--border1)' : 'none'}">
+                <td style="padding:7px 8px 7px 0;color:var(--text);font-weight:500">${monthLabel(s.month)}</td>
+                <td style="padding:7px 8px;text-align:right">${fmt(s.balance)}</td>
+                <td style="padding:7px 8px;text-align:right">${fmt(s.purchases)}</td>
+                <td style="padding:7px 8px;text-align:right;color:var(--green)">${fmt(s.payments)}</td>
+                <td style="padding:7px 8px;text-align:right;color:${Number(s.interestCharged)>0?'var(--red)':'var(--muted)'}">${Number(s.interestCharged)>0?fmt(s.interestCharged):'—'}</td>
+                <td style="padding:7px 0 7px 8px;text-align:right">${s.minPayment?fmt(s.minPayment):'—'}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    }
+
+    if (id === 'cc-spending-chart') {
+      if (r.fields.accountType !== 'Credit Card') return '';
+      const stmts = (r.statements || []).slice().sort((a,b) => a.month.localeCompare(b.month)).slice(-12);
+      if (!stmts.length) return `<div class="section-card"><div class="section-title" oncontextmenu="${ctx}">${label}</div><div class="empty">No statements yet.</div></div>`;
+      const monthLabel = m => { const [,mo] = m.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1]; };
+      const maxVal = Math.max(...stmts.map(s => Math.max(Number(s.purchases)||0, Number(s.payments)||0)), 1);
+      const BAR_H = 80;
+      const colW = Math.floor(240 / stmts.length);
+      const barW = Math.max(8, colW - 6);
+      const chartW = stmts.length * colW + 4;
+      const fmt = n => '$' + Number(n).toLocaleString(undefined, {maximumFractionDigits:0});
+      const bars = stmts.map((s, i) => {
+        const purchH = Math.round((Number(s.purchases)||0) / maxVal * BAR_H);
+        const pmtH = Math.round((Number(s.payments)||0) / maxVal * BAR_H);
+        const x = i * colW + 2;
+        return `<g>
+          <rect x="${x}" y="${BAR_H - purchH}" width="${barW/2 - 1}" height="${purchH}" fill="var(--accent)" rx="2" opacity=".85">
+            <title>Purchases: ${fmt(s.purchases)}</title></rect>
+          <rect x="${x + barW/2}" y="${BAR_H - pmtH}" width="${barW/2 - 1}" height="${pmtH}" fill="var(--green)" rx="2" opacity=".75">
+            <title>Payments: ${fmt(s.payments)}</title></rect>
+          <text x="${x + barW/2}" y="${BAR_H + 12}" text-anchor="middle" font-size="9" fill="var(--muted)">${monthLabel(s.month)}</text>
+        </g>`;
+      }).join('');
+      return `<div class="section-card">
+        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        <div style="display:flex;gap:12px;margin-bottom:10px;font-size:11px">
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--accent);display:inline-block"></span>Purchases</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--green);display:inline-block"></span>Payments</span>
+        </div>
+        <svg viewBox="0 0 ${chartW} ${BAR_H + 18}" style="width:100%;overflow:visible">${bars}</svg>
       </div>`;
     }
 
