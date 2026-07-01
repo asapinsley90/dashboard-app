@@ -468,7 +468,7 @@ app.get('/api/waitlist/:id/approve', async (req, res) => {
 // Protect everything else
 app.use(requireAuth);
 
-app.use(express.static(__dirname, { index: false }));
+app.use(express.static(__dirname, { index: false, etag: false, lastModified: false, setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') }));
 
 // Proxy uploads from R2
 app.get('/uploads/:name', async (req, res) => {
