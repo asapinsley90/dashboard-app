@@ -1430,9 +1430,12 @@ function renderSchemaRecord(r, area) {
   function draggableWidget(d) {
     const body = widgetCard(d.id, widgetBody(d.id), r);
     if (!body) return '';
-    return `<div class="widget-drag-wrap" data-widget-id="${d.id}" draggable="true"
-      ondragstart="onWidgetDragStart(event,'${r.id}','${d.id}')"
-      ondragend="onWidgetDragEnd(event)">${body}</div>`;
+    return `<div class="widget-drag-wrap" data-widget-id="${d.id}">
+      <div class="drag-handle" draggable="true" title="Drag to move"
+        ondragstart="onWidgetDragStart(event,'${r.id}','${d.id}')"
+        ondragend="onWidgetDragEnd(event)">⠿</div>
+      ${body}
+    </div>`;
   }
 
   function dropCol(col) {
@@ -1998,13 +2001,14 @@ function onWidgetDragStart(e, recordId, widgetId) {
   _dragWidgetId = widgetId;
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', widgetId);
-  e.currentTarget.classList.add('dragging');
+  const wrap = e.currentTarget.closest('.widget-drag-wrap');
+  if (wrap) requestAnimationFrame(() => wrap.classList.add('dragging'));
   _dragPlaceholder = document.createElement('div');
   _dragPlaceholder.className = 'drag-placeholder';
 }
 
 function onWidgetDragEnd(e) {
-  e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.widget-drag-wrap.dragging').forEach(el => el.classList.remove('dragging'));
   _dragPlaceholder?.remove();
   _dragPlaceholder = null;
   _dragWidgetId = null;
@@ -2043,8 +2047,8 @@ async function onWidgetDrop(e, recordId, col) {
 }
 
 function getDragAfterElement(container, y) {
-  const draggables = [...container.querySelectorAll('.widget-drag-wrap:not(.dragging)')];
-  return draggables.reduce((closest, el) => {
+  const els = [...container.querySelectorAll('.widget-drag-wrap:not(.dragging)')];
+  return els.reduce((closest, el) => {
     const box = el.getBoundingClientRect();
     const offset = y - box.top - box.height / 2;
     return offset < 0 && offset > closest.offset ? { offset, el } : closest;
