@@ -1331,6 +1331,32 @@ function addCustomFieldRow() {
   document.getElementById('custom-add-form').style.display = 'none';
 }
 
+const FIELD_RECOMMENDATIONS = {
+  account: {
+    'Credit Card':    ['creditLimit','minPayment','apr','cashAdvanceApr','annualFee','statementOpen','statementClose','autopayDate','autopayType','autopayFixed','rewardsType','rewardsRate','pointsBalance'],
+    '401k':           ['balance','balanceDate','employerMatch'],
+    'HSA':            ['balance','balanceDate','hsaCoverage'],
+    'Roth IRA':       ['balance','balanceDate'],
+    'Traditional IRA':['balance','balanceDate'],
+    'Checking':       ['balance','balanceDate','institution','owner'],
+    'Savings':        ['balance','balanceDate','institution','owner'],
+    'Brokerage':      ['balance','balanceDate','institution','owner'],
+    '_default':       ['institution','accountType','owner','last4','balance','balanceDate'],
+  },
+  contact: ['role','email','phone','linkedin'],
+  company: ['industry','website','location'],
+  event:   ['date','time','endTime','location'],
+};
+
+function getRecommendedFieldKeys(typeId) {
+  const rec = getRecord(currentRecordId);
+  const recs = FIELD_RECOMMENDATIONS[typeId];
+  if (!recs) return [];
+  if (Array.isArray(recs)) return recs;
+  const acctType = rec?.fields?.accountType;
+  return recs[acctType] || recs['_default'] || [];
+}
+
 // Edit type schema modal — field library picker
 function openEditTypeSchema(typeId) {
   const existing = TYPE_SCHEMAS.find(s => s.id === typeId);
@@ -1383,9 +1409,25 @@ function openEditTypeSchema(typeId) {
       </div>`
     : '';
 
+  const recKeys = getRecommendedFieldKeys(typeId).filter(k => !activeKeys.has(k));
+  const recEntries = recKeys.map(k => FIELD_LIBRARY.find(f => f.key === k)).filter(Boolean);
+  const recommendedHTML = recEntries.length
+    ? `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border1)">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Recommended</div>
+        <div class="widget-toggle-grid">${recEntries.map(f => `
+          <div class="widget-toggle" onclick="this.classList.toggle('active')" data-fkey="${f.key}">
+            <span style="font-size:11px;color:var(--muted);margin-bottom:2px">${f.type}</span>
+            <span class="widget-toggle-label">${f.label}</span>
+            <span class="widget-toggle-dot"></span>
+          </div>`).join('')}
+        </div>
+      </div>`
+    : '';
+
   openModal('Field library', `
     <div style="max-height:420px;overflow-y:auto;padding-right:4px">
       ${activeSummary}
+      ${recommendedHTML}
       ${libraryHTML}
       <div style="margin-bottom:16px">
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Custom</div>
@@ -1401,9 +1443,11 @@ function openEditTypeSchema(typeId) {
     [{ label: 'Save', primary: true, onclick: async () => {
       const newFields = [];
       let order = 1;
-      // Library fields that are toggled on
+      // Library fields that are toggled on (dedupe by key — recommended + category may both have same key)
+      const seenKeys = new Set();
       document.querySelectorAll('[data-fkey]').forEach(el => {
-        if (el.classList.contains('active')) {
+        if (el.classList.contains('active') && !seenKeys.has(el.dataset.fkey)) {
+          seenKeys.add(el.dataset.fkey);
           const entry = FIELD_LIBRARY.find(f => f.key === el.dataset.fkey);
           if (entry) newFields.push({ key: entry.key, label: entry.label, type: entry.type, order: order++ });
         }
