@@ -778,6 +778,23 @@ async function confirmStatementImport(recordId, btn) {
     r.fields.minPayment = data.minPayment;
     if (data.dueDate) r.fields.dueDate = data.dueDate;
     if (data.creditLimit) r.fields.creditLimit = data.creditLimit;
+
+    // Ensure CC fields are in the type schema so they render
+    const ccFieldKeys = ['balance','balanceDate','statementBalance','purchases','payments','interestCharged','minPayment','dueDate','creditLimit'];
+    const schema = getEffectiveSchema(r.type);
+    if (schema) {
+      const existing = new Set(schema.fields.map(f => f.key));
+      const toAdd = ccFieldKeys.filter(k => !existing.has(k)).map(k => {
+        const lib = FIELD_LIBRARY.find(f => f.key === k);
+        return lib ? { key: lib.key, label: lib.label, type: lib.type, order: (schema.fields.length || 0) + ccFieldKeys.indexOf(k) + 1 } : null;
+      }).filter(Boolean);
+      if (toAdd.length) {
+        const allFields = [...schema.fields, ...toAdd];
+        await api('PUT', `/api/type-schemas/${r.type}`, { name: schema.name, icon: schema.icon, fields: allFields });
+        TYPE_SCHEMAS = await api('GET', '/api/type-schemas');
+      }
+    }
+
     timelineText = `${monthName} ${year} statement imported — Balance: ${fmt(data.balance)} | Purchases: ${fmt(data.purchases)} | Payments: ${fmt(data.payments)}${data.interestCharged > 0 ? ` | Interest: ${fmt(data.interestCharged)}` : ''}`;
   } else {
     r.fields.balance = data.endBalance;
