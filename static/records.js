@@ -1412,11 +1412,32 @@ function renderSchemaRecord(r, area) {
     return '';
   }
 
-  // Split active widgets into main vs sidebar
-  const SIDEBAR_WIDGETS = new Set(['timeline','activity','contacts','ira-progress','applications','documents','links','paste','import']);
+  // Column assignment: stored per-record in _widgetColumns, falls back to defaults
+  const DEFAULT_SIDEBAR_WIDGETS = new Set(['timeline','activity','contacts','ira-progress','applications','documents','links','paste','import']);
+  const colMap = r.fields._widgetColumns || {};
+  function getWidgetCol(id) {
+    if (colMap[id]) return colMap[id];
+    return DEFAULT_SIDEBAR_WIDGETS.has(id) ? 'sidebar' : 'main';
+  }
+
   const active = getActiveWidgets(r);
-  const mainDefs = defs.filter(d => active.has(d.id) && !SIDEBAR_WIDGETS.has(d.id));
-  const sidebarDefs = defs.filter(d => active.has(d.id) && SIDEBAR_WIDGETS.has(d.id));
+  const activeDefs = defs.filter(d => active.has(d.id));
+  const mainDefs    = activeDefs.filter(d => getWidgetCol(d.id) === 'main');
+  const sidebarDefs = activeDefs.filter(d => getWidgetCol(d.id) === 'sidebar');
+  const col3Defs    = activeDefs.filter(d => getWidgetCol(d.id) === 'col3');
+  const hasCol3 = col3Defs.length > 0;
+
+  function draggableWidget(d) {
+    const body = widgetCard(d.id, widgetBody(d.id), r);
+    if (!body) return '';
+    return `<div class="widget-drag-wrap" data-widget-id="${d.id}" draggable="true"
+      ondragstart="onWidgetDragStart(event,'${r.id}','${d.id}')"
+      ondragend="onWidgetDragEnd(event)">${body}</div>`;
+  }
+
+  function dropCol(col) {
+    return `ondragover="onWidgetDragOver(event)" ondragleave="onWidgetDragLeave(event)" ondrop="onWidgetDrop(event,'${r.id}','${col}')"`;
+  }
 
   if (r.type === 'account') requestAnimationFrame(() => attachStatementPasteListener(r.id));
 
@@ -1433,13 +1454,14 @@ function renderSchemaRecord(r, area) {
     <button class="record-header-tile" onclick="openEditTypeSchema('${r.type}')">Fields ⚙</button>
     <div class="record-view-actions">${statusBadge(r)}</div>
   </div>
-  <div class="record-sections">
-    <div class="record-main">
-      ${mainDefs.map(d => widgetCard(d.id, widgetBody(d.id), r)).join('')}
+  <div class="record-sections${hasCol3 ? ' has-col3' : ''}">
+    <div class="record-main" ${dropCol('main')}>
+      ${mainDefs.map(draggableWidget).join('')}
     </div>
-    <div class="record-sidebar">
-      ${sidebarDefs.map(d => widgetCard(d.id, widgetBody(d.id), r)).join('')}
+    <div class="record-sidebar" ${dropCol('sidebar')}>
+      ${sidebarDefs.map(draggableWidget).join('')}
     </div>
+    ${hasCol3 ? `<div class="record-col3" ${dropCol('col3')}>${col3Defs.map(draggableWidget).join('')}</div>` : ''}
   </div>`;
 }
 
@@ -1967,6 +1989,95 @@ async function saveFieldText(recordId, key, value) {
     if (r2) { r2.fields[key] = nextValue; await api('PUT', `/api/records/${recordId}`, { fields: r2.fields }); renderRecordView(recordId); }
   });
 }
+
+// ── Widget drag-and-drop between columns ──────────────────────────────────────
+let _dragWidgetId = null;
+let _dragPlaceholder = null;
+
+function onWidgetDragStart(e, recordId, widgetId) {
+  _dragWidgetId = widgetId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', widgetId);
+  e.currentTarget.classList.add('dragging');
+  _dragPlaceholder = document.createElement('div');
+  _dragPlaceholder.className = 'drag-placeholder';
+}
+
+function onWidgetDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  _dragPlaceholder?.remove();
+  _dragPlaceholder = null;
+  _dragWidgetId = null;
+  document.querySelectorAll('.drag-col-over').forEach(el => el.classList.remove('drag-col-over'));
+}
+
+function onWidgetDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const col = e.currentTarget;
+  col.classList.add('drag-col-over');
+  // Insert placeholder before the element the cursor is nearest to
+  const afterEl = getDragAfterElement(col, e.clientY);
+  if (afterEl) col.insertBefore(_dragPlaceholder, afterEl);
+  else col.appendChild(_dragPlaceholder);
+}
+
+function onWidgetDragLeave(e) {
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    e.currentTarget.classList.remove('drag-col-over');
+  }
+}
+
+async function onWidgetDrop(e, recordId, col) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-col-over');
+  _dragPlaceholder?.remove();
+  const widgetId = _dragWidgetId || e.dataTransfer.getData('text/plain');
+  if (!widgetId) return;
+  const r = getRecord(recordId);
+  if (!r) return;
+  r.fields._widgetColumns = r.fields._widgetColumns || {};
+  r.fields._widgetColumns[widgetId] = col;
+  await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+  renderRecordView(recordId);
+}
+
+function getDragAfterElement(container, y) {
+  const draggables = [...container.querySelectorAll('.widget-drag-wrap:not(.dragging)')];
+  return draggables.reduce((closest, el) => {
+    const box = el.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    return offset < 0 && offset > closest.offset ? { offset, el } : closest;
+  }, { offset: -Infinity }).el || null;
+}
+
+// Show the third column drop zone even when empty (while dragging)
+document.addEventListener('dragstart', () => {
+  const sections = document.querySelector('.record-sections');
+  if (!sections) return;
+  if (!sections.querySelector('.record-col3')) {
+    const col3 = document.createElement('div');
+    col3.className = 'record-col3';
+    col3.setAttribute('ondragover', "onWidgetDragOver(event)");
+    col3.setAttribute('ondragleave', "onWidgetDragLeave(event)");
+    col3.style.cssText = 'min-height:80px;border:2px dashed var(--border1);border-radius:10px;opacity:.5';
+    // get recordId from a sibling drag wrap
+    const wrap = sections.querySelector('.widget-drag-wrap');
+    if (wrap) {
+      const rid = wrap.getAttribute('ondragstart')?.match(/'([^']+)'/)?.[1];
+      if (rid) col3.setAttribute('ondrop', `onWidgetDrop(event,'${rid}','col3')`);
+    }
+    sections.classList.add('has-col3');
+    sections.appendChild(col3);
+  }
+});
+document.addEventListener('dragend', () => {
+  const col3 = document.querySelector('.record-col3');
+  if (col3 && !col3.querySelector('.widget-drag-wrap')) {
+    col3.remove();
+    document.querySelector('.record-sections')?.classList.remove('has-col3');
+  }
+});
 
 async function addTimelineEntry(recordId) {
   const input = document.getElementById(`tl-input-${recordId}`);
