@@ -1602,12 +1602,13 @@ function promptCreateCustomType() {
 function renderTimeline(r) {
   const entries = [...(r.timeline || [])].sort((a,b) => b.date.localeCompare(a.date));
   return `<div id="tl-${r.id}">
-    ${entries.map(e => `<div class="timeline-entry">
+    ${entries.map(e => `<div class="timeline-entry" style="position:relative" onmouseenter="this.querySelector('.tl-del').style.opacity='1'" onmouseleave="this.querySelector('.tl-del').style.opacity='0'">
       <div class="timeline-dot"></div>
       <div class="timeline-body">
         <div class="timeline-text">${e.text}</div>
         <div class="timeline-date">${formatDateTime(e.date)}</div>
       </div>
+      <button class="tl-del" onclick="deleteTimelineEntry('${r.id}','${e.id}')" style="position:absolute;right:0;top:50%;transform:translateY(-50%);opacity:0;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px 6px;transition:opacity .15s" title="Delete entry">✕</button>
     </div>`).join('') || '<div class="empty">No history yet.</div>'}
   </div>
   <div class="timeline-add">
@@ -1909,6 +1910,12 @@ async function addTimelineEntry(recordId) {
   if (!text) return;
   input.value = '';
   const r = await api('POST', `/api/records/${recordId}/timeline`, { text });
+  DB.records = DB.records.map(rec => rec.id === recordId ? r : rec);
+  renderRecordView(recordId);
+}
+
+async function deleteTimelineEntry(recordId, entryId) {
+  const r = await api('DELETE', `/api/records/${recordId}/timeline/${entryId}`);
   DB.records = DB.records.map(rec => rec.id === recordId ? r : rec);
   renderRecordView(recordId);
 }

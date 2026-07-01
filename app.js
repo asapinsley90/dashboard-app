@@ -1518,6 +1518,15 @@ app.post('/api/records/:id/timeline', async (req, res) => {
   res.json((await dbLayer.writeDB(db)).records[i]);
 });
 
+app.delete('/api/records/:id/timeline/:entryId', async (req, res) => {
+  const db = await dbLayer.readDB();
+  const i = db.records.findIndex(r => r.id === req.params.id);
+  if (i === -1) return res.status(404).json({ error: 'Not found' });
+  db.records[i].timeline = (db.records[i].timeline || []).filter(e => e.id !== req.params.entryId);
+  db.records[i].updatedAt = new Date().toISOString();
+  res.json((await dbLayer.writeDB(db)).records[i]);
+});
+
 // Weekly reviews
 app.get('/api/reviews', async (req, res) => {
   const db = await dbLayer.readDB();
