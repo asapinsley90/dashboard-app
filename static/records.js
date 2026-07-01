@@ -231,20 +231,27 @@ function openWidgetsModal(recordId) {
   const categories = [...new Set(libDefs.map(w => w.category))];
   const grouped = categories.map(cat => {
     const widgets = libDefs.filter(w => w.category === cat);
-    return `<div style="margin-bottom:18px">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">${cat}</div>
-      <div class="widget-toggle-grid">${widgets.map(d => `
-        <div class="widget-toggle${active.has(d.id) ? ' active' : ''}" onclick="toggleWidgetActive('${recordId}','${d.id}',this)">
-          <span style="font-size:28px">${d.icon}</span>
-          <span class="widget-toggle-label">${d.label}</span>
-          <span class="widget-toggle-dot"></span>
-        </div>`).join('')}
+    const uid = 'wg-' + cat.toLowerCase();
+    return `<div style="margin-bottom:4px">
+      <div onclick="const b=document.getElementById('${uid}');const open=b.style.display!=='none';b.style.display=open?'none':'block';this.querySelector('.chev').textContent=open?'▶':'▼';"
+        style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:7px 4px;border-radius:6px;user-select:none" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        <span class="chev" style="font-size:10px;color:var(--muted)">▶</span>
+        <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em">${cat}</span>
+      </div>
+      <div id="${uid}" style="display:none">
+        <div class="widget-toggle-grid" style="margin-bottom:8px">${widgets.map(d => `
+          <div class="widget-toggle${active.has(d.id) ? ' active' : ''}" onclick="toggleWidgetActive('${recordId}','${d.id}',this)">
+            <span style="font-size:28px">${d.icon}</span>
+            <span class="widget-toggle-label">${d.label}</span>
+            <span class="widget-toggle-dot"></span>
+          </div>`).join('')}
+        </div>
       </div>
     </div>`;
   }).join('');
 
   openModal('Widget library', `
-    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">Toggle widgets on or off for this record.</p>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 8px">Toggle widgets on or off for this record.</p>
     ${grouped}
   `, [{ label: 'Done', onclick: closeModal }]);
 }
@@ -1293,14 +1300,21 @@ function openEditTypeSchema(typeId) {
   const categories = [...new Set(FIELD_LIBRARY.map(f => f.category))];
   const libraryHTML = categories.map(cat => {
     const entries = FIELD_LIBRARY.filter(f => f.category === cat);
-    return `<div style="margin-bottom:16px">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">${cat}</div>
-      <div class="widget-toggle-grid">${entries.map(f => `
-        <div class="widget-toggle${activeKeys.has(f.key) ? ' active' : ''}" onclick="this.classList.toggle('active')" data-fkey="${f.key}">
-          <span style="font-size:11px;color:var(--muted);margin-bottom:2px">${f.type}</span>
-          <span class="widget-toggle-label">${f.label}</span>
-          <span class="widget-toggle-dot"></span>
-        </div>`).join('')}
+    const uid = 'fg-' + cat.toLowerCase();
+    return `<div style="margin-bottom:4px">
+      <div onclick="const b=document.getElementById('${uid}');const open=b.style.display!=='none';b.style.display=open?'none':'block';this.querySelector('.chev').textContent=open?'▶':'▼';"
+        style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:7px 4px;border-radius:6px;user-select:none" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        <span class="chev" style="font-size:10px;color:var(--muted)">▶</span>
+        <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em">${cat}</span>
+      </div>
+      <div id="${uid}" style="display:none">
+        <div class="widget-toggle-grid" style="margin-bottom:8px">${entries.map(f => `
+          <div class="widget-toggle${activeKeys.has(f.key) ? ' active' : ''}" onclick="this.classList.toggle('active')" data-fkey="${f.key}">
+            <span style="font-size:11px;color:var(--muted);margin-bottom:2px">${f.type}</span>
+            <span class="widget-toggle-label">${f.label}</span>
+            <span class="widget-toggle-dot"></span>
+          </div>`).join('')}
+        </div>
       </div>
     </div>`;
   }).join('');

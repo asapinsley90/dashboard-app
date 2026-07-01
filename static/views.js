@@ -2063,19 +2063,26 @@ function openAreaWidgetsModal(areaId) {
   const categories = [...new Set(libDefs.map(w => w.category))];
   const grouped = categories.map(cat => {
     const widgets = libDefs.filter(w => w.category === cat);
-    return `<div style="margin-bottom:18px">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">${cat}</div>
-      <div class="widget-toggle-grid">${widgets.map(d => `
-        <div class="widget-toggle${active.has(d.id) ? ' active' : ''}" onclick="toggleAreaWidget('${areaId}','${d.id}',this)">
-          <span style="font-size:28px">${d.icon}</span>
-          <span class="widget-toggle-label">${d.label}</span>
-          <span class="widget-toggle-dot"></span>
-        </div>`).join('')}
+    const uid = 'awg-' + cat.toLowerCase();
+    return `<div style="margin-bottom:4px">
+      <div onclick="const b=document.getElementById('${uid}');const open=b.style.display!=='none';b.style.display=open?'none':'block';this.querySelector('.chev').textContent=open?'▶':'▼';"
+        style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:7px 4px;border-radius:6px;user-select:none" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        <span class="chev" style="font-size:10px;color:var(--muted)">▶</span>
+        <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em">${cat}</span>
+      </div>
+      <div id="${uid}" style="display:none">
+        <div class="widget-toggle-grid" style="margin-bottom:8px">${widgets.map(d => `
+          <div class="widget-toggle${active.has(d.id) ? ' active' : ''}" onclick="toggleAreaWidget('${areaId}','${d.id}',this)">
+            <span style="font-size:28px">${d.icon}</span>
+            <span class="widget-toggle-label">${d.label}</span>
+            <span class="widget-toggle-dot"></span>
+          </div>`).join('')}
+        </div>
       </div>
     </div>`;
   }).join('');
   openModal('Widget library', `
-    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">Toggle widgets for this area's side panel.</p>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 8px">Toggle widgets for this area's side panel.</p>
     ${grouped}
   `, [{ label: 'Done', onclick: () => { closeModal(); renderAreaView(areaId); } }]);
 }
