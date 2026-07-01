@@ -143,12 +143,6 @@ const DEFAULT_FIELD_SCHEMAS = {
     { key: 'last4',        label: 'Last 4',        type: 'text', order: 4 },
     { key: 'balance',      label: 'Balance',       type: 'text', order: 5 },
     { key: 'balanceDate',  label: 'Balance date',  type: 'date', order: 6 },
-    { key: 'creditLimit',    label: 'Credit limit',    type: 'text', order: 7 },
-    { key: 'minPayment',     label: 'Min payment',     type: 'text', order: 8 },
-    { key: 'dueDate',        label: 'Due date',        type: 'text', order: 9 },
-    { key: 'apr',            label: 'APR',             type: 'text', order: 10 },
-    { key: 'employerMatch',  label: 'Employer match',  type: 'text', order: 11 },
-    { key: 'hsaCoverage',    label: 'HSA coverage',    type: 'text', order: 12 },
   ]},
   company: { name: 'Company', icon: '🏢', fields: [
     { key: 'industry', label: 'Industry', type: 'text',     order: 1 },
