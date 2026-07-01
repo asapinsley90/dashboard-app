@@ -2081,9 +2081,21 @@ function openAreaWidgetsModal(areaId) {
       </div>
     </div>`;
   }).join('');
+  const activeAreaPills = libDefs.filter(d => active.has(d.id));
+  const areaActiveSummary = activeAreaPills.length
+    ? `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border1)">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Active</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${activeAreaPills.map(d =>
+          `<span style="background:var(--accent);color:#fff;border-radius:20px;padding:3px 10px;font-size:12px">${d.icon} ${d.label}</span>`
+        ).join('')}</div>
+      </div>`
+    : '';
+
   openModal('Widget library', `
-    <p style="font-size:13px;color:var(--muted);margin:0 0 8px">Toggle widgets for this area's side panel.</p>
-    ${grouped}
+    <div style="max-height:420px;overflow-y:auto;padding-right:4px">
+      ${areaActiveSummary}
+      ${grouped}
+    </div>
   `, [{ label: 'Done', onclick: () => { closeModal(); renderAreaView(areaId); } }]);
 }
 

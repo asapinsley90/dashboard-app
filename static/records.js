@@ -259,9 +259,21 @@ function openWidgetsModal(recordId) {
     </div>`;
   }).join('');
 
+  const activeWidgetPills = libDefs.filter(d => active.has(d.id));
+  const widgetActiveSummary = activeWidgetPills.length
+    ? `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border1)">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Active</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${activeWidgetPills.map(d =>
+          `<span style="background:var(--accent);color:#fff;border-radius:20px;padding:3px 10px;font-size:12px">${d.icon} ${d.label}</span>`
+        ).join('')}</div>
+      </div>`
+    : '';
+
   openModal('Widget library', `
-    <p style="font-size:13px;color:var(--muted);margin:0 0 8px">Toggle widgets on or off for this record.</p>
-    ${grouped}
+    <div style="max-height:420px;overflow-y:auto;padding-right:4px">
+      ${widgetActiveSummary}
+      ${grouped}
+    </div>
   `, [{ label: 'Done', onclick: closeModal }]);
 }
 
@@ -1360,9 +1372,20 @@ function openEditTypeSchema(typeId) {
     </div>`
   ).join('');
 
+  const activeLibFields = FIELD_LIBRARY.filter(f => activeKeys.has(f.key));
+  const activePills = [...activeLibFields.map(f => f.label), ...customActive.map(f => f.label)];
+  const activeSummary = activePills.length
+    ? `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border1)">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Active</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${activePills.map(l =>
+          `<span style="background:var(--accent);color:#fff;border-radius:20px;padding:3px 10px;font-size:12px">${l}</span>`
+        ).join('')}</div>
+      </div>`
+    : '';
+
   openModal('Field library', `
-    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">Toggle fields on or off for this record type.</p>
     <div style="max-height:420px;overflow-y:auto;padding-right:4px">
+      ${activeSummary}
       ${libraryHTML}
       <div style="margin-bottom:16px">
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Custom</div>
@@ -1393,12 +1416,7 @@ function openEditTypeSchema(typeId) {
         if (key) newFields.push({ key, label, type, order: order++ });
       });
       const allFields = [...preserved, ...newFields];
-      if (existing) {
-        await api('PUT', `/api/type-schemas/${typeId}`, { name: schema.name, icon: schema.icon, fields: allFields });
-      } else {
-        const created = await api('POST', '/api/type-schemas', { name: schema.name, icon: schema.icon, fields: allFields });
-        TYPE_SCHEMAS.push(created);
-      }
+      await api('PUT', `/api/type-schemas/${typeId}`, { name: schema.name, icon: schema.icon, fields: allFields });
       TYPE_SCHEMAS = await api('GET', '/api/type-schemas');
       closeModal();
       tourNotify('schema-saved');
