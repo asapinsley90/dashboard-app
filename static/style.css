@@ -106,9 +106,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .record-col3{}
 .widget-drag-wrap{position:relative}
 .widget-drag-wrap.dragging{opacity:.35}
-.drag-handle{position:absolute;top:14px;right:14px;z-index:2;cursor:grab;color:var(--muted);font-size:16px;opacity:0;transition:opacity .15s;line-height:1;user-select:none}
-.widget-drag-wrap:hover .drag-handle{opacity:.5}
-.widget-drag-wrap:hover .drag-handle:hover{opacity:1}
+.drag-handle{position:absolute;top:14px;right:14px;z-index:2;cursor:grab;color:var(--muted);font-size:16px;opacity:.3;transition:opacity .15s;line-height:1;user-select:none}
+.drag-handle:hover{opacity:.8}
 .drag-col-over{outline:2px dashed var(--accent);outline-offset:-4px;border-radius:10px}
 .drag-placeholder{height:60px;border:2px dashed var(--accent);border-radius:10px;margin-bottom:12px;opacity:.5;background:var(--accent)18}
 .section-card{background:var(--bg2);border:1px solid rgba(91,155,213,.25);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 0 0 1px rgba(91,155,213,.08)}
