@@ -1507,10 +1507,10 @@ function toggleFieldLibPill(btn) {
     if (!activePills.querySelector(`[data-fkey="${key}"]`)) {
       const label = btn.dataset.label || btn.textContent.replace('×','').trim();
       const clone = document.createElement('button');
-      clone.setAttribute('data-fkey', key);
-      clone.setAttribute('data-label', label);
-      clone.setAttribute('data-active', '1');
-      clone.setAttribute('onclick', 'toggleFieldLibPill(this)');
+      clone.dataset.fkey = key;
+      clone.dataset.label = label;
+      clone.dataset.active = '1';
+      clone.onclick = () => toggleFieldLibPill(clone);
       clone.setAttribute('style', `${pillStyle};${PILL_ON}`);
       clone.innerHTML = label + '<span style="opacity:0.6;font-size:10px">×</span>';
       activePills.appendChild(clone);
