@@ -1213,7 +1213,7 @@ function renderSchemaRecord(r, area) {
   }
 
   // Split active widgets into main vs sidebar
-  const SIDEBAR_WIDGETS = new Set(['timeline','activity','contacts','ira-progress','applications','documents','links','paste']);
+  const SIDEBAR_WIDGETS = new Set(['timeline','activity','contacts','ira-progress','applications','documents','links','paste','import']);
   const active = getActiveWidgets(r);
   const mainDefs = defs.filter(d => active.has(d.id) && !SIDEBAR_WIDGETS.has(d.id));
   const sidebarDefs = defs.filter(d => active.has(d.id) && SIDEBAR_WIDGETS.has(d.id));
