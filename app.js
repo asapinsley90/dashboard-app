@@ -1582,8 +1582,7 @@ app.post('/api/records/:id/parse-statement', upload.single('file'), async (req, 
 
     const db = await dbLayer.readDB();
     const record = db.records.find(r => r.id === req.params.id);
-    const accountType = record?.fields?.accountType || '';
-    const isCreditCard = accountType === 'Credit Card';
+    const storedType = record?.fields?.accountType || '';
 
     const base64 = file.buffer.toString('base64');
     const mediaType = file.mimetype === 'application/pdf' ? 'application/pdf' : file.mimetype;
@@ -1592,9 +1591,15 @@ app.post('/api/records/:id/parse-statement', upload.single('file'), async (req, 
       ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
       : { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } };
 
-    const prompt = isCreditCard
-      ? 'Extract the following from this credit card statement: new/current balance, previous statement balance, purchases and charges this period, payments and credits this period, interest charged, minimum payment due, payment due date, and credit limit. Respond ONLY with valid JSON: {"balance": 1234.56, "previousBalance": 1000.00, "purchases": 500.00, "payments": 200.00, "interestCharged": 12.34, "minPayment": 25.00, "dueDate": "2026-07-15", "creditLimit": 5000.00, "date": "2026-06-30"}. Numbers only (no $ or commas). Dates in YYYY-MM-DD. Use 0 for any missing numeric values.'
-      : 'Extract the following from this financial statement: beginning account value, ending account value, contributions this period (0 if none), and the statement period end date. Respond ONLY with valid JSON: {"beginBalance": 12345.67, "endBalance": 12345.67, "contributions": 0, "date": "2026-05-31"}. Numbers only (no $ or commas). Date in YYYY-MM-DD.';
+    const prompt = `First identify whether this is a credit card statement or an investment/brokerage/savings statement by looking at the content.
+
+If it is a CREDIT CARD statement, extract: new/current balance, previous statement balance, purchases and charges this period, payments and credits this period, interest charged, minimum payment due, payment due date, credit limit, and statement date.
+Respond ONLY with valid JSON: {"statementType":"credit-card","balance":1234.56,"previousBalance":1000.00,"purchases":500.00,"payments":200.00,"interestCharged":12.34,"minPayment":25.00,"dueDate":"2026-07-15","creditLimit":5000.00,"date":"2026-06-30"}
+
+If it is an INVESTMENT/BROKERAGE/SAVINGS statement, extract: beginning account value, ending account value, contributions this period (0 if none), and statement period end date.
+Respond ONLY with valid JSON: {"statementType":"investment","beginBalance":12345.67,"endBalance":12345.67,"contributions":0,"date":"2026-05-31"}
+
+Numbers only (no $ or commas). Dates in YYYY-MM-DD. Use 0 for missing numeric values.`;
 
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
@@ -1604,6 +1609,7 @@ app.post('/api/records/:id/parse-statement', upload.single('file'), async (req, 
 
     const text = message.content[0].text.trim();
     const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+    const isCreditCard = parsed.statementType === 'credit-card' || storedType === 'Credit Card';
 
     if (isCreditCard) {
       res.json({ _type: 'credit-card', balance: parsed.balance || 0, previousBalance: parsed.previousBalance || 0, purchases: parsed.purchases || 0, payments: parsed.payments || 0, interestCharged: parsed.interestCharged || 0, minPayment: parsed.minPayment || 0, dueDate: parsed.dueDate || '', creditLimit: parsed.creditLimit || 0, date: parsed.date });
