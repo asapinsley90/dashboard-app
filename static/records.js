@@ -362,11 +362,14 @@ function renderRecordView(recordId) {
     el.innerHTML = renderJobRecord(r, area);
   } else {
     el.innerHTML = renderSchemaRecord(r, area);
-    if (r.type === 'account') {
-      const chartHistory = (r.fields.history || []).slice().sort((a,b) => a.month.localeCompare(b.month));
-      const _doCharts = () => renderAccountCharts(`acct-charts-${r.id}`, chartHistory);
-      requestAnimationFrame(() => { _doCharts(); setTimeout(_doCharts, 100); });
-    }
+    requestAnimationFrame(() => {
+      _attachDropListeners(r.id);
+      if (r.type === 'account') {
+        const chartHistory = (r.fields.history || []).slice().sort((a,b) => a.month.localeCompare(b.month));
+        const _doCharts = () => renderAccountCharts(`acct-charts-${r.id}`, chartHistory);
+        _doCharts(); setTimeout(_doCharts, 100);
+      }
+    });
   }
 }
 
@@ -2030,51 +2033,43 @@ function onWidgetDragEnd(e) {
   document.querySelectorAll('.drag-col-over').forEach(el => el.classList.remove('drag-col-over'));
 }
 
-function _getDropCol(target) {
-  return target.closest('[data-drop-col]');
-}
-
-document.addEventListener('dragover', e => {
-  const col = _getDropCol(e.target);
-  if (!col || !_dragWidgetId) return;
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  col.classList.add('drag-col-over');
-  if (_dragPlaceholder) {
-    const els = [...col.querySelectorAll('.widget-drag-wrap:not(.dragging)')];
-    const after = els.find(el => {
-      const box = el.getBoundingClientRect();
-      return e.clientY < box.top + box.height / 2;
+function _attachDropListeners(recordId) {
+  document.querySelectorAll('[data-drop-col]').forEach(col => {
+    col.addEventListener('dragover', e => {
+      if (!_dragWidgetId) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+      col.classList.add('drag-col-over');
+      if (_dragPlaceholder) {
+        const els = [...col.querySelectorAll('.widget-drag-wrap:not(.dragging)')];
+        const after = els.find(el => e.clientY < el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2);
+        if (after) col.insertBefore(_dragPlaceholder, after);
+        else col.appendChild(_dragPlaceholder);
+      }
     });
-    if (after) col.insertBefore(_dragPlaceholder, after);
-    else col.appendChild(_dragPlaceholder);
-  }
-});
-
-document.addEventListener('dragleave', e => {
-  const col = e.target.closest('[data-drop-col]');
-  if (col && !col.contains(e.relatedTarget)) col.classList.remove('drag-col-over');
-});
-
-document.addEventListener('drop', async e => {
-  const col = _getDropCol(e.target);
-  if (!col || !_dragWidgetId) return;
-  e.preventDefault();
-  col.classList.remove('drag-col-over');
-  _dragPlaceholder?.remove();
-  const widgetId = _dragWidgetId;
-  const recordId = _dragRecordId || col.dataset.recordId;
-  const colName = col.dataset.dropCol;
-  _dragWidgetId = null;
-  _dragRecordId = null;
-  if (!widgetId || !recordId || !colName) return;
-  const r = getRecord(recordId);
-  if (!r) return;
-  r.fields._widgetColumns = r.fields._widgetColumns || {};
-  r.fields._widgetColumns[widgetId] = colName;
-  await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
-  renderRecordView(recordId);
-});
+    col.addEventListener('dragleave', e => {
+      if (!col.contains(e.relatedTarget)) col.classList.remove('drag-col-over');
+    });
+    col.addEventListener('drop', async e => {
+      e.preventDefault();
+      e.stopPropagation();
+      col.classList.remove('drag-col-over');
+      _dragPlaceholder?.remove();
+      const widgetId = _dragWidgetId;
+      const colName = col.dataset.dropCol;
+      _dragWidgetId = null;
+      _dragRecordId = null;
+      if (!widgetId || !colName) return;
+      const r = getRecord(recordId);
+      if (!r) return;
+      r.fields._widgetColumns = r.fields._widgetColumns || {};
+      r.fields._widgetColumns[widgetId] = colName;
+      await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+      renderRecordView(recordId);
+    });
+  });
+}
 
 
 async function addTimelineEntry(recordId) {
