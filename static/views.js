@@ -1379,12 +1379,14 @@ function showAreaCtxMenu(e, areaId) {
     // Optimistic: remove from view immediately
     DB.areas = DB.areas.map(a => (a.id === areaId || childIds.includes(a.id)) ? { ...a, deletedAt: now } : a);
     DB.records = DB.records.map(r => (childIds.includes(r.areaId) || r.areaId === areaId) ? { ...r, deletedAt: now } : r);
+    rebuildLookupCaches();
     if (currentAreaId === areaId || children.some(c => c.id === currentAreaId)) navigate('dashboard');
     else { renderSidebar(); if (currentView === 'area') renderAreaView(currentAreaId); }
 
     const restoreFn = async () => {
       DB.areas = DB.areas.map(a => (a.id === areaId || childIds.includes(a.id)) ? { ...a, deletedAt: null } : a);
       DB.records = DB.records.map(r => r.deletedWithArea === areaId ? { ...r, deletedAt: null } : r);
+      rebuildLookupCaches();
       renderSidebar();
       navigate('area', areaId);
       api('POST', `/api/areas/${areaId}/restore`);
@@ -1393,6 +1395,7 @@ function showAreaCtxMenu(e, areaId) {
     const redeleteFn = async () => {
       DB.areas = DB.areas.map(a => (a.id === areaId || childIds.includes(a.id)) ? { ...a, deletedAt: now } : a);
       DB.records = DB.records.map(r => (childIds.includes(r.areaId) || r.areaId === areaId) ? { ...r, deletedAt: now } : r);
+      rebuildLookupCaches();
       await api('DELETE', `/api/areas/${areaId}`);
       if (currentAreaId === areaId || children.some(c => c.id === currentAreaId)) navigate('dashboard');
       else { renderSidebar(); if (currentView === 'area') renderAreaView(currentAreaId); }
@@ -1404,6 +1407,7 @@ function showAreaCtxMenu(e, areaId) {
     api('DELETE', `/api/areas/${areaId}`).catch(() => {
       DB.areas = DB.areas.map(a => (a.id === areaId || childIds.includes(a.id)) ? { ...a, deletedAt: null } : a);
       DB.records = DB.records.map(r => (childIds.includes(r.areaId) || r.areaId === areaId) ? { ...r, deletedAt: null } : r);
+      rebuildLookupCaches();
       renderSidebar();
     });
   }, 'danger');

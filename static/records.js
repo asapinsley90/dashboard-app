@@ -1974,13 +1974,13 @@ async function addTimelineEntry(recordId) {
   if (!text) return;
   input.value = '';
   const r = await api('POST', `/api/records/${recordId}/timeline`, { text });
-  DB.records = DB.records.map(rec => rec.id === recordId ? r : rec);
+  updateDBRecord(r);
   renderRecordView(recordId);
 }
 
 async function deleteTimelineEntry(recordId, entryId) {
   const r = await api('DELETE', `/api/records/${recordId}/timeline/${entryId}`);
-  DB.records = DB.records.map(rec => rec.id === recordId ? r : rec);
+  updateDBRecord(r);
   renderRecordView(recordId);
 }
 
@@ -2050,7 +2050,7 @@ async function addInterview(recordId) {
       }
       await api('POST', `/api/records/${recordId}/timeline`, { text: `Interview Rd ${interview.round} added — ${formatDate(interview.date)}` });
       const updated = await api('GET', `/api/records/${recordId}`);
-      DB.records = DB.records.map(rec => rec.id === recordId ? updated : rec);
+      updateDBRecord(updated);
       closeModal();
       renderRecordView(recordId);
     }},
@@ -2167,7 +2167,7 @@ async function doLinkContact(recordId, contactId) {
     r.contacts.push(contactId);
     await api('PUT', `/api/records/${recordId}`, { contacts: r.contacts });
     const updated = await api('GET', `/api/records/${recordId}`);
-    DB.records = DB.records.map(rec => rec.id === recordId ? updated : rec);
+    updateDBRecord(updated);
   }
   closeModal();
   document.getElementById('modal').style.maxWidth = '';

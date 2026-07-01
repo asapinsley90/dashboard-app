@@ -739,6 +739,12 @@ function rebuildLookupCaches() {
   });
 }
 
+// Replace a record in DB and invalidate the lookup cache immediately.
+function updateDBRecord(updatedRecord) {
+  DB.records = DB.records.map(r => r.id === updatedRecord.id ? updatedRecord : r);
+  rebuildLookupCaches();
+}
+
 function getArea(areaId) {
   if (!lookupCache.areasById.size || lookupCache.areasById.size !== DB.areas.length) {
     rebuildLookupCaches();
