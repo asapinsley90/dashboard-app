@@ -96,6 +96,38 @@ const RECORD_WIDGET_DEFS = {
 };
 
 // ── DEFAULT FIELD SCHEMAS for built-in types ──────────────────────────────────
+const FIELD_LIBRARY = [
+  // Finance
+  { key: 'balance',       label: 'Balance',        type: 'text',     category: 'Finance' },
+  { key: 'creditLimit',   label: 'Credit limit',   type: 'text',     category: 'Finance' },
+  { key: 'minPayment',    label: 'Min payment',     type: 'text',     category: 'Finance' },
+  { key: 'apr',           label: 'APR',            type: 'text',     category: 'Finance' },
+  { key: 'employerMatch', label: 'Employer match', type: 'text',     category: 'Finance' },
+  { key: 'hsaCoverage',   label: 'HSA coverage',   type: 'text',     category: 'Finance' },
+  // Account
+  { key: 'institution',   label: 'Institution',    type: 'text',     category: 'Account' },
+  { key: 'accountType',   label: 'Account type',   type: 'text',     category: 'Account' },
+  { key: 'owner',         label: 'Owner',          type: 'text',     category: 'Account' },
+  { key: 'last4',         label: 'Last 4',         type: 'text',     category: 'Account' },
+  { key: 'balanceDate',   label: 'Balance date',   type: 'date',     category: 'Account' },
+  { key: 'dueDate',       label: 'Due date',       type: 'date',     category: 'Account' },
+  // Contact
+  { key: 'role',          label: 'Role',           type: 'text',     category: 'Contact' },
+  { key: 'email',         label: 'Email',          type: 'email',    category: 'Contact' },
+  { key: 'phone',         label: 'Phone',          type: 'tel',      category: 'Contact' },
+  { key: 'linkedin',      label: 'LinkedIn',       type: 'url',      category: 'Contact' },
+  // Events
+  { key: 'date',          label: 'Date',           type: 'date',     category: 'Events' },
+  { key: 'time',          label: 'Start time',     type: 'time',     category: 'Events' },
+  { key: 'endTime',       label: 'End time',       type: 'time',     category: 'Events' },
+  // General
+  { key: 'notes',         label: 'Notes',          type: 'textarea', category: 'General' },
+  { key: 'location',      label: 'Location',       type: 'text',     category: 'General' },
+  { key: 'website',       label: 'Website',        type: 'url',      category: 'General' },
+  { key: 'industry',      label: 'Industry',       type: 'text',     category: 'General' },
+  { key: 'link',          label: 'Link',           type: 'url',      category: 'General' },
+];
+
 const DEFAULT_FIELD_SCHEMAS = {
   contact: { name: 'Contact', icon: '👤', fields: [
     { key: 'role',     label: 'Role',     type: 'text',         order: 1 },
@@ -142,21 +174,9 @@ function getEffectiveSchema(typeId) {
 function renderFieldsFromSchema(r) {
   const schema = getEffectiveSchema(r.type);
   if (!schema?.fields?.length) return '';
-  const CC_ONLY = ['creditLimit','minPayment','dueDate','apr'];
-  const K401_ONLY = ['employerMatch'];
-  const HSA_ONLY = ['hsaCoverage'];
-  const isCC = r.type === 'account' && r.fields.accountType === 'Credit Card';
-  const is401k = r.type === 'account' && r.fields.accountType === '401k';
-  const isHSA = r.type === 'account' && r.fields.accountType === 'HSA';
   return [...schema.fields]
+    .filter(f => f.type !== 'company-link')
     .sort((a, b) => (a.order || 0) - (b.order || 0))
-    .filter(f => {
-      if (r.type !== 'account') return true;
-      if (CC_ONLY.includes(f.key)) return isCC;
-      if (K401_ONLY.includes(f.key)) return is401k;
-      if (HSA_ONLY.includes(f.key)) return isHSA;
-      return true;
-    })
     .map(f => editableField(r, f.key, f.label, f.type))
     .join('');
 }
@@ -1243,57 +1263,88 @@ function renderSchemaRecord(r, area) {
   </div>`;
 }
 
-// Edit type schema modal
+function addCustomFieldRow() {
+  const lbl = document.getElementById('cfl-label').value.trim();
+  const typ = document.getElementById('cfl-type').value;
+  if (!lbl) return;
+  const key = lbl.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  const div = document.createElement('div');
+  div.className = 'field-row';
+  div.dataset.ckey = key;
+  div.dataset.ctype = typ;
+  div.style.cssText = 'align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border1)';
+  div.innerHTML = `<span style="font-size:11px;background:var(--bg3);border-radius:3px;padding:2px 5px;color:var(--muted)">${typ}</span><span style="flex:1;font-size:13px">${lbl}</span><button style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1" onclick="this.closest('[data-ckey]').remove()">×</button>`;
+  document.getElementById('custom-fields-list').appendChild(div);
+  document.getElementById('cfl-label').value = '';
+  document.getElementById('custom-add-form').style.display = 'none';
+}
+
+// Edit type schema modal — field library picker
 function openEditTypeSchema(typeId) {
   const existing = TYPE_SCHEMAS.find(s => s.id === typeId);
   const schema = existing || (DEFAULT_FIELD_SCHEMAS[typeId] ? { id: typeId, ...DEFAULT_FIELD_SCHEMAS[typeId] } : null);
   if (!schema) return;
-  const EDITABLE_TYPES = ['text','textarea','date','time','url','email','tel','number'];
-  const fields = [...schema.fields]
-    .filter(f => f.type !== 'company-link')
-    .sort((a,b) => (a.order||0) - (b.order||0));
+  const preserved = schema.fields.filter(f => f.type === 'company-link');
+  const activeKeys = new Set(schema.fields.filter(f => f.type !== 'company-link').map(f => f.key));
+  const libraryKeys = new Set(FIELD_LIBRARY.map(f => f.key));
+  const customActive = schema.fields.filter(f => f.type !== 'company-link' && !libraryKeys.has(f.key));
+  const FIELD_TYPES = ['text','textarea','number','date','time','url','email','tel'];
 
-  function fieldRow(f, i) {
-    return `<div class="field-row" style="align-items:center;gap:6px" id="schema-field-${i}">
-      <input class="modal-input" style="flex:1" value="${f.label}" placeholder="Label" id="sf-label-${i}">
-      <select class="modal-select" style="width:90px" id="sf-type-${i}">
-        ${EDITABLE_TYPES.map(t =>
-          `<option value="${t}" ${f.type===t?'selected':''}>${t}</option>`).join('')}
-      </select>
-      <button class="btn btn-sm" style="color:var(--red);flex-shrink:0" onclick="this.closest('.field-row').remove()">×</button>
+  const categories = [...new Set(FIELD_LIBRARY.map(f => f.category))];
+  const libraryHTML = categories.map(cat => {
+    const entries = FIELD_LIBRARY.filter(f => f.category === cat);
+    return `<div style="margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">${cat}</div>
+      <div class="widget-toggle-grid">${entries.map(f => `
+        <div class="widget-toggle${activeKeys.has(f.key) ? ' active' : ''}" onclick="this.classList.toggle('active')" data-fkey="${f.key}">
+          <span style="font-size:11px;color:var(--muted);margin-bottom:2px">${f.type}</span>
+          <span class="widget-toggle-label">${f.label}</span>
+          <span class="widget-toggle-dot"></span>
+        </div>`).join('')}
+      </div>
     </div>`;
-  }
+  }).join('');
 
-  openModal(`Fields: ${schema.name}`, `
-    <div id="schema-fields-list" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">
-      ${fields.map((f,i) => fieldRow(f,i)).join('')}
-    </div>
-    <button class="btn btn-sm" style="margin-top:10px" onclick="
-      const list=document.getElementById('schema-fields-list');
-      const i=list.children.length;
-      const div=document.createElement('div');
-      div.innerHTML=\`<div class='field-row' style='align-items:center;gap:6px'>
-        <input class='modal-input' style='flex:1' placeholder='Label' id='sf-label-\${i}'>
-        <select class='modal-select' style='width:90px' id='sf-type-\${i}'>
-          <option>text</option><option>textarea</option><option>date</option><option>time</option><option>url</option><option>email</option><option>tel</option><option>number</option>
-        </select>
-        <button class='btn btn-sm' style='color:var(--red);flex-shrink:0' onclick='this.closest(&quot;.field-row&quot;).remove()'>×</button>
-      </div>\`;
-      list.appendChild(div.firstChild);
-    ">+ Add field</button>`,
+  const customRows = customActive.map(f =>
+    `<div class="field-row" data-ckey="${f.key}" data-ctype="${f.type}" style="align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border1)">
+      <span style="font-size:11px;background:var(--bg3);border-radius:3px;padding:2px 5px;color:var(--muted)">${f.type}</span>
+      <span style="flex:1;font-size:13px">${f.label}</span>
+      <button style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1" onclick="this.closest('[data-ckey]').remove()">×</button>
+    </div>`
+  ).join('');
+
+  openModal('Field library', `
+    <p style="font-size:13px;color:var(--muted);margin:0 0 16px">Toggle fields on or off for this record type.</p>
+    <div style="max-height:420px;overflow-y:auto;padding-right:4px">
+      ${libraryHTML}
+      <div style="margin-bottom:16px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Custom</div>
+        <div id="custom-fields-list">${customRows}</div>
+        <div id="custom-add-form" style="display:none;gap:6px;align-items:center;margin-top:8px">
+          <input class="modal-input" id="cfl-label" placeholder="Field name" style="flex:1">
+          <select class="modal-select" id="cfl-type" style="width:90px">${FIELD_TYPES.map(t=>`<option>${t}</option>`).join('')}</select>
+          <button class="btn btn-sm btn-primary" onclick="addCustomFieldRow()">Add</button>
+        </div>
+        <button class="btn btn-sm" style="margin-top:8px" onclick="const f=document.getElementById('custom-add-form');f.style.display=f.style.display==='none'?'flex':'none'">+ Create custom field</button>
+      </div>
+    </div>`,
     [{ label: 'Save', primary: true, onclick: async () => {
-      const rows = document.getElementById('schema-fields-list').children;
       const newFields = [];
-      for (let i = 0; i < rows.length; i++) {
-        const label = rows[i].querySelector(`[id^="sf-label-"]`)?.value?.trim();
-        const type = rows[i].querySelector(`[id^="sf-type-"]`)?.value || 'text';
-        if (label) {
-          const existing = fields.find(f => f.label === label);
-          newFields.push({ key: existing?.key || label.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''), label, type, order: i+1 });
+      let order = 1;
+      // Library fields that are toggled on
+      document.querySelectorAll('[data-fkey]').forEach(el => {
+        if (el.classList.contains('active')) {
+          const entry = FIELD_LIBRARY.find(f => f.key === el.dataset.fkey);
+          if (entry) newFields.push({ key: entry.key, label: entry.label, type: entry.type, order: order++ });
         }
-      }
-      // Preserve any non-editable fields (like company-link) from the original schema
-      const preserved = schema.fields.filter(f => !EDITABLE_TYPES.includes(f.type));
+      });
+      // Custom fields
+      document.querySelectorAll('#custom-fields-list [data-ckey]').forEach(el => {
+        const key = el.dataset.ckey;
+        const type = el.dataset.ctype;
+        const label = el.querySelector('span:nth-child(2)')?.textContent?.trim() || key;
+        if (key) newFields.push({ key, label, type, order: order++ });
+      });
       const allFields = [...preserved, ...newFields];
       if (existing) {
         await api('PUT', `/api/type-schemas/${typeId}`, { name: schema.name, icon: schema.icon, fields: allFields });
@@ -1301,8 +1352,7 @@ function openEditTypeSchema(typeId) {
         const created = await api('POST', '/api/type-schemas', { name: schema.name, icon: schema.icon, fields: allFields });
         TYPE_SCHEMAS.push(created);
       }
-      const updated = await api('GET', '/api/type-schemas');
-      TYPE_SCHEMAS = updated;
+      TYPE_SCHEMAS = await api('GET', '/api/type-schemas');
       closeModal();
       tourNotify('schema-saved');
       renderRecordView(currentRecordId);
