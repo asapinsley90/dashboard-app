@@ -1315,6 +1315,14 @@ function renderSchemaRecord(r, area) {
   </div>`;
 }
 
+function toggleFieldPill(key) {
+  document.querySelectorAll(`[data-fkey="${key}"]`).forEach(el => el.classList.remove('active'));
+  const pill = document.querySelector(`[data-pill-key="${key}"]`);
+  if (pill) pill.remove();
+  const section = document.getElementById('field-active-section');
+  if (section && !section.querySelectorAll('[data-pill-key]').length) section.style.display = 'none';
+}
+
 function addCustomFieldRow() {
   const lbl = document.getElementById('cfl-label').value.trim();
   const typ = document.getElementById('cfl-type').value;
@@ -1401,10 +1409,12 @@ function openEditTypeSchema(typeId) {
   const activeLibFields = FIELD_LIBRARY.filter(f => activeKeys.has(f.key));
   const activePills = [...activeLibFields.map(f => f.label), ...customActive.map(f => f.label)];
   const activeSummary = activePills.length
-    ? `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border1)">
+    ? `<div id="field-active-section" style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border1)">
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Active</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">${activePills.map(l =>
-          `<span style="background:var(--accent);color:#fff;border-radius:20px;padding:3px 10px;font-size:12px">${l}</span>`
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${activeLibFields.map(f =>
+          `<span data-pill-key="${f.key}" onclick="toggleFieldPill('${f.key}')" style="background:var(--accent);color:#fff;border-radius:20px;padding:3px 10px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px">${f.label}<span style="opacity:0.7;font-size:10px">×</span></span>`
+        ).join('')}${customActive.map(f =>
+          `<span style="background:var(--accent);color:#fff;border-radius:20px;padding:3px 10px;font-size:12px">${f.label}</span>`
         ).join('')}</div>
       </div>`
     : '';
