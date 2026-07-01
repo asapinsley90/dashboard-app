@@ -675,10 +675,16 @@ function openModal(title, body, actions) {
   actions.forEach(a => {
     document.getElementById('modal-btn-' + a.label.replace(/\s/g,'')).onclick = a.onclick;
   });
+  // Store the "Done" / primary-equivalent action to run when clicking outside
+  const doneAction = actions.find(a => a.label === 'Done') || actions.find(a => !a.primary && actions.length === 1);
+  window._modalOnClose = doneAction ? doneAction.onclick : null;
   document.getElementById('modal-overlay').classList.add('open');
 }
 
-function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  window._modalOnClose = null;
+}
 
 // â"€â"€ STICKY NOTES â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const NOTE_COLORS = ['color-amber','color-red','color-green'];
