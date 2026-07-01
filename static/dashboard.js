@@ -588,10 +588,13 @@ function renderAreaView(areaId) {
 
     // Finance aggregate widgets for subareas
     ['area-ira-widget','area-401k-widget','area-hsa-widget','area-tax-docs-widget',
-     'area-history-widget','area-balance-chart-widget'].forEach(id => {
+     'area-cc-details-widget','area-history-widget','area-balance-chart-widget'].forEach(id => {
       document.getElementById(id)?.remove();
     });
     if (accountRecs.length) {
+      if (areaWidgetOn('cc-details')) renderAreaCCDetailsWidget(calPanel, accountRecs, area.id);
+      if (areaWidgetOn('history')) renderAreaHistoryWidget(calPanel, accountRecs, area.id);
+      if (areaWidgetOn('balance-chart')) renderAreaBalanceChartWidget(calPanel, accountRecs, area.id);
       if (areaWidgetOn('ira-progress')) renderAreaIRAWidget(calPanel, accountRecs);
       if (areaWidgetOn('401k-progress')) renderArea401kWidget(calPanel, accountRecs);
       if (areaWidgetOn('hsa-progress')) renderAreaHSAWidget(calPanel, accountRecs);
@@ -1025,6 +1028,88 @@ function renderCreditCardSummaryWidget(calPanel, ccAccounts, areaId) {
   const calLabel = calPanel.querySelector('.dash-section-label');
   if (calLabel) calPanel.insertBefore(wrapper, calLabel.parentElement || calLabel);
   else calPanel.prepend(wrapper);
+}
+
+function renderAreaCCDetailsWidget(calPanel, accounts, areaId) {
+  const ccAccts = accounts.filter(r => r.fields.accountType === 'Credit Card');
+  if (!ccAccts.length) return;
+  const div = document.createElement('div');
+  div.id = 'area-cc-details-widget';
+  div.className = 'dash-widget';
+  let rows = ccAccts.map(r => {
+    const balance = parseFloat(r.fields.balance) || 0;
+    const limit = parseFloat(r.fields.creditLimit) || 0;
+    const util = limit ? Math.round(balance / limit * 100) : 0;
+    const utilColor = util >= 80 ? '#e74c3c' : util >= 50 ? '#e67e22' : '#2ecc71';
+    const minPay = r.fields.minimumPayment ? `$${parseFloat(r.fields.minimumPayment).toFixed(2)}` : '—';
+    const due = r.fields.paymentDueDate || '—';
+    const apr = r.fields.apr ? `${r.fields.apr}%` : '—';
+    return `<div class="area-cc-row" style="padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openRecord('${r.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-weight:500">${r.name}</span>
+        <span style="font-size:12px;color:var(--text-muted)">APR ${apr}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span>$${balance.toLocaleString()} / $${limit.toLocaleString()}</span>
+        <span style="color:var(--text-muted)">Due ${due} · Min ${minPay}</span>
+      </div>
+      <div style="background:var(--border);border-radius:4px;height:6px">
+        <div style="width:${Math.min(util,100)}%;background:${utilColor};border-radius:4px;height:6px"></div>
+      </div>
+      <div style="font-size:11px;color:${utilColor};margin-top:2px">${util}% utilization</div>
+    </div>`;
+  }).join('');
+  div.innerHTML = `<div class="dash-widget-label" oncontextmenu="areaWidgetCtxMenu(event,'${areaId}','cc-details')">💳 Card details</div>${rows}`;
+  calPanel.appendChild(div);
+}
+
+function renderAreaHistoryWidget(calPanel, accounts, areaId) {
+  const fmt = n => '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  const div = document.createElement('div');
+  div.id = 'area-history-widget';
+  div.className = 'dash-widget';
+  const rows = accounts.map(r => {
+    const hist = (r.fields.history||[]).slice().sort((a,b)=>b.month.localeCompare(a.month)).slice(0,3);
+    if (!hist.length) return `<div style="padding:4px 0;font-size:12px;color:var(--text-muted)">${r.name}: no history</div>`;
+    const latest = hist[0];
+    const bal = Number(latest.endBalance)||0;
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openRecord('${r.id}')">
+      <div style="display:flex;justify-content:space-between">
+        <span style="font-weight:500;font-size:13px">${r.name}</span>
+        <span style="font-weight:600">${fmt(bal)}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted)">${latest.month} · ${hist.length} months tracked</div>
+    </div>`;
+  }).join('');
+  div.innerHTML = `<div class="dash-widget-label" oncontextmenu="areaWidgetCtxMenu(event,'${areaId}','history')">📊 Monthly history</div>${rows}`;
+  calPanel.appendChild(div);
+}
+
+function renderAreaBalanceChartWidget(calPanel, accounts, areaId) {
+  const div = document.createElement('div');
+  div.id = 'area-balance-chart-widget';
+  div.className = 'dash-widget';
+  const rows = accounts.map(r => {
+    const hist = (r.fields.history||[]).slice().sort((a,b)=>a.month.localeCompare(b.month));
+    if (!hist.length) return '';
+    const max = Math.max(...hist.map(h=>Number(h.endBalance)||0));
+    const bars = hist.slice(-6).map(h => {
+      const val = Number(h.endBalance)||0;
+      const pct = max ? Math.round(val/max*100) : 0;
+      return `<div title="${h.month}: $${val.toLocaleString()}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="width:100%;background:var(--border);border-radius:2px;height:40px;display:flex;align-items:flex-end">
+          <div style="width:100%;height:${pct}%;background:var(--accent);border-radius:2px;min-height:2px"></div>
+        </div>
+        <div style="font-size:9px;color:var(--text-muted);transform:rotate(-45deg);white-space:nowrap">${h.month.slice(5)}</div>
+      </div>`;
+    }).join('');
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openRecord('${r.id}')">
+      <div style="font-weight:500;font-size:12px;margin-bottom:6px">${r.name}</div>
+      <div style="display:flex;gap:2px;align-items:flex-end;height:60px">${bars}</div>
+    </div>`;
+  }).filter(Boolean).join('');
+  div.innerHTML = `<div class="dash-widget-label" oncontextmenu="areaWidgetCtxMenu(event,'${areaId}','balance-chart')">📈 Balance chart</div>${rows || '<div style="font-size:12px;color:var(--text-muted)">No history data</div>'}`;
+  calPanel.appendChild(div);
 }
 
 function renderAreaIRAWidget(calPanel, accounts) {
