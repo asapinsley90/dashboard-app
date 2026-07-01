@@ -1315,12 +1315,39 @@ function renderSchemaRecord(r, area) {
   </div>`;
 }
 
-function toggleFieldPill(key) {
-  document.querySelectorAll(`[data-fkey="${key}"]`).forEach(el => el.classList.remove('active'));
-  const pill = document.querySelector(`[data-pill-key="${key}"]`);
-  if (pill) pill.remove();
-  const section = document.getElementById('field-active-section');
-  if (section && !section.querySelectorAll('[data-pill-key]').length) section.style.display = 'none';
+function toggleFieldLibPill(btn) {
+  const key = btn.dataset.fkey;
+  const PILL_ON  = 'background:var(--accent);color:#fff;border:1px solid var(--accent)';
+  const PILL_OFF = 'background:transparent;color:var(--text);border:1px solid var(--border1)';
+  const pillStyle = 'border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s';
+  const isOn = btn.style.background.includes('var(--accent)') || btn.style.cssText.includes('var(--accent)');
+
+  // Toggle all pills with this key
+  document.querySelectorAll(`[data-fkey="${key}"]`).forEach(el => {
+    if (isOn) {
+      el.setAttribute('style', `${pillStyle};${PILL_OFF}`);
+      el.innerHTML = el.textContent.replace(/×$/, '').trim();
+    } else {
+      el.setAttribute('style', `${pillStyle};${PILL_ON}`);
+      el.innerHTML = el.textContent.trim() + '<span style="opacity:0.6;font-size:10px">×</span>';
+    }
+  });
+
+  // Update active section
+  const activeSection = document.getElementById('field-active-section');
+  const activePills = document.getElementById('field-active-pills');
+  if (!activeSection || !activePills) return;
+  if (isOn) {
+    // Remove from active section
+    activePills.querySelectorAll(`[data-fkey="${key}"]`).forEach(el => el.remove());
+  } else {
+    // Add to active section
+    const clone = btn.cloneNode(true);
+    clone.setAttribute('style', `${pillStyle};${PILL_ON}`);
+    clone.innerHTML = btn.textContent.trim() + '<span style="opacity:0.6;font-size:10px">×</span>';
+    activePills.appendChild(clone);
+  }
+  activeSection.style.display = activePills.children.length ? '' : 'none';
 }
 
 function addCustomFieldRow() {
@@ -1376,6 +1403,14 @@ function openEditTypeSchema(typeId) {
   const customActive = schema.fields.filter(f => f.type !== 'company-link' && !libraryKeys.has(f.key));
   const FIELD_TYPES = ['text','textarea','number','date','time','url','email','tel'];
 
+  const PILL_ON  = 'background:var(--accent);color:#fff;border:1px solid var(--accent)';
+  const PILL_OFF = 'background:transparent;color:var(--text);border:1px solid var(--border1)';
+  const pillStyle = 'border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s';
+
+  function fieldPill(f, on) {
+    return `<button data-fkey="${f.key}" onclick="toggleFieldLibPill(this)" style="${pillStyle};${on ? PILL_ON : PILL_OFF}">${f.label}${on ? '<span style="opacity:0.6;font-size:10px">×</span>' : ''}</button>`;
+  }
+
   const categories = [...new Set(FIELD_LIBRARY.map(f => f.category))];
   const libraryHTML = categories.map(cat => {
     const entries = FIELD_LIBRARY.filter(f => f.category === cat);
@@ -1386,14 +1421,8 @@ function openEditTypeSchema(typeId) {
         <span class="chev" style="font-size:10px;color:var(--muted)">▶</span>
         <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em">${cat}</span>
       </div>
-      <div id="${uid}" style="display:none">
-        <div class="widget-toggle-grid" style="margin-bottom:8px">${entries.map(f => `
-          <div class="widget-toggle${activeKeys.has(f.key) ? ' active' : ''}" onclick="this.classList.toggle('active')" data-fkey="${f.key}">
-            <span style="font-size:11px;color:var(--muted);margin-bottom:2px">${f.type}</span>
-            <span class="widget-toggle-label">${f.label}</span>
-            <span class="widget-toggle-dot"></span>
-          </div>`).join('')}
-        </div>
+      <div id="${uid}" style="display:none;padding:6px 4px 8px">
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${entries.map(f => fieldPill(f, activeKeys.has(f.key))).join('')}</div>
       </div>
     </div>`;
   }).join('');
@@ -1407,30 +1436,22 @@ function openEditTypeSchema(typeId) {
   ).join('');
 
   const activeLibFields = FIELD_LIBRARY.filter(f => activeKeys.has(f.key));
-  const activePills = [...activeLibFields.map(f => f.label), ...customActive.map(f => f.label)];
-  const activeSummary = activePills.length
+  const activeSummary = (activeLibFields.length || customActive.length)
     ? `<div id="field-active-section" style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border1)">
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Active</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">${activeLibFields.map(f =>
-          `<span data-pill-key="${f.key}" onclick="toggleFieldPill('${f.key}')" style="background:var(--accent);color:#fff;border-radius:20px;padding:3px 10px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px">${f.label}<span style="opacity:0.7;font-size:10px">×</span></span>`
-        ).join('')}${customActive.map(f =>
-          `<span style="background:var(--accent);color:#fff;border-radius:20px;padding:3px 10px;font-size:12px">${f.label}</span>`
-        ).join('')}</div>
+        <div id="field-active-pills" style="display:flex;flex-wrap:wrap;gap:6px">
+          ${activeLibFields.map(f => fieldPill(f, true)).join('')}
+          ${customActive.map(f => `<span style="${pillStyle};${PILL_ON}">${f.label}<span style="opacity:0.6;font-size:10px">×</span></span>`).join('')}
+        </div>
       </div>`
-    : '';
+    : `<div id="field-active-section" style="display:none"></div>`;
 
   const recKeys = getRecommendedFieldKeys(typeId).filter(k => !activeKeys.has(k));
   const recEntries = recKeys.map(k => FIELD_LIBRARY.find(f => f.key === k)).filter(Boolean);
   const recommendedHTML = recEntries.length
     ? `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border1)">
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Recommended</div>
-        <div class="widget-toggle-grid">${recEntries.map(f => `
-          <div class="widget-toggle" onclick="this.classList.toggle('active')" data-fkey="${f.key}">
-            <span style="font-size:11px;color:var(--muted);margin-bottom:2px">${f.type}</span>
-            <span class="widget-toggle-label">${f.label}</span>
-            <span class="widget-toggle-dot"></span>
-          </div>`).join('')}
-        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${recEntries.map(f => fieldPill(f, false)).join('')}</div>
       </div>`
     : '';
 
@@ -1453,10 +1474,11 @@ function openEditTypeSchema(typeId) {
     [{ label: 'Save', primary: true, onclick: async () => {
       const newFields = [];
       let order = 1;
-      // Library fields that are toggled on (dedupe by key — recommended + category may both have same key)
+      // Library fields that are toggled on (dedupe by key — active section + category may both have same key)
       const seenKeys = new Set();
       document.querySelectorAll('[data-fkey]').forEach(el => {
-        if (el.classList.contains('active') && !seenKeys.has(el.dataset.fkey)) {
+        const on = el.style.cssText.includes('var(--accent)');
+        if (on && !seenKeys.has(el.dataset.fkey)) {
           seenKeys.add(el.dataset.fkey);
           const entry = FIELD_LIBRARY.find(f => f.key === el.dataset.fkey);
           if (entry) newFields.push({ key: entry.key, label: entry.label, type: entry.type, order: order++ });
