@@ -472,9 +472,9 @@ function renderAreaView(areaId) {
       const areaWidgetOn = id => !area.widgets || area.widgets.includes(id);
       const descendantAreaIds = getDescendantAreaIds(areaId);
       const allAccounts = DB.records.filter(r => r.type === 'account' && !r.deletedAt && descendantAreaIds.includes(r.areaId));
-      if (allAccounts.length && areaWidgetOn('net-worth')) renderNetWorthWidget(calPanel, allAccounts);
+      if (allAccounts.length && areaWidgetOn('net-worth')) renderNetWorthWidget(calPanel, allAccounts, areaId);
       const ccAccounts = allAccounts.filter(r => r.fields.accountType === 'Credit Card');
-      if (ccAccounts.length && areaWidgetOn('credit-cards')) renderCreditCardSummaryWidget(calPanel, ccAccounts);
+      if (ccAccounts.length && areaWidgetOn('credit-cards')) renderCreditCardSummaryWidget(calPanel, ccAccounts, areaId);
     }
     renderSidebar();
     return;
@@ -549,6 +549,9 @@ function renderAreaView(areaId) {
 
   const areaWidgets = area.widgets || null; // null = all on (default), array = explicit set
   const areaWidgetOn = id => !areaWidgets || areaWidgets.includes(id);
+
+  // Clear parent-area-only widgets that bleed in from navigating Finance → subarea
+  ['area-net-worth-widget','area-cc-summary-widget'].forEach(id => document.getElementById(id)?.remove());
 
   // Render area calendar filtered to this area
   const calEl = document.getElementById('area-cal');
@@ -871,13 +874,13 @@ function renderInvestmentWidgets(calPanel, accountRecs, area) {
 
   wrapper.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:2px">Portfolio total</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:2px;cursor:default" oncontextmenu="areaWidgetCtxMenu(event,'${area.id}','portfolio')">Portfolio total</div>
       <div style="font-size:22px;font-weight:700;color:var(--text)">${fmt(total)}</div>
       <div style="font-size:12px;color:${returnColor};margin-top:2px">${lastMonth ? lastMonth.slice(0,7) + ' return: ' : ''}${returnText}</div>
       ${chartSvg}
     </div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">By account</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;cursor:default" oncontextmenu="areaWidgetCtxMenu(event,'${area.id}','by-account')">By account</div>
       ${barRows}
     </div>`;
 
@@ -898,7 +901,32 @@ function getDescendantAreaIds(areaId) {
   return ids;
 }
 
-function renderNetWorthWidget(calPanel, allAccounts) {
+function areaWidgetCtxMenu(e, areaId, widgetId) {
+  e.preventDefault(); e.stopPropagation();
+  document.querySelectorAll('.ctx-menu').forEach(m => m.remove());
+  const menu = document.createElement('div');
+  menu.className = 'ctx-menu';
+  menu.style.cssText = `left:${Math.min(e.clientX, window.innerWidth-160)}px;top:${Math.min(e.clientY, window.innerHeight-80)}px`;
+  const hide = document.createElement('div'); hide.className = 'ctx-item';
+  hide.textContent = 'Hide widget';
+  hide.onclick = () => {
+    menu.remove();
+    const area = DB.areas.find(a => a.id === areaId);
+    if (!area) return;
+    const ctx = area.parentId ? 'subarea' : 'area';
+    const allIds = WIDGET_LIBRARY.filter(w => w.contexts.includes(ctx)).map(d => d.id);
+    area.widgets = area.widgets || allIds;
+    area.widgets = area.widgets.filter(w => w !== widgetId);
+    api('PUT', `/api/areas/${areaId}`, { widgets: area.widgets });
+    renderAreaView(areaId);
+  };
+  menu.appendChild(hide);
+  document.body.appendChild(menu);
+  const close = ev => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('mousedown', close); } };
+  setTimeout(() => document.addEventListener('mousedown', close), 0);
+}
+
+function renderNetWorthWidget(calPanel, allAccounts, areaId) {
   const fmt = n => '$' + Math.round(Math.abs(n)).toLocaleString();
   const getBalance = r => {
     const hist = (r.fields.history || []).slice().sort((a,b) => b.month.localeCompare(a.month));
@@ -925,7 +953,7 @@ function renderNetWorthWidget(calPanel, allAccounts) {
   wrapper.style.cssText = 'margin-bottom:16px';
   wrapper.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:2px">Net worth</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:2px;cursor:default" oncontextmenu="areaWidgetCtxMenu(event,'${areaId}','net-worth')">Net worth</div>
       <div style="font-size:22px;font-weight:700;color:${color}">${netWorth < 0 ? '-' : ''}${fmt(netWorth)}</div>
       <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--muted)">
         <span>Assets: <span style="color:var(--green)">${fmt(totalAssets)}</span></span>
@@ -952,7 +980,7 @@ function renderNetWorthWidget(calPanel, allAccounts) {
   else calPanel.prepend(wrapper);
 }
 
-function renderCreditCardSummaryWidget(calPanel, ccAccounts) {
+function renderCreditCardSummaryWidget(calPanel, ccAccounts, areaId) {
   const fmt = n => '$' + Number(n).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
   const totalBal = ccAccounts.reduce((s, r) => s + (Number(r.fields.balance) || 0), 0);
   const totalLimit = ccAccounts.reduce((s, r) => s + (Number(r.fields.creditLimit) || 0), 0);
@@ -964,7 +992,7 @@ function renderCreditCardSummaryWidget(calPanel, ccAccounts) {
   wrapper.style.cssText = 'margin-bottom:16px';
   wrapper.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:2px">Credit cards</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:2px;cursor:default" oncontextmenu="areaWidgetCtxMenu(event,'${areaId}','credit-cards')">Credit cards</div>
       <div style="font-size:20px;font-weight:700;color:var(--red)">-${fmt(totalBal)}</div>
       ${utilPct !== null ? `<div style="margin-top:8px">
         <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
