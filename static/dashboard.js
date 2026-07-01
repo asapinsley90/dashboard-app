@@ -1041,8 +1041,8 @@ function renderAreaCCDetailsWidget(calPanel, accounts, areaId) {
     const limit = parseFloat(r.fields.creditLimit) || 0;
     const util = limit ? Math.round(balance / limit * 100) : 0;
     const utilColor = util >= 80 ? '#e74c3c' : util >= 50 ? '#e67e22' : '#2ecc71';
-    const minPay = r.fields.minimumPayment ? `$${parseFloat(r.fields.minimumPayment).toFixed(2)}` : '—';
-    const due = r.fields.paymentDueDate || '—';
+    const minPay = r.fields.minPayment ? `$${parseFloat(r.fields.minPayment).toFixed(2)}` : '—';
+    const due = r.fields.dueDate || '—';
     const apr = r.fields.apr ? `${r.fields.apr}%` : '—';
     return `<div class="area-cc-row" style="padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openRecord('${r.id}')">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
