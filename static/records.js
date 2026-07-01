@@ -1444,6 +1444,8 @@ function renderSchemaRecord(r, area) {
 
   if (r.type === 'account') requestAnimationFrame(() => attachStatementPasteListener(r.id));
 
+  const col3Empty = col3Defs.length === 0;
+
   return `<div class="record-view-header">
     ${headerIcon}
     <div class="record-view-title-wrap">
@@ -1457,14 +1459,16 @@ function renderSchemaRecord(r, area) {
     <button class="record-header-tile" onclick="openEditTypeSchema('${r.type}')">Fields ⚙</button>
     <div class="record-view-actions">${statusBadge(r)}</div>
   </div>
-  <div class="record-sections${hasCol3 ? ' has-col3' : ''}">
+  <div class="record-sections has-col3">
     <div class="record-main" ${dropCol('main')}>
       ${mainDefs.map(draggableWidget).join('')}
     </div>
     <div class="record-sidebar" ${dropCol('sidebar')}>
       ${sidebarDefs.map(draggableWidget).join('')}
     </div>
-    ${hasCol3 ? `<div class="record-col3" ${dropCol('col3')}>${col3Defs.map(draggableWidget).join('')}</div>` : ''}
+    <div class="record-col3 ${col3Empty ? 'drag-col-empty' : ''}" ${dropCol('col3')}>
+      ${col3Defs.map(draggableWidget).join('')}
+    </div>
   </div>`;
 }
 
@@ -2055,33 +2059,6 @@ function getDragAfterElement(container, y) {
   }, { offset: -Infinity }).el || null;
 }
 
-// Show the third column drop zone even when empty (while dragging)
-document.addEventListener('dragstart', () => {
-  const sections = document.querySelector('.record-sections');
-  if (!sections) return;
-  if (!sections.querySelector('.record-col3')) {
-    const col3 = document.createElement('div');
-    col3.className = 'record-col3';
-    col3.setAttribute('ondragover', "onWidgetDragOver(event)");
-    col3.setAttribute('ondragleave', "onWidgetDragLeave(event)");
-    col3.style.cssText = 'min-height:80px;border:2px dashed var(--border1);border-radius:10px;opacity:.5';
-    // get recordId from a sibling drag wrap
-    const wrap = sections.querySelector('.widget-drag-wrap');
-    if (wrap) {
-      const rid = wrap.getAttribute('ondragstart')?.match(/'([^']+)'/)?.[1];
-      if (rid) col3.setAttribute('ondrop', `onWidgetDrop(event,'${rid}','col3')`);
-    }
-    sections.classList.add('has-col3');
-    sections.appendChild(col3);
-  }
-});
-document.addEventListener('dragend', () => {
-  const col3 = document.querySelector('.record-col3');
-  if (col3 && !col3.querySelector('.widget-drag-wrap')) {
-    col3.remove();
-    document.querySelector('.record-sections')?.classList.remove('has-col3');
-  }
-});
 
 async function addTimelineEntry(recordId) {
   const input = document.getElementById(`tl-input-${recordId}`);

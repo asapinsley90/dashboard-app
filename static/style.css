@@ -99,11 +99,11 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .record-view-title:focus{background:var(--bg3);padding:2px 6px;margin:-2px -6px}
 .record-view-meta{font-size:12px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
 .record-view-actions{display:flex;gap:8px;flex-shrink:0}
-.record-sections{display:grid;grid-template-columns:1fr 320px;gap:20px}
-.record-sections.has-col3{grid-template-columns:1fr 300px 300px}
+.record-sections{display:grid;grid-template-columns:1fr 300px 200px;gap:20px}
 .record-main{}
 .record-sidebar{}
 .record-col3{}
+.drag-col-empty{border:2px dashed var(--border1);border-radius:10px;min-height:80px;opacity:.4}
 .widget-drag-wrap{position:relative}
 .widget-drag-wrap.dragging{opacity:.35}
 .drag-handle{position:absolute;top:14px;right:14px;z-index:2;cursor:grab;color:var(--muted);font-size:16px;opacity:.3;transition:opacity .15s;line-height:1;user-select:none}
