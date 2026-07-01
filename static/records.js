@@ -762,6 +762,7 @@ async function confirmStatementImport(recordId, btn) {
   const year = parseInt(document.getElementById('sc-year').value);
   const monthStr = `${year}-${String(monthIdx + 1).padStart(2,'0')}`;
   modal.remove();
+  try {
 
   const r = getRecord(recordId);
   const fmt = n => '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -780,20 +781,22 @@ async function confirmStatementImport(recordId, btn) {
     if (data.creditLimit) r.fields.creditLimit = data.creditLimit;
 
     // Ensure CC fields are in the type schema so they render
-    const ccFieldKeys = ['balance','balanceDate','statementBalance','purchases','payments','interestCharged','minPayment','dueDate','creditLimit'];
-    const schema = getEffectiveSchema(r.type);
-    if (schema) {
-      const existing = new Set(schema.fields.map(f => f.key));
-      const toAdd = ccFieldKeys.filter(k => !existing.has(k)).map(k => {
-        const lib = FIELD_LIBRARY.find(f => f.key === k);
-        return lib ? { key: lib.key, label: lib.label, type: lib.type, order: (schema.fields.length || 0) + ccFieldKeys.indexOf(k) + 1 } : null;
-      }).filter(Boolean);
-      if (toAdd.length) {
-        const allFields = [...schema.fields, ...toAdd];
-        await api('PUT', `/api/type-schemas/${r.type}`, { name: schema.name, icon: schema.icon, fields: allFields });
-        TYPE_SCHEMAS = await api('GET', '/api/type-schemas');
+    try {
+      const ccFieldKeys = ['balance','balanceDate','statementBalance','purchases','payments','interestCharged','minPayment','dueDate','creditLimit'];
+      const schema = getEffectiveSchema(r.type);
+      if (schema) {
+        const existingKeys = new Set(schema.fields.map(f => f.key));
+        const toAdd = ccFieldKeys.filter(k => !existingKeys.has(k)).map(k => {
+          const lib = FIELD_LIBRARY.find(f => f.key === k);
+          return lib ? { key: lib.key, label: lib.label, type: lib.type, order: (schema.fields.length || 0) + ccFieldKeys.indexOf(k) + 1 } : null;
+        }).filter(Boolean);
+        if (toAdd.length) {
+          const allFields = [...schema.fields, ...toAdd];
+          await api('PUT', `/api/type-schemas/${r.type}`, { name: schema.name, icon: schema.icon, fields: allFields });
+          TYPE_SCHEMAS = await api('GET', '/api/type-schemas');
+        }
       }
-    }
+    } catch(e) { console.warn('Schema auto-update failed:', e); }
 
     timelineText = `${monthName} ${year} statement imported — Balance: ${fmt(data.balance)} | Purchases: ${fmt(data.purchases)} | Payments: ${fmt(data.payments)}${data.interestCharged > 0 ? ` | Interest: ${fmt(data.interestCharged)}` : ''}`;
   } else {
@@ -818,6 +821,10 @@ async function confirmStatementImport(recordId, btn) {
   r.timeline = r.timeline || [];
   r.timeline.push({ id: Date.now().toString(36), date: new Date().toISOString(), text: timelineText, author: 'aaron' });
   renderRecordView(recordId);
+  } catch(e) {
+    console.error('Statement import failed:', e);
+    alert('Import failed: ' + e.message);
+  }
 }
 
 // Paste handler — attached when an account record view is rendered
