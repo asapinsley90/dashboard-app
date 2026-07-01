@@ -100,15 +100,13 @@ const RECORD_WIDGET_DEFS = {
 };
 
 // ── DEFAULT FIELD SCHEMAS for built-in types ──────────────────────────────────
+// Keys that live in r.statements for CC accounts — filtered out of Account Details
+const CC_STATEMENT_KEYS = new Set(['balance','balanceDate','statementBalance','purchases','payments','interestCharged','minPayment','dueDate']);
+
 const FIELD_LIBRARY = [
   // Finance — universal
   { key: 'balance',              label: 'Balance',                  type: 'text', category: 'Finance' },
   { key: 'creditLimit',          label: 'Credit limit',             type: 'text', category: 'Finance' },
-  { key: 'statementBalance',     label: 'Previous stmt balance',    type: 'text', category: 'Finance' },
-  { key: 'purchases',            label: 'Purchases this period',    type: 'text', category: 'Finance' },
-  { key: 'payments',             label: 'Payments this period',     type: 'text', category: 'Finance' },
-  { key: 'interestCharged',      label: 'Interest charged',         type: 'text', category: 'Finance' },
-  { key: 'minPayment',           label: 'Min payment',              type: 'text', category: 'Finance' },
   { key: 'apr',                  label: 'Purchase APR',             type: 'text', category: 'Finance' },
   { key: 'cashAdvanceApr',       label: 'Cash advance APR',         type: 'text', category: 'Finance' },
   { key: 'annualFee',            label: 'Annual fee',               type: 'text', category: 'Finance' },
@@ -187,8 +185,10 @@ function getEffectiveSchema(typeId) {
 function renderFieldsFromSchema(r) {
   const schema = getEffectiveSchema(r.type);
   if (!schema?.fields?.length) return '';
+  const isCreditCard = r.fields.accountType === 'Credit Card';
   return [...schema.fields]
     .filter(f => f.type !== 'company-link')
+    .filter(f => !(isCreditCard && CC_STATEMENT_KEYS.has(f.key)))
     .sort((a, b) => (a.order || 0) - (b.order || 0))
     .map(f => editableField(r, f.key, f.label, f.type))
     .join('');
