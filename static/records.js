@@ -1476,6 +1476,7 @@ function renderSchemaRecord(r, area) {
 }
 
 function toggleFieldLibPill(btn) {
+  btn = btn.closest('[data-fkey]') || btn;
   const key = btn.dataset.fkey;
   if (!key) return;
   const PILL_ON  = 'background:var(--accent);color:#fff;border:1px solid var(--accent)';
