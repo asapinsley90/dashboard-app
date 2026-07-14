@@ -1138,20 +1138,47 @@ function renderSchemaRecord(r, area) {
 
     if (id === 'cc-details') {
       if (!isCCAccount(r)) return '';
-      // Current month data comes from latest statement entry; static info from fields
       const latest = (r.statements || []).length ? r.statements[0] : null;
       const bal = Number(latest?.balance ?? r.fields.balance) || 0;
       const limit = Number(r.fields.creditLimit) || 0;
       const utilPct = limit > 0 ? Math.min(100, Math.round(bal / limit * 100)) : null;
-      const utilColor = utilPct === null ? 'var(--muted)' : utilPct >= 30 ? (utilPct >= 50 ? 'var(--red)' : '#f0b429') : 'var(--green)';
-      const fmt = n => '$' + Number(n).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+      const utilColor = utilPct === null ? 'var(--muted)' : utilPct >= 50 ? 'var(--red)' : utilPct >= 30 ? '#f0b429' : 'var(--green)';
+      const fmt = n => '$' + Number(n||0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
       const minPmt = latest?.minPayment ?? r.fields.minPayment;
       const dueDate = latest?.dueDate ?? r.fields.dueDate;
+
+      // Due date urgency
+      let dueAlert = '';
+      if (dueDate) {
+        const today = new Date(); today.setHours(0,0,0,0);
+        const due = new Date(dueDate + 'T00:00:00');
+        const days = Math.round((due - today) / 86400000);
+        if (days < 0) {
+          dueAlert = `<div style="background:#e5363618;border:1px solid var(--red);border-radius:7px;padding:8px 10px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:var(--red);font-weight:600">⬤ Overdue ${Math.abs(days)}d — ${dueDate}</span>
+            <button class="btn btn-sm" onclick="logCCPayment('${r.id}')" style="font-size:11px;padding:3px 8px">Log payment</button>
+          </div>`;
+        } else if (days <= 3) {
+          dueAlert = `<div style="background:#e5363618;border:1px solid var(--red);border-radius:7px;padding:8px 10px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:var(--red);font-weight:600">⬤ Due in ${days}d — ${dueDate}</span>
+            <button class="btn btn-sm btn-p" onclick="logCCPayment('${r.id}')" style="font-size:11px;padding:3px 8px">Log payment</button>
+          </div>`;
+        } else if (days <= 7) {
+          dueAlert = `<div style="background:#f0b42918;border:1px solid #f0b429;border-radius:7px;padding:8px 10px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:#f0b429;font-weight:600">⬤ Due in ${days}d — ${dueDate}</span>
+            <button class="btn btn-sm" onclick="logCCPayment('${r.id}')" style="font-size:11px;padding:3px 8px">Log payment</button>
+          </div>`;
+        }
+      }
+
+      const stmtMonth = latest?.month ? (() => { const [y,m] = latest.month.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]+' '+y; })() : null;
+
       return `<div class="section-card">
-        <div class="section-title" oncontextmenu="${ctx}">${label}</div>
+        <div class="section-title" oncontextmenu="${ctx}">${label}${stmtMonth ? `<span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:6px">${stmtMonth} statement</span>` : ''}</div>
+        ${dueAlert}
         ${utilPct !== null ? `<div style="margin-bottom:14px">
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
-            <span style="color:var(--muted)">Utilization</span>
+            <span style="color:var(--muted)">Utilization at statement close</span>
             <span style="color:${utilColor};font-weight:600">${utilPct}%</span>
           </div>
           <div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden">
@@ -1161,10 +1188,12 @@ function renderSchemaRecord(r, area) {
             <span>Balance: ${fmt(bal)}</span><span>Limit: ${fmt(limit)}</span>
           </div>
         </div>` : ''}
+        ${latest?.purchases ? `<div class="field-row"><div class="field-label">Purchases this period</div><div class="field-value">${fmt(latest.purchases)}</div></div>` : ''}
+        ${latest?.payments ? `<div class="field-row"><div class="field-label">Payments posted</div><div class="field-value" style="color:var(--green)">${fmt(latest.payments)}</div></div>` : ''}
+        ${latest?.interestCharged ? `<div class="field-row"><div class="field-label">Interest charged</div><div class="field-value" style="color:var(--red)">${fmt(latest.interestCharged)}</div></div>` : ''}
         ${minPmt ? `<div class="field-row"><div class="field-label">Min payment</div><div class="field-value">${fmt(Number(minPmt))}</div></div>` : ''}
-        ${dueDate ? `<div class="field-row"><div class="field-label">Due date</div><div class="field-value">${dueDate}</div></div>` : ''}
+        ${dueDate && !dueAlert ? `<div class="field-row"><div class="field-label">Due date</div><div class="field-value" style="display:flex;align-items:center;gap:8px">${dueDate}<button class="btn btn-sm" onclick="logCCPayment('${r.id}')" style="font-size:11px;padding:2px 7px;margin-left:4px">Log payment</button></div></div>` : (!dueDate ? '' : '')}
         ${r.fields.apr ? `<div class="field-row"><div class="field-label">Purchase APR</div><div class="field-value">${r.fields.apr}%</div></div>` : ''}
-        ${r.fields.cashAdvanceApr ? `<div class="field-row"><div class="field-label">Cash advance APR</div><div class="field-value">${r.fields.cashAdvanceApr}%</div></div>` : ''}
         ${r.fields.annualFee ? `<div class="field-row"><div class="field-label">Annual fee</div><div class="field-value">${fmt(Number(r.fields.annualFee))}</div></div>` : ''}
         ${(r.fields.statementOpen || r.fields.statementClose) ? `<div class="field-row"><div class="field-label">Statement cycle</div><div class="field-value">${r.fields.statementOpen || '?'}–${r.fields.statementClose || '?'}</div></div>` : ''}
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border1)">
@@ -1807,6 +1836,25 @@ async function saveCCAutopayFixed(recordId, value) {
   if (!r) return;
   r.fields.autopayFixed = value;
   await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+}
+
+async function logCCPayment(recordId) {
+  const r = getRecord(recordId);
+  if (!r) return;
+  const latest = (r.statements||[])[0];
+  const suggested = latest?.balance ? Number(latest.balance).toFixed(2) : '';
+  const val = prompt(`Log payment for ${r.title}\nStatement balance: ${suggested ? '$'+suggested : 'unknown'}\n\nEnter amount paid:`, suggested);
+  if (!val) return;
+  const amt = parseFloat(val.replace(/[$,]/g,''));
+  if (isNaN(amt) || amt <= 0) return;
+  const fmt = n => '$' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  const today = new Date().toISOString().split('T')[0];
+  const text = `Payment posted: ${fmt(amt)} on ${today}`;
+  const tl = await api('POST', `/api/records/${recordId}/timeline`, { text });
+  r.timeline = r.timeline || [];
+  r.timeline.push({ id: Date.now().toString(36), date: new Date().toISOString(), text, author: 'aaron' });
+  updateDBRecord(r);
+  renderRecordView(recordId);
 }
 
 async function savePasteContent(recordId, value) {

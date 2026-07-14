@@ -473,7 +473,7 @@ function renderAreaView(areaId) {
       const descendantAreaIds = getDescendantAreaIds(areaId);
       const allAccounts = DB.records.filter(r => r.type === 'account' && !r.deletedAt && descendantAreaIds.includes(r.areaId));
       if (allAccounts.length && areaWidgetOn('net-worth')) renderNetWorthWidget(calPanel, allAccounts, areaId);
-      const ccAccounts = allAccounts.filter(r => r.fields.accountType === 'Credit Card');
+      const ccAccounts = allAccounts.filter(r => r.fields.accountType === 'Credit Card' || (Array.isArray(r.statements) && r.statements.length > 0));
       if (ccAccounts.length && areaWidgetOn('credit-cards')) renderCreditCardSummaryWidget(calPanel, ccAccounts, areaId);
     }
     renderSidebar();
@@ -990,45 +990,112 @@ function renderNetWorthWidget(calPanel, allAccounts, areaId) {
 }
 
 function renderCreditCardSummaryWidget(calPanel, ccAccounts, areaId) {
-  const fmt = n => '$' + Number(n).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-  const totalBal = ccAccounts.reduce((s, r) => s + (Number(r.fields.balance) || 0), 0);
-  const totalLimit = ccAccounts.reduce((s, r) => s + (Number(r.fields.creditLimit) || 0), 0);
-  const utilPct = totalLimit > 0 ? Math.min(100, Math.round(totalBal / totalLimit * 100)) : null;
-  const utilColor = utilPct === null ? 'var(--muted)' : utilPct >= 30 ? (utilPct >= 50 ? 'var(--red)' : '#f0b429') : 'var(--green)';
+  const fmt = n => '$' + Number(n || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  const cards = ccAccounts.map(r => {
+    const stmt = (r.statements || [])[0]; // newest-first
+    const dueDate = stmt?.dueDate || r.fields.dueDate || null;
+    let daysUntilDue = null;
+    if (dueDate) {
+      const due = new Date(dueDate + 'T00:00:00');
+      daysUntilDue = Math.round((due - today) / 86400000);
+    }
+    return { r, stmt, dueDate, daysUntilDue };
+  });
+
+  const totalOwed      = cards.reduce((s,c) => s + (c.stmt ? Number(c.stmt.balance)||0 : 0), 0);
+  const totalPurchases = cards.reduce((s,c) => s + (c.stmt ? Number(c.stmt.purchases)||0 : 0), 0);
+  const totalPayments  = cards.reduce((s,c) => s + (c.stmt ? Number(c.stmt.payments)||0 : 0), 0);
+
+  const withDue = cards.filter(c => c.daysUntilDue !== null).sort((a,b) => a.daysUntilDue - b.daysUntilDue);
+  const nextDue = withDue[0];
+
+  function dueStatus(c) {
+    if (!c.stmt) return { color:'var(--accent)', dot:'●', label:'No statement' };
+    if (c.daysUntilDue === null) return { color:'var(--muted)', dot:'●', label:'No due date' };
+    if (c.daysUntilDue < 0)  return { color:'var(--red)',   dot:'●', label:`Overdue ${Math.abs(c.daysUntilDue)}d` };
+    if (c.daysUntilDue <= 3) return { color:'var(--red)',   dot:'●', label:`Due in ${c.daysUntilDue}d` };
+    if (c.daysUntilDue <= 7) return { color:'#f0b429',      dot:'●', label:`Due in ${c.daysUntilDue}d` };
+    return { color:'var(--green)', dot:'●', label:`Due in ${c.daysUntilDue}d` };
+  }
+
+  const allMonths = [...new Set(ccAccounts.flatMap(r => (r.statements||[]).map(s => s.month)))].sort().slice(-3);
+  const trendData = allMonths.map(month => ({
+    month,
+    purchases: ccAccounts.reduce((s,r) => s + (Number(((r.statements||[]).find(st=>st.month===month)||{}).purchases)||0), 0),
+    payments:  ccAccounts.reduce((s,r) => s + (Number(((r.statements||[]).find(st=>st.month===month)||{}).payments)||0), 0),
+  }));
+  const trendMax = Math.max(...trendData.flatMap(t => [t.purchases, t.payments]), 1);
 
   const wrapper = document.createElement('div');
   wrapper.id = 'area-cc-summary-widget';
   wrapper.style.cssText = 'margin-bottom:16px';
   wrapper.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:2px;cursor:default" oncontextmenu="areaWidgetCtxMenu(event,'${areaId}','credit-cards')">Credit cards</div>
-      <div style="font-size:20px;font-weight:700;color:var(--red)">-${fmt(totalBal)}</div>
-      ${utilPct !== null ? `<div style="margin-top:8px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
-          <span>Overall utilization</span><span style="color:${utilColor};font-weight:600">${utilPct}%</span>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;cursor:default" oncontextmenu="areaWidgetCtxMenu(event,'${areaId}','credit-cards')">Credit cards</div>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px">
+        <div style="background:var(--bg3);border-radius:8px;padding:9px">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Statement balances</div>
+          <div style="font-size:15px;font-weight:700;color:var(--red)">${fmt(totalOwed)}</div>
         </div>
-        <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
-          <div style="height:100%;width:${utilPct}%;background:${utilColor};border-radius:3px"></div>
+        <div style="background:var(--bg3);border-radius:8px;padding:9px">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Purchases this period</div>
+          <div style="font-size:15px;font-weight:700">${fmt(totalPurchases)}</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:8px;padding:9px">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Payments posted</div>
+          <div style="font-size:15px;font-weight:700;color:var(--green)">${fmt(totalPayments)}</div>
+        </div>
+      </div>
+
+      ${nextDue && nextDue.daysUntilDue !== null && nextDue.daysUntilDue <= 7 ? `
+      <div style="background:${nextDue.daysUntilDue <= 3 ? '#e5363618' : '#f0b42918'};border:1px solid ${nextDue.daysUntilDue <= 3 ? 'var(--red)' : '#f0b429'};border-radius:7px;padding:7px 10px;margin-bottom:10px;font-size:11px">
+        <span style="font-weight:600;color:${nextDue.daysUntilDue <= 3 ? 'var(--red)' : '#f0b429'}">${nextDue.daysUntilDue <= 0 ? (nextDue.daysUntilDue < 0 ? `Overdue ${Math.abs(nextDue.daysUntilDue)}d` : 'Due today') : `Due in ${nextDue.daysUntilDue}d`}</span>
+        <span style="color:var(--text)"> — ${nextDue.r.title}: ${nextDue.stmt ? fmt(Number(nextDue.stmt.balance)||0) : '?'} by ${nextDue.dueDate}</span>
+      </div>` : ''}
+
+      ${cards.map(c => {
+        const s = dueStatus(c);
+        const bal = c.stmt ? Number(c.stmt.balance)||0 : 0;
+        const lim = Number(c.r.fields.creditLimit)||0;
+        const util = lim > 0 ? Math.min(100, Math.round(bal/lim*100)) : null;
+        const uCol = util === null ? 'var(--muted)' : util >= 50 ? 'var(--red)' : util >= 30 ? '#f0b429' : 'var(--green)';
+        return `<div style="margin-bottom:10px;cursor:pointer" data-record-link data-area-id="${c.r.areaId}" data-record-id="${c.r.id}">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+            <span style="font-size:12px;font-weight:500">${c.r.title}</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:10px;color:${s.color}">${s.dot} ${s.label}</span>
+              <span style="font-size:12px;font-weight:600">${c.stmt ? fmt(bal) : '—'}</span>
+            </div>
+          </div>
+          ${c.dueDate ? `<div style="font-size:10px;color:var(--muted);margin-bottom:3px">Due ${c.dueDate}${c.stmt?.minPayment ? ' · Min ' + fmt(Number(c.stmt.minPayment)||0) : ''}</div>` : ''}
+          ${util !== null ? `<div style="height:3px;background:var(--bg3);border-radius:2px"><div style="height:3px;width:${util}%;background:${uCol};border-radius:2px"></div></div>` : ''}
+        </div>`;
+      }).join('')}
+
+      ${trendData.length >= 2 ? `
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:6px">3-month trend</div>
+        <div style="display:flex;gap:4px;align-items:flex-end;height:44px">
+          ${trendData.map(m => {
+            const pPct = Math.round(m.purchases/trendMax*100);
+            const pyPct = Math.round(m.payments/trendMax*100);
+            return `<div style="flex:1;display:flex;flex-direction:column;gap:2px;align-items:center">
+              <div style="width:100%;display:flex;gap:1px;align-items:flex-end;height:34px">
+                <div title="${m.month} purchases: ${fmt(m.purchases)}" style="flex:1;background:var(--text);opacity:.4;border-radius:2px 2px 0 0;height:${pPct}%;min-height:2px"></div>
+                <div title="${m.month} payments: ${fmt(m.payments)}" style="flex:1;background:var(--green);opacity:.7;border-radius:2px 2px 0 0;height:${pyPct}%;min-height:2px"></div>
+              </div>
+              <div style="font-size:9px;color:var(--muted)">${m.month.slice(5)}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;gap:10px;margin-top:4px">
+          <div style="font-size:9px;color:var(--muted);display:flex;align-items:center;gap:3px"><div style="width:7px;height:7px;background:var(--text);opacity:.4;border-radius:1px"></div>Purchases</div>
+          <div style="font-size:9px;color:var(--muted);display:flex;align-items:center;gap:3px"><div style="width:7px;height:7px;background:var(--green);opacity:.7;border-radius:1px"></div>Payments</div>
         </div>
       </div>` : ''}
-      <div style="margin-top:10px">
-        ${ccAccounts.map(r => {
-          const bal = Number(r.fields.balance) || 0;
-          const lim = Number(r.fields.creditLimit) || 0;
-          const pct = lim > 0 ? Math.min(100, Math.round(bal / lim * 100)) : null;
-          const col = pct === null ? 'var(--muted)' : pct >= 30 ? (pct >= 50 ? 'var(--red)' : '#f0b429') : 'var(--green)';
-          return `<div style="margin-bottom:8px;cursor:pointer" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:2px">
-              <span>${r.title}</span>
-              <span style="color:var(--text)">${fmt(bal)}${lim ? ` / ${fmt(lim)}` : ''}</span>
-            </div>
-            ${pct !== null ? `<div style="height:4px;background:var(--bg3);border-radius:2px">
-              <div style="height:4px;width:${pct}%;background:${col};border-radius:2px"></div>
-            </div>` : ''}
-            ${r.fields.dueDate ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">Due: ${r.fields.dueDate}</div>` : ''}
-          </div>`;
-        }).join('')}
-      </div>
     </div>`;
 
   const calLabel = calPanel.querySelector('.dash-section-label');
@@ -1037,32 +1104,34 @@ function renderCreditCardSummaryWidget(calPanel, ccAccounts, areaId) {
 }
 
 function renderAreaCCDetailsWidget(calPanel, accounts, areaId) {
-  const ccAccts = accounts.filter(r => r.fields.accountType === 'Credit Card');
+  const ccAccts = accounts.filter(r => r.fields.accountType === 'Credit Card' || (Array.isArray(r.statements) && r.statements.length > 0));
   if (!ccAccts.length) return;
+  const fmt = n => '$' + Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
   const div = document.createElement('div');
   div.id = 'area-cc-details-widget';
   div.className = 'dash-widget';
   let rows = ccAccts.map(r => {
-    const balance = parseFloat(r.fields.balance) || 0;
-    const limit = parseFloat(r.fields.creditLimit) || 0;
-    const util = limit ? Math.round(balance / limit * 100) : 0;
-    const utilColor = util >= 80 ? '#e74c3c' : util >= 50 ? '#e67e22' : '#2ecc71';
-    const minPay = r.fields.minPayment ? `$${parseFloat(r.fields.minPayment).toFixed(2)}` : '—';
-    const autopay = r.fields.autopayDate ? `Autopay ${r.fields.autopayDate}` : '—';
-    const apr = r.fields.apr ? `${r.fields.apr}%` : '—';
-    return `<div class="area-cc-row" style="padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openRecord('${r.id}')">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <span style="font-weight:500">${r.name}</span>
-        <span style="font-size:12px;color:var(--text-muted)">APR ${apr}</span>
+    const stmt = (r.statements||[])[0];
+    const balance = stmt ? Number(stmt.balance)||0 : Number(r.fields.balance)||0;
+    const limit = Number(r.fields.creditLimit)||0;
+    const util = limit ? Math.min(100, Math.round(balance/limit*100)) : 0;
+    const utilColor = util >= 80 ? 'var(--red)' : util >= 50 ? '#f0b429' : 'var(--green)';
+    const minPay = stmt?.minPayment ? fmt(stmt.minPayment) : '—';
+    const dueDate = stmt?.dueDate || r.fields.dueDate || null;
+    const autopay = r.fields.autopayDate ? `Autopay ${r.fields.autopayDate}` : r.fields.autopayStatus || '';
+    const apr = r.fields.apr ? `${r.fields.apr}% APR` : '';
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer" data-record-link data-area-id="${r.areaId}" data-record-id="${r.id}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+        <span style="font-weight:500;font-size:13px">${r.title}</span>
+        <span style="font-size:12px;font-weight:600">${fmt(balance)}${limit ? ` / ${fmt(limit)}` : ''}</span>
       </div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-        <span>$${balance.toLocaleString()} / $${limit.toLocaleString()}</span>
-        <span style="color:var(--text-muted)">${autopay} · Min ${minPay}</span>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+        <span>${dueDate ? `Due ${dueDate} · Min ${minPay}` : `Min ${minPay}`}</span>
+        <span>${[autopay,apr].filter(Boolean).join(' · ')}</span>
       </div>
-      <div style="background:var(--border);border-radius:4px;height:6px">
-        <div style="width:${Math.min(util,100)}%;background:${utilColor};border-radius:4px;height:6px"></div>
+      <div style="background:var(--bg3);border-radius:3px;height:4px">
+        <div style="width:${util}%;background:${utilColor};border-radius:3px;height:4px"></div>
       </div>
-      <div style="font-size:11px;color:${utilColor};margin-top:2px">${util}% utilization</div>
     </div>`;
   }).join('');
   div.innerHTML = `<div class="dash-widget-label" oncontextmenu="areaWidgetCtxMenu(event,'${areaId}','cc-details')">💳 Card details</div>${rows}`;
