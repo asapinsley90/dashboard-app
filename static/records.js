@@ -1,4 +1,4 @@
-﻿// â"€â"€ RECORD VIEW â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+﻿// ── RECORD VIEW ───────────────────────────────────────────────────────────────
 // ── WIDGET LIBRARY ─────────────────────────────────────────────────────────────
 // Single source of truth for all available widgets.
 // contexts: 'record' = record widget picker, 'subarea' = area sidebar widget picker
@@ -874,7 +874,7 @@ function renderAccountCharts(containerId, history) {
   const labels = history.map(h => h.month.slice(0, 7));
   const shortLabels = labels.map(l => { const [y,m] = l.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1] + ' ' + y.slice(2); });
 
-  // â"€â"€ Balance line chart â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  // ── Balance line chart ──────────────────────────────────────────────
   function lineChart(values, title, fmtY) {
     const H = 160, PL = 72, PR = 16, PT = 28, PB = 28;
     const cW = W, cH = H;
@@ -899,7 +899,7 @@ function renderAccountCharts(containerId, history) {
     </svg>`;
   }
 
-  // â"€â"€ Return % bar chart â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  // ── Return % bar chart ───────────────────────────────────────────────
   function returnChart(values, title) {
     const H = 140, PL = 36, PR = 8, PT = 28, PB = 28;
     const cW = W/3 - 16, cH = H;
@@ -924,7 +924,7 @@ function renderAccountCharts(containerId, history) {
     </svg>`;
   }
 
-  // â"€â"€ Contributions vs gain stacked bars â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  // ── Contributions vs gain stacked bars ──────────────────────────────
   function contribChart(hist, title) {
     const H = 140, PL = 56, PR = 8, PT = 28, PB = 28;
     const cW = W/3 - 16, cH = H;
@@ -1784,7 +1784,7 @@ function editableField(r, key, label, type = 'text') {
   </div>`;
 }
 
-// â"€â"€ FIELD SAVES â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ── FIELD SAVES ───────────────────────────────────────────────────────────────
 async function setCCAutopayType(recordId, type, btn) {
   const r = getRecord(recordId);
   if (!r) return;
@@ -2281,7 +2281,7 @@ async function doLinkContact(recordId, contactId) {
 
 // addDocument replaced by drag-and-drop upload
 
-// â"€â"€ ADD RECORD / AREA â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ── ADD RECORD / AREA ─────────────────────────────────────────────────────────
 function promptAddRecord(forceType, targetAreaId = null) {
   const areaId = targetAreaId || currentAreaId;
   const type = forceType || (areaId === 'area-jobs' ? 'job' : null);

@@ -8,7 +8,7 @@
   if (chevron) chevron.textContent = collapsed ? '▾' : '▸';
 }
 
-// â"€â"€ CONTACTS VIEW â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ── CONTACTS VIEW ────────────────────────────────────────────────────────────
 function splitContactName(name) {
   const parts = (name || '').trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return { first: '', last: '' };
@@ -123,7 +123,7 @@ function renderContactsView() {
     </div>`).join('');
 }
 
-// â"€â"€ DOCUMENTS â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ── DOCUMENTS ────────────────────────────────────────────────────────────────
 let allFiles = [];
 async function loadFiles(){allFiles=await api('GET','/api/files');return allFiles;}
 function fileIcon(n){const e=n.split('.').pop().toLowerCase();if(e==='pdf')return'📕';if(['doc','docx'].includes(e))return'📘';if(['xls','xlsx'].includes(e))return'📗';if(['jpg','jpeg','png','gif','webp'].includes(e))return'🖼';if(['zip','rar','7z'].includes(e))return'📦';return'📄';}
@@ -427,7 +427,7 @@ function showRestoreDocChoice(recordLabel) {
 }
 // docDropdown removed - using per-slot upload zones
 
-// â"€â"€ COMPLETED / ARCHIVED VIEWS â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ── COMPLETED / ARCHIVED VIEWS ───────────────────────────────────────────────
 function renderStatusView(status, listId, searchId, areaFilterId) {
   const el = document.getElementById(listId);
   if (!el) return;
@@ -627,7 +627,7 @@ async function renderRecentlyDeleted() {
 function renderCompletedView() { historyTab = 'completed'; renderHistoryView(); }
 function renderArchivedView() { historyTab = 'archived'; renderHistoryView(); }
 
-// â"€â"€ WEEKLY REVIEW â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ── WEEKLY REVIEW ─────────────────────────────────────────────────────────────
 async function saveReview() {
   const wins = document.getElementById('w-wins').value.trim();
   const stuck = document.getElementById('w-stuck').value.trim();
@@ -665,7 +665,7 @@ function renderWeekly() {
     </div>`).join('') : '<div class="empty">No reviews yet.</div>';
 }
 
-// â"€â"€ MODAL â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ── MODAL ─────────────────────────────────────────────────────────────────────
 function openModal(title, body, actions) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = body;
@@ -686,7 +686,7 @@ function closeModal() {
   window._modalOnClose = null;
 }
 
-// â"€â"€ STICKY NOTES â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ── STICKY NOTES ─────────────────────────────────────────────────────────────
 const NOTE_COLORS = ['color-amber','color-red','color-green'];
 function noteColorNext(current) {
   const i = NOTE_COLORS.indexOf(current||'color-amber');
@@ -792,7 +792,7 @@ async function deleteNote(recordId, index) {
   }
 }
 
-// â"€â"€ JOB SCRAPE â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ── JOB SCRAPE ───────────────────────────────────────────────────────────────
 async function triggerScrape(recordId) {
   const urlInput = document.getElementById('posting-url-' + recordId);
   const url = urlInput?.value?.trim();
@@ -936,7 +936,7 @@ async function createCompanyFromJob(recordId, name) {
   await api('PUT', `/api/records/${recordId}`, { companyId: co.id });
 }
 
-// â"€â"€ COPY CONTEXT â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ── COPY CONTEXT ─────────────────────────────────────────────────────────────
 function copyRecordContext(recordId) {
   const r = DB.records.find(r => r.id === recordId);
   if (!r) return;
@@ -1027,7 +1027,7 @@ function copyRecordContext(recordId) {
   }
 }
 
-// â"€â"€ UTILS â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ── UTILS ─────────────────────────────────────────────────────────────────────
 function showCompanySuggestions(input, recordId) {
   const val = input.value.trim().toLowerCase();
   const box = document.getElementById('company-suggestions-' + recordId);

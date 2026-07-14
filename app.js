@@ -468,7 +468,7 @@ app.get('/api/waitlist/:id/approve', async (req, res) => {
 // Protect everything else
 app.use(requireAuth);
 
-app.use(express.static(__dirname, { index: false, etag: false, lastModified: false, setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') }));
+app.use(express.static(path.join(__dirname, 'static'), { index: false, etag: false, lastModified: false, setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') }));
 
 // Proxy uploads from R2
 app.get('/uploads/:name', async (req, res) => {
@@ -1682,8 +1682,9 @@ app.delete('/api/files/:name', async (req, res) => {
   }
 });
 
-// Catch-all → index.html
+// Catch-all → index.html (API misses get a real 404)
 app.get('*', (req, res) => {
+  if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' });
   setNoCacheHeaders(res);
   res.sendFile(path.join(__dirname, 'index.html'));
 });
