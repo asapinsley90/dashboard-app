@@ -102,6 +102,12 @@ const RECORD_WIDGET_DEFS = {
 // ── DEFAULT FIELD SCHEMAS for built-in types ──────────────────────────────────
 // Keys that live in r.statements for CC accounts — filtered out of Account Details
 const CC_STATEMENT_KEYS = new Set(['balance','balanceDate','statementBalance','purchases','payments','interestCharged','minPayment','dueDate']);
+// Keys excluded from record subtitle for CC accounts
+const CC_SUBTITLE_EXCLUDE = new Set([...CC_STATEMENT_KEYS, 'creditLimit','statementOpen','statementClose','autopayDate','previousBalance']);
+function isCCAccount(r) {
+  return (r.fields.accountType || '').toLowerCase().replace(/\s/g,'') === 'creditcard'
+    || (Array.isArray(r.statements) && r.statements.length > 0);
+}
 
 const FIELD_LIBRARY = [
   // Finance — universal
@@ -185,10 +191,9 @@ function getEffectiveSchema(typeId) {
 function renderFieldsFromSchema(r) {
   const schema = getEffectiveSchema(r.type);
   if (!schema?.fields?.length) return '';
-  const isCreditCard = (r.fields.accountType || '').toLowerCase().replace(/\s/g,'') === 'creditcard';
   return [...schema.fields]
     .filter(f => f.type !== 'company-link')
-    .filter(f => !(isCreditCard && CC_STATEMENT_KEYS.has(f.key)))
+    .filter(f => !(isCCAccount(r) && CC_STATEMENT_KEYS.has(f.key)))
     .sort((a, b) => (a.order || 0) - (b.order || 0))
     .map(f => editableField(r, f.key, f.label, f.type))
     .join('');
@@ -778,6 +783,8 @@ async function confirmStatementImport(recordId, btn) {
   let timelineText;
 
   if (data._type === 'credit-card') {
+    // Ensure accountType is set so CC widgets/filters activate
+    if (!r.fields.accountType) r.fields.accountType = 'Credit Card';
     // Push monthly data into r.statements array (not flat fields)
     r.statements = r.statements || [];
     const stmtEntry = {
@@ -821,6 +828,7 @@ async function confirmStatementImport(recordId, btn) {
   await api('POST', `/api/records/${recordId}/timeline`, { text: timelineText });
   r.timeline = r.timeline || [];
   r.timeline.push({ id: Date.now().toString(36), date: new Date().toISOString(), text: timelineText, author: 'aaron' });
+  updateDBRecord(r);
   renderRecordView(recordId);
   } catch(e) {
     console.error('Statement import failed:', e);
@@ -983,6 +991,7 @@ function renderSchemaRecord(r, area) {
   // Meta subtitle: first 2 non-empty, non-compound, non-textarea field values
   const metaVals = (schema?.fields || [])
     .filter(f => !['company-link','textarea','url'].includes(f.type))
+    .filter(f => !(r.type === 'account' && CC_SUBTITLE_EXCLUDE.has(f.key)))
     .slice(0, 3)
     .map(f => r.fields[f.key])
     .filter(Boolean);
@@ -1128,7 +1137,7 @@ function renderSchemaRecord(r, area) {
     }
 
     if (id === 'cc-details') {
-      if ((r.fields.accountType||'').toLowerCase().replace(/\s/g,'') !== 'creditcard') return '';
+      if (!isCCAccount(r)) return '';
       // Current month data comes from latest statement entry; static info from fields
       const latest = (r.statements || []).length ? r.statements[0] : null;
       const bal = Number(latest?.balance ?? r.fields.balance) || 0;
@@ -1180,7 +1189,7 @@ function renderSchemaRecord(r, area) {
     }
 
     if (id === 'cc-statements') {
-      if ((r.fields.accountType||'').toLowerCase().replace(/\s/g,'') !== 'creditcard') return '';
+      if (!isCCAccount(r)) return '';
       const stmts = (r.statements || []).slice().sort((a,b) => b.month.localeCompare(a.month));
       const fmt = n => '$' + Number(n).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
       const monthLabel = m => { const [y,mo] = m.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1] + ' ' + y; };
@@ -1215,7 +1224,7 @@ function renderSchemaRecord(r, area) {
     }
 
     if (id === 'cc-spending-chart') {
-      if ((r.fields.accountType||'').toLowerCase().replace(/\s/g,'') !== 'creditcard') return '';
+      if (!isCCAccount(r)) return '';
       const stmts = (r.statements || []).slice().sort((a,b) => a.month.localeCompare(b.month)).slice(-12);
       if (!stmts.length) return `<div class="section-card"><div class="section-title" oncontextmenu="${ctx}">${label}</div><div class="empty">No statements yet.</div></div>`;
       const monthLabel = m => { const [,mo] = m.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(mo)-1]; };
@@ -1442,7 +1451,7 @@ function renderSchemaRecord(r, area) {
   }
 
   function dropCol(col) {
-    return `data-drop-col="${col}" data-record-id="${r.id}"`;
+    return `data-drop-col="${col}" data-record-id="${r.id}" ondragover="event.preventDefault()" ondrop="handleWidgetDrop(event,'${col}','${r.id}')"`;
   }
 
   if (r.type === 'account') requestAnimationFrame(() => attachStatementPasteListener(r.id));
@@ -2034,12 +2043,28 @@ function onWidgetDragEnd(e) {
   document.querySelectorAll('.drag-col-over').forEach(el => el.classList.remove('drag-col-over'));
 }
 
+async function handleWidgetDrop(e, colName, recordId) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.querySelectorAll('.drag-col-over').forEach(el => el.classList.remove('drag-col-over'));
+  _dragPlaceholder?.remove();
+  const widgetId = _dragWidgetId;
+  _dragWidgetId = null;
+  _dragRecordId = null;
+  if (!widgetId || !colName) return;
+  const r = getRecord(recordId);
+  if (!r) return;
+  r.fields._widgetColumns = r.fields._widgetColumns || {};
+  r.fields._widgetColumns[widgetId] = colName;
+  updateDBRecord(r);
+  await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
+  renderRecordView(recordId);
+}
+
 function _attachDropListeners(recordId) {
   document.querySelectorAll('[data-drop-col]').forEach(col => {
     col.addEventListener('dragover', e => {
       if (!_dragWidgetId) return;
-      e.preventDefault();
-      e.stopPropagation();
       e.dataTransfer.dropEffect = 'move';
       col.classList.add('drag-col-over');
       if (_dragPlaceholder) {
@@ -2051,23 +2076,6 @@ function _attachDropListeners(recordId) {
     });
     col.addEventListener('dragleave', e => {
       if (!col.contains(e.relatedTarget)) col.classList.remove('drag-col-over');
-    });
-    col.addEventListener('drop', async e => {
-      e.preventDefault();
-      e.stopPropagation();
-      col.classList.remove('drag-col-over');
-      _dragPlaceholder?.remove();
-      const widgetId = _dragWidgetId;
-      const colName = col.dataset.dropCol;
-      _dragWidgetId = null;
-      _dragRecordId = null;
-      if (!widgetId || !colName) return;
-      const r = getRecord(recordId);
-      if (!r) return;
-      r.fields._widgetColumns = r.fields._widgetColumns || {};
-      r.fields._widgetColumns[widgetId] = colName;
-      await api('PUT', `/api/records/${recordId}`, { fields: r.fields });
-      renderRecordView(recordId);
     });
   });
 }
