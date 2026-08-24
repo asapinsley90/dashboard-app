@@ -361,11 +361,12 @@ function renderJobDocSection(r, slot, label) {
       <a class="doc-name" href="/uploads/${encodeURIComponent(d.name)}" target="_blank">${stripTimestamp(d.name)}</a>
       <button class="btn btn-xs btn-danger" onclick="detachDoc('${r.id}','${d.name}','${slot}')">Remove</button>
     </div>`).join('') : '<div style="font-size:12px;color:var(--dim);margin-bottom:4px">None uploaded</div>'}
-    <div style="border:1px dashed var(--border2);border-radius:6px;padding:6px 10px;text-align:center;cursor:pointer;font-size:11px;color:var(--muted);margin-top:4px"
-      ondragover="event.preventDefault()"
-      ondrop="recordDocDrop(event,'${r.id}','${slot}')"
+    <div style="border:1px dashed var(--border2);border-radius:6px;padding:6px 10px;text-align:center;cursor:pointer;font-size:11px;color:var(--muted);margin-top:4px;transition:all .15s"
+      ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='var(--accent)11'"
+      ondragleave="this.style.borderColor='';this.style.background=''"
+      ondrop="this.style.borderColor='';this.style.background='';recordDocDrop(event,'${r.id}','${slot}')"
       onclick="document.getElementById('${inputId}').click()">
-      + Upload ${label.toLowerCase()}
+      + Upload or drop ${label.toLowerCase()}
       <input type="file" id="${inputId}" style="display:none" onchange="recordDocSelected(event,'${r.id}','${slot}')">
     </div>
   </div>`;
