@@ -16,7 +16,7 @@ const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
 const BACKUP_TOKEN = process.env.BACKUP_TOKEN || '';
 const BACKUP_TOKEN_SEED = process.env.BACKUP_TOKEN_SEED || '';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-me';
+const SESSION_SECRET = process.env.SESSION_SECRET || (process.env.NODE_ENV === 'production' ? (() => { console.error('FATAL: SESSION_SECRET must be set in production'); process.exit(1); })() : 'dev-secret-change-me');
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 const RENDER_API_KEY = process.env.RENDER_API_KEY || '';
 const RENDER_OWNER_ID = process.env.RENDER_OWNER_ID || '';
@@ -161,7 +161,7 @@ const r2 = new S3Client({
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: false }));
 
 // First-run + auth routes (unprotected)
