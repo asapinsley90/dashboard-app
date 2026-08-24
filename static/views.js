@@ -673,7 +673,18 @@ function openModal(title, body, actions) {
     `<button class="btn ${a.primary ? 'btn-p' : ''}" onclick="${a.onclick.toString().includes('function') ? '' : ''}" id="modal-btn-${a.label.replace(/\s/g,'')}">${a.label}</button>`
   ).join('');
   actions.forEach(a => {
-    document.getElementById('modal-btn-' + a.label.replace(/\s/g,'')).onclick = a.onclick;
+    const btn = document.getElementById('modal-btn-' + a.label.replace(/\s/g,''));
+    if (!btn) return;
+    btn.onclick = (e) => {
+      const result = a.onclick(e);
+      if (result && typeof result.catch === 'function') {
+        result.catch(err => {
+          console.error('Modal action error:', err);
+          btn.disabled = false;
+          btn.textContent = a.label;
+        });
+      }
+    };
   });
   // Store the "Done" / primary-equivalent action to run when clicking outside
   const doneAction = actions.find(a => a.label === 'Done') || actions.find(a => !a.primary && actions.length === 1);

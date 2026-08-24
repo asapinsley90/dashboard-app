@@ -2178,42 +2178,50 @@ async function addInterview(recordId) {
     <div class="modal-field"><div class="modal-label">Location / Platform</div><input class="modal-input" id="i-location"></div>
     <div class="modal-field"><div class="modal-label">Meeting link</div><input class="modal-input" id="i-link" type="url"></div>
     <div class="modal-field"><div class="modal-label">Notes</div><textarea class="modal-input" id="i-notes"></textarea></div>`,
-    [{ label: 'Add interview', primary: true, onclick: async () => {
-      const r = DB.records.find(r => r.id === recordId);
-      const time = to24Hour(document.getElementById('i-time-h').value, document.getElementById('i-time-m').value, document.getElementById('i-time-ap').value);
-      const interview = {
-        id: Date.now().toString(36),
-        round: parseInt(document.getElementById('i-round').value) || 1,
-        date: document.getElementById('i-date').value,
-        time: time,
-        interviewer: document.getElementById('i-interviewer').value,
-        format: document.getElementById('i-format').value,
-        location: document.getElementById('i-location').value,
-        link: document.getElementById('i-link').value,
-        notes: document.getElementById('i-notes').value,
-      };
-      r.interviews = r.interviews || [];
-      r.interviews.push(interview);
-      await api('PUT', `/api/records/${recordId}`, { interviews: r.interviews });
-      // Also create a linked event
-      if (interview.date) {
-        const ev = await api('POST', '/api/records', {
-          type: 'event', areaId: r.areaId, urgency:'new',
-          title: `${r.title} — Interview Rd ${interview.round}`,
-          status: 'upcoming', priority: 1,
-          fields: { date: interview.date, time: interview.time, location: interview.location, link: interview.link, category: 'interview', notes: interview.notes },
-          links: [recordId]
-        });
-        r.links = r.links || [];
-        r.links.push(ev.id);
-        await api('PUT', `/api/records/${recordId}`, { links: r.links });
-        DB.records.push(ev);
+    [{ label: 'Add interview', primary: true, onclick: async (e) => {
+      const btn = e?.target || document.getElementById('modal-btn-Addinterview');
+      if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+      try {
+        const r = DB.records.find(r => r.id === recordId);
+        if (!r) throw new Error('Record not found');
+        const time = to24Hour(document.getElementById('i-time-h').value, document.getElementById('i-time-m').value, document.getElementById('i-time-ap').value);
+        const interview = {
+          id: Date.now().toString(36),
+          round: parseInt(document.getElementById('i-round').value) || 1,
+          date: document.getElementById('i-date').value,
+          time,
+          interviewer: document.getElementById('i-interviewer').value,
+          format: document.getElementById('i-format').value,
+          location: document.getElementById('i-location').value,
+          link: document.getElementById('i-link').value,
+          notes: document.getElementById('i-notes').value,
+        };
+        r.interviews = r.interviews || [];
+        r.interviews.push(interview);
+        await api('PUT', `/api/records/${recordId}`, { interviews: r.interviews });
+        if (interview.date) {
+          const ev = await api('POST', '/api/records', {
+            type: 'event', areaId: r.areaId, urgency: 'none',
+            title: `${r.title} — Interview Rd ${interview.round}`,
+            status: 'active', priority: 1,
+            fields: { date: interview.date, time: interview.time, location: interview.location, link: interview.link, category: 'interview', notes: interview.notes },
+            links: [recordId]
+          });
+          r.links = r.links || [];
+          r.links.push(ev.id);
+          await api('PUT', `/api/records/${recordId}`, { links: r.links });
+          DB.records.push(ev);
+        }
+        await api('POST', `/api/records/${recordId}/timeline`, { text: `Interview Rd ${interview.round} added — ${formatDate(interview.date)}` });
+        updateDBRecord(r);
+        closeModal();
+        renderRecordView(recordId);
+        if (currentView === 'area') renderAreaView(r.areaId);
+      } catch (err) {
+        console.error('Add interview failed:', err);
+        if (btn) { btn.disabled = false; btn.textContent = 'Add interview'; }
+        alert('Failed to save interview: ' + err.message);
       }
-      await api('POST', `/api/records/${recordId}/timeline`, { text: `Interview Rd ${interview.round} added — ${formatDate(interview.date)}` });
-      const updated = await api('GET', `/api/records/${recordId}`);
-      updateDBRecord(updated);
-      closeModal();
-      renderRecordView(recordId);
     }},
     { label: 'Cancel', onclick: closeModal }]);
 }
