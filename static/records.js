@@ -2198,25 +2198,35 @@ async function addInterview(recordId) {
         };
         r.interviews = r.interviews || [];
         r.interviews.push(interview);
+        // Critical save — must succeed before closing
         await api('PUT', `/api/records/${recordId}`, { interviews: r.interviews });
-        if (interview.date) {
-          const ev = await api('POST', '/api/records', {
-            type: 'event', areaId: r.areaId, urgency: 'none',
-            title: `${r.title} — Interview Rd ${interview.round}`,
-            status: 'active', priority: 1,
-            fields: { date: interview.date, time: interview.time, location: interview.location, link: interview.link, category: 'interview', notes: interview.notes },
-            links: [recordId]
-          });
-          r.links = r.links || [];
-          r.links.push(ev.id);
-          await api('PUT', `/api/records/${recordId}`, { links: r.links });
-          DB.records.push(ev);
-        }
-        await api('POST', `/api/records/${recordId}/timeline`, { text: `Interview Rd ${interview.round} added — ${formatDate(interview.date)}` });
         updateDBRecord(r);
         closeModal();
         renderRecordView(recordId);
         if (currentView === 'area') renderAreaView(r.areaId);
+        // Secondary writes — fire-and-forget, failures don't block the user
+        (async () => {
+          try {
+            if (interview.date) {
+              const ev = await api('POST', '/api/records', {
+                type: 'event', areaId: r.areaId, urgency: 'none',
+                title: `${r.title} — Interview Rd ${interview.round}`,
+                status: 'active', priority: 1,
+                fields: { date: interview.date, time: interview.time, location: interview.location, link: interview.link, category: 'interview', notes: interview.notes },
+                links: [recordId]
+              });
+              r.links = r.links || [];
+              r.links.push(ev.id);
+              await api('PUT', `/api/records/${recordId}`, { links: r.links });
+              DB.records.push(ev);
+              updateDBRecord(r);
+              if (currentView === 'area') renderAreaView(r.areaId);
+            }
+            await api('POST', `/api/records/${recordId}/timeline`, { text: `Interview Rd ${interview.round} added — ${formatDate(interview.date)}` });
+          } catch (err) {
+            console.warn('Interview secondary writes failed (interview already saved):', err.message);
+          }
+        })();
       } catch (err) {
         console.error('Add interview failed:', err);
         if (btn) { btn.disabled = false; btn.textContent = 'Add interview'; }

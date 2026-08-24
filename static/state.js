@@ -194,14 +194,19 @@ document.addEventListener('keydown', async e => {
 });
 
 // ── API ───────────────────────────────────────────────────────────────────────
-async function api(method, url, body) {
+async function api(method, url, body, { retries = 3, retryDelay = 2000 } = {}) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
-  const r = await fetch(url, opts);
-  if (!r.ok) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const r = await fetch(url, opts);
+    if (r.ok) return r.json();
+    // Retry on gateway/server errors that indicate Render waking from sleep
+    if ([502, 503, 504].includes(r.status) && attempt < retries) {
+      await new Promise(res => setTimeout(res, retryDelay));
+      continue;
+    }
     const err = await r.json().catch(() => ({}));
     throw new Error(err.error || `API ${method} ${url} failed: ${r.status}`);
   }
-  return r.json();
 }
 
